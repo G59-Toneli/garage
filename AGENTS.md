@@ -26,3 +26,10 @@ The manifest format, the `corpus_hash`, and how to catalogue real material by ha
 `docs/corpus-manifest.md`. `python -m garage corpus validate` is the gate — nothing downstream should
 run against material it has not verified. The fixture Corpus in `corpus/fixture/` is permanent: tests
 never depend on copyrighted material or on which PDFs happen to be on a given machine (ADR-0003).
+
+## Database
+
+`python -m garage ingest` rebuilds the whole database from a verified Corpus — always a full
+rebuild, always safe to re-run, and nothing writes to the ingested tables at runtime (ADR-0002; the
+schema enforces it). Structure-aware chunking, the Jargon vocabulary and the stored `corpus_hash`
+are documented in `docs/ingestion.md`.

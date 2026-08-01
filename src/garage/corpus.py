@@ -140,11 +140,10 @@ def _canonical_manifest_bytes(manifest: Manifest) -> bytes:
 def corpus_hash(manifest: Manifest) -> str:
     """The identity of a Corpus: one hex sha256 digest over its canonical catalogue.
 
-    Today the catalogue is the whole story, because nothing is derived from it yet. Once ingestion
-    produces facts, excerpts and chunks, those derived artifacts become part of the identity too —
-    the digest has to change when the *same* sources are chunked differently, or a run record could
-    cite a corpus hash that does not determine what was retrieved (ADR-0002). That extension lands
-    with ingestion; the canonical serialisation below is where it will hook in.
+    The digest covers the catalogue only. How that material was *processed* is a second number,
+    `INGEST_VERSION`, stored beside this one in `corpus_meta`: the hash says which material this is,
+    the ingest version says which rules turned it into chunks, and a run record cites both
+    (ADR-0007).
     """
     return hashlib.sha256(_canonical_manifest_bytes(manifest)).hexdigest()
 

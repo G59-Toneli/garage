@@ -41,12 +41,13 @@ The project ships as five vertical slices, each ending in a public write-up.
 | 4 | Embedder fine-tune — synthetic pairs, hard-negative mining, second `model_key`, gain measured by the gate. | planned |
 | 5 | Historical series and close-out — dashboard, consolidated README, retrospective. | planned |
 
-**Built so far:** the design spec, the domain vocabulary, the architectural decisions, and the
-project skeleton — a FastAPI service with a `/health` endpoint, Postgres with pgvector in Compose,
-and CI running tests plus a multi-arch image build.
+**Built so far:** the design spec, the domain vocabulary, the architectural decisions, the project
+skeleton — a FastAPI service with a `/health` endpoint, Postgres with pgvector in Compose, and CI
+running tests plus a multi-arch image build — and ingestion: one command rebuilds the whole database
+from a verified corpus with structure-aware chunking ([docs/ingestion.md](docs/ingestion.md)).
 
-**Not built yet:** ingestion, either retrieval strategy, the evaluation gate, the comparison UI, and
-the public deployment. There are no benchmark numbers in this README, because there is no run record
+**Not built yet:** either retrieval strategy, the evaluation gate, the comparison UI, and the public
+deployment. There are no benchmark numbers in this README, because there is no run record
 to derive them from. When there are, each will link to the run that produced it.
 
 ## How it works
@@ -127,7 +128,9 @@ service manual and a forum post must never look alike on screen:
   nowhere else, with lower authority.
 
 Chunking is **structure-aware**. A specification table is sliced by row, so a single spec is never
-cut in half; a procedure is sliced by step; prose is sliced by paragraph with overlap.
+cut in half; a procedure is sliced by step; prose is sliced by paragraph with overlap. `python -m
+garage ingest` rebuilds the entire database from a verified corpus in one transaction — see
+[docs/ingestion.md](docs/ingestion.md).
 
 ## Configuration axes
 
@@ -217,6 +220,7 @@ src/garage/             the service: config, ASGI app, pipeline modules
 tests/                  pytest suite, run in CI against a real Postgres
 docker/initdb/          extensions installed on first database boot
 corpus/                 manifest, extracted facts, excerpts — never source documents
+corpus/jargon.yaml      the curated workshop vocabulary, term → canonical
 docs/adr/               architectural decisions and what forced them
 docs/superpowers/specs/ the full design document
 CONTEXT.md              the domain vocabulary
@@ -255,6 +259,7 @@ multi-user security, and latency as an SLO. Latency here is *observable*, not a 
   - [0004](docs/adr/0004-two-layer-evaluation.md) — evaluation runs in two layers: a deterministic CI gate and an on-demand judge
   - [0005](docs/adr/0005-build-time-vs-runtime-axes.md) — configuration axes are split by whether they cost an index
   - [0006](docs/adr/0006-single-language-python-serving.md) — serving is a single-language Python monolith
+  - [0007](docs/adr/0007-corpus-hash-and-ingest-version-are-separate.md) — corpus identity and chunking rules are two numbers, not one
 
 ## Language
 

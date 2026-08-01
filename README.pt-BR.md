@@ -44,11 +44,13 @@ O projeto entrega em cinco fatias verticais, cada uma terminando em um write-up 
 | 4 | Fine-tune do embedder — pares sintéticos, mineração de negativos difíceis, segundo `model_key`, ganho medido pelo gate. | planejada |
 | 5 | Série histórica e fechamento — dashboard, README consolidado, retrospectiva. | planejada |
 
-**Pronto até aqui:** o documento de design, o vocabulário do domínio, as decisões de arquitetura e o
+**Pronto até aqui:** o documento de design, o vocabulário do domínio, as decisões de arquitetura, o
 esqueleto do projeto — um serviço FastAPI com endpoint `/health`, Postgres com pgvector no Compose e
-CI rodando os testes mais um build de imagem multi-arquitetura.
+CI rodando os testes mais um build de imagem multi-arquitetura — e a ingestão: um comando reconstrói
+o banco inteiro a partir de um corpus verificado, com chunking consciente de estrutura
+([docs/ingestion.md](docs/ingestion.md)).
 
-**Ainda não construído:** ingestão, nenhuma das estratégias de recuperação, o gate de avaliação, a UI
+**Ainda não construído:** nenhuma das estratégias de recuperação, o gate de avaliação, a UI
 comparativa e o deploy público. Não há números de benchmark neste README porque ainda não existe
 registro de corrida de onde derivá-los. Quando existir, cada número vai linkar para a corrida que o
 produziu.
@@ -133,7 +135,8 @@ interface — manual de serviço e post de fórum nunca podem se parecer na tela
 
 O chunking é **consciente de estrutura**. Tabela de especificação é fatiada por linha, para que uma
 especificação nunca seja cortada ao meio; procedimento é fatiado por passo; prosa é fatiada por
-parágrafo, com sobreposição.
+parágrafo, com sobreposição. `python -m garage ingest` reconstrói o banco inteiro a partir de um
+corpus verificado, em uma única transação — veja [docs/ingestion.md](docs/ingestion.md).
 
 ## Eixos de configuração
 
@@ -224,6 +227,7 @@ src/garage/             o serviço: configuração, app ASGI, módulos do pipeli
 tests/                  suíte pytest, rodada no CI contra um Postgres de verdade
 docker/initdb/          extensões instaladas no primeiro boot do banco
 corpus/                 manifest, fatos extraídos, excertos — nunca documentos-fonte
+corpus/jargon.yaml      o vocabulário de oficina curado, termo → canônico
 docs/adr/               decisões de arquitetura e o que as forçou
 docs/superpowers/specs/ o documento de design completo
 CONTEXT.md              o vocabulário do domínio
@@ -263,6 +267,7 @@ compromisso.
   - [0004](docs/adr/0004-two-layer-evaluation.md) — avaliação em duas camadas: gate determinístico no CI e juiz sob demanda
   - [0005](docs/adr/0005-build-time-vs-runtime-axes.md) — eixos de configuração separados por custarem ou não um índice
   - [0006](docs/adr/0006-single-language-python-serving.md) — serving é um monolito Python de linguagem única
+  - [0007](docs/adr/0007-corpus-hash-and-ingest-version-are-separate.md) — identidade do corpus e regras de chunking são dois números, não um
 
 ## Idioma
 

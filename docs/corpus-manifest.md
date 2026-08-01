@@ -38,6 +38,9 @@ documents:   5
 corpus_hash: 21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
 ```
 
+Validation is the gate, not the build. `python -m garage ingest` runs it again before writing
+anything — see [ingestion.md](ingestion.md).
+
 Failure lists *every* bad document — not just the first — on stderr and exits `1`:
 
 ```

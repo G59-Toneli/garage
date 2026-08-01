@@ -36,6 +36,9 @@ jobs:
       # digest is pinned in tests/test_corpus.py, so `pytest` above already made the cross-machine
       # comparison — this step proves the same guarantee holds through the CLI operators actually run.
       - run: python -m garage corpus validate
+      # The build step operators actually run. `pytest` already ingested through the library; this
+      # proves the command does it too, against a database it did not create itself.
+      - run: python -m garage ingest
 
   image:
     # The deployment target is an ARM VM (ADR-0001), so arm64 must build on every change,

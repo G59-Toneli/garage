@@ -1,0 +1,58 @@
+# Workshop and enthusiast vocabulary, curated by hand.
+#
+# Jargon is the gap between how a person asks and how a manual writes (CONTEXT.md). This file is
+# domain vocabulary, not Corpus material: it describes the 1993 Kadett GSi world and applies to
+# every Corpus, which is why it sits beside `corpus/` rather than inside a single Corpus directory.
+# It is therefore *not* part of the corpus hash — changing a `notes` line must not invalidate a
+# run record.
+#
+# `term` is what somebody types. `canonical` is what the formal text calls the same thing, and is
+# what a later query-expansion step will reach for. `notes` is for a human reading the table.
+
+- term: swap 250-S
+  canonical: engine transplant, Chevrolet 250-S inline six
+  notes: Longitudinal six from the Opala family. The Kadett is transverse, so it never fits cleanly.
+
+- term: projetinho de rua
+  canonical: street build
+  notes: A modified but daily-usable car. The opposite of a track or drag build.
+
+- term: cabeçote
+  canonical: cylinder head
+  notes: A "cabeçote trabalhado" is a ported and polished head.
+
+- term: comando
+  canonical: camshaft
+  notes: Short for "comando de válvulas". "Comando bravo" is an aggressive profile.
+
+- term: tensionador
+  canonical: timing belt tensioner
+  notes: The usual source of the upper-end noise owners mistake for a failing connecting rod.
+
+- term: coxim
+  canonical: engine or suspension mount
+  notes: Rubber mount. Perished coxins read as a tired chassis.
+
+- term: longarina
+  canonical: chassis rail
+  notes: Reinforcing it is structural work, not bolt-on.
+
+- term: mesa
+  canonical: engine mounting cradle
+  notes: The fabricated frame an engine sits on after a swap.
+
+- term: taxa
+  canonical: compression ratio
+  notes: Short for "taxa de compressão". Raising it on pump fuel invites detonation.
+
+- term: gasolina comum
+  canonical: regular-grade Brazilian pump gasoline
+  notes: Lower octane than "gasolina aditivada" or ethanol; the constraint behind most tuning advice.
+
+- term: biela
+  canonical: connecting rod
+  notes: What a knock from the bottom end is blamed on, usually wrongly.
+
+- term: plainado
+  canonical: decked, skimmed
+  notes: A head machined flat. Skimming too far raises compression and hits the pistons.
