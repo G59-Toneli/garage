@@ -19,3 +19,10 @@ Canonical vocabulary, unchanged — `needs-triage`, `needs-info`, `ready-for-age
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Corpus
+
+The manifest format, the `corpus_hash`, and how to catalogue real material by hand are documented in
+`docs/corpus-manifest.md`. `python -m garage corpus validate` is the gate — nothing downstream should
+run against material it has not verified. The fixture Corpus in `corpus/fixture/` is permanent: tests
+never depend on copyrighted material or on which PDFs happen to be on a given machine (ADR-0003).

@@ -1,0 +1,63 @@
+# Fixture Corpus — five invented documents standing in for the real material.
+#
+# Nothing here is a real publication. The documents were written for this repository so that the
+# whole pipeline can be built, tested and measured before any real manual has been acquired, and so
+# that tests never depend on copyrighted material or on which PDFs happen to be on someone's disk
+# (ADR-0003). The fixture is permanent, not throwaway.
+#
+# The format is documented in docs/corpus-manifest.md. A real Corpus uses the same format; the only
+# difference is that its `sources` directory lives on the operator's own disk rather than in git.
+
+manifest_version: 1
+corpus_id: fixture
+
+documents:
+  - doc_id: svc-kadett-1993
+    title: Manual de Serviço — Kadett GSi 2.0 MPFI
+    publisher: Garage fixture (invented)
+    year: 1993
+    tier: A
+    provenance: Written for this repository as a stand-in for a service manual.
+    filename: svc-kadett-1993.md
+    sha256: 4682d9e89b3128d3e617471fc203099fe0be1c7c665d94af474abc18c768dbc8
+    rights: original-work
+
+  - doc_id: owner-kadett-1993
+    title: Manual do Proprietário — Chevrolet Kadett GSi
+    publisher: Garage fixture (invented)
+    year: 1993
+    tier: A
+    provenance: Written for this repository as a stand-in for an owner's manual.
+    filename: owner-kadett-1993.md
+    sha256: 54d372281268d65da8ec307908bc838fc5b7fd4d6090b5aab19c4331ce98e981
+    rights: original-work
+
+  - doc_id: parts-gsi-1994
+    title: Catálogo de Peças — Kadett / Ipanema, grupo 12 e 18
+    publisher: Garage fixture (invented)
+    year: 1994
+    tier: A
+    provenance: Written for this repository as a stand-in for a parts catalogue.
+    filename: parts-gsi-1994.md
+    sha256: dbe7481e633bb30bd67ef681759f5ee5035625d714911a6b31c5c9eebe35754a
+    rights: original-work
+
+  - doc_id: forum-swap-250s
+    title: 'Fórum Opala & Cia — vale a pena swap 250-S no Kadett?'
+    publisher: Garage fixture (invented)
+    year: 2019
+    tier: B
+    provenance: Written for this repository as a stand-in for a forum thread.
+    filename: forum-swap-250s.md
+    sha256: 515d4d1b8eebcf393cc87d089f6af9807a3291a1fad4c3e9fe03f5ed0bff26bc
+    rights: original-work
+
+  - doc_id: blog-projetinho-de-rua
+    title: 'Blog Garagem 59 — dois anos com um Kadett GSi'
+    publisher: Garage fixture (invented)
+    year: 2021
+    tier: B
+    provenance: Written for this repository as a stand-in for a blog post.
+    filename: blog-projetinho-de-rua.md
+    sha256: 5f876b3a3cfac026f4d08fb609e4e3a33244359e0990d155765fe82c70133497
+    rights: original-work

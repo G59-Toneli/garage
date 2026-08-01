@@ -1,3 +1,5 @@
-from garage.app import main
+import sys
 
-main()
+from garage.cli import main
+
+sys.exit(main())

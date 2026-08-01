@@ -32,6 +32,10 @@ jobs:
       - run: psql "$GARAGE_DATABASE_URL" -f docker/initdb/001-extensions.sql
       - run: pip install -e ".[dev]"
       - run: pytest
+      # The corpus hash must be a property of the Corpus, not of the machine that computed it. The
+      # digest is pinned in tests/test_corpus.py, so `pytest` above already made the cross-machine
+      # comparison — this step proves the same guarantee holds through the CLI operators actually run.
+      - run: python -m garage corpus validate
 
   image:
     # The deployment target is an ARM VM (ADR-0001), so arm64 must build on every change,

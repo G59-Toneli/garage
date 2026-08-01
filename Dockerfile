@@ -14,8 +14,11 @@ COPY src ./src
 RUN pip install --upgrade pip && pip install -e ".[dev]"
 
 COPY tests ./tests
+# The fixture Corpus ships in the image: it is the permanent deterministic test base, so the
+# container can verify its own tooling without any of the operator's material present.
+COPY corpus ./corpus
 
 EXPOSE 8000
 # Entry through the package, not through `uvicorn` directly: the bind address is configuration
 # like everything else, and going through `main()` means a misconfigured container fails at boot.
-CMD ["python", "-m", "garage"]
+CMD ["python", "-m", "garage", "serve"]
