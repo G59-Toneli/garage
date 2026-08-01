@@ -1,8 +1,8 @@
-# Garagem — Design
+# Garage — Design
 
 **Data:** 2026-08-01
 **Status:** aprovado para planejamento
-**Nome de trabalho:** Garagem (definitivo a decidir)
+**Nome:** Garage (travado)
 
 > Documento de trabalho em PT-BR. A documentação pública do repositório (README, ADRs, write-ups)
 > é escrita em **inglês** — ver §16.
@@ -358,7 +358,7 @@ Dashboard histórico, README consolidado, índice de ADRs, post de retrospectiva
 
 Escolhidas por julgamento, não discutidas explicitamente. Corrigir na revisão se discordar:
 
-1. Nome **Garagem** é provisório.
+1. Nome **Garage** — decidido, alinhado ao repositório `G59-Toneli/garage`.
 2. Repositório e write-ups em inglês; corpus em PT-BR.
 3. Licença MIT para código.
 4. GitHub Actions como CI.

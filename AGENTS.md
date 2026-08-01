@@ -1,4 +1,4 @@
-# Garagem
+# Garage
 
 A reproducible retrieval benchmark and glass-box demo built on a corpus about a 1993 Chevrolet
 Kadett GSi. Read `CONTEXT.md` for the domain vocabulary and `docs/adr/` for the decisions that

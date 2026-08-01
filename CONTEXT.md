@@ -1,6 +1,6 @@
-# Garagem
+# Garage
 
-Garagem answers questions about a single car — a 1993 Chevrolet Kadett GSi — and shows its own
+Garage answers questions about a single car — a 1993 Chevrolet Kadett GSi — and shows its own
 work: the sources it retrieved, the scores they got, and how the answer changes as the retrieval
 pipeline changes. The system exists to make the quality of an AI feature measurable and auditable,
 not to be a chatbot.
