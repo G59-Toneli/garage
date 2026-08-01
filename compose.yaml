@@ -1,0 +1,40 @@
+services:
+  postgres:
+    # pgvector ships prebuilt for arm64, which the Oracle Ampere target requires (ADR-0001).
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-garage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-garage}
+      POSTGRES_DB: ${POSTGRES_DB:-garage}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garage} -d ${POSTGRES_DB:-garage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  serve:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      GARAGE_DATABASE_URL: ${GARAGE_DATABASE_URL:-postgresql://${POSTGRES_USER:-garage}:${POSTGRES_PASSWORD:-garage}@postgres:5432/${POSTGRES_DB:-garage}}
+    ports:
+      - "${GARAGE_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres-data:

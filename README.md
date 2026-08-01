@@ -27,6 +27,23 @@ consolidated write-up (5).
 There are no benchmark numbers in this README yet, because there is no run record to derive them
 from. When there is, they will link to the run that produced them.
 
+## Running it locally
+
+```sh
+docker compose up --wait
+```
+
+That is the whole setup: Postgres with pgvector installed, dependencies built, and the service
+answering on <http://localhost:8000/health>. Run the suite with `docker compose exec serve pytest`.
+Every setting is read from the environment and every one has a working default; copy
+`.env.example` to `.env` only when you want to change one. Nothing secret is committed.
+
+Python is pinned to **3.12** in the container ([ADR-0006](docs/adr/0006-single-language-python-serving.md)),
+so the container is the supported way to run the suite — a newer local interpreter outruns the
+machine-learning wheels this project will need. The image builds for `linux/arm64` as well as
+`linux/amd64`, because the deployment target is a free ARM VM
+([ADR-0001](docs/adr/0001-architecture-characteristics.md)).
+
 ## Where the reasoning lives
 
 - **[Design spec](docs/superpowers/specs/2026-08-01-garage-design.md)** — the full design: scope,

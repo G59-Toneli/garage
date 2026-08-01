@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: garage
+          POSTGRES_PASSWORD: garage
+          POSTGRES_DB: garage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U garage -d garage"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GARAGE_DATABASE_URL: postgresql://garage:garage@localhost:5432/garage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # GitHub service containers cannot mount docker/initdb, so the same statement runs here.
+      - run: psql "$GARAGE_DATABASE_URL" -f docker/initdb/001-extensions.sql
+      - run: pip install -e ".[dev]"
+      - run: pytest
+
+  image:
+    # The deployment target is an ARM VM (ADR-0001), so arm64 must build on every change,
+    # not at deploy time. Build only — no registry push while the VM does not exist yet.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
