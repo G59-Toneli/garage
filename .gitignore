@@ -15,3 +15,11 @@ build/
 
 # Worktrees the agent teams run in. They are checkouts, not source.
 .claude/worktrees/
+
+# The baseline embedder weights, 470 MB, fetched by `garage embedder fetch` and never committed
+# (ADR-0008). The default location is the working directory, so it lands here on a local run.
+.embedder/
+
+# `garage serve` output when it is run detached during manual verification.
+serve.log
+serve.err

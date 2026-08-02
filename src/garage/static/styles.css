@@ -1,0 +1,290 @@
+/*
+  Sober on purpose. The aesthetic conversation for this project has not happened yet, so nothing
+  here commits to a visual identity that would later have to be undone: system fonts, a neutral
+  palette, one accent.
+
+  What is *not* aesthetic and is load-bearing is marked as such below — the tier treatment above
+  all. Colour is the last of four redundant channels there, never the only one, because WCAG 1.4.1
+  and because in grayscale a factory manual and a forum post must still not look alike.
+*/
+
+:root {
+  --bg: #ffffff;
+  --panel: #f6f6f4;
+  --ink: #16181d;
+  --muted: #4c5058;
+  --line: #c9ccd2;
+  --accent: #1f4f8f;
+  --warn: #7a4a05;
+  --error: #8a1d1d;
+  --ok: #1d5c34;
+  --band: #d7dde6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --panel: #1d2027;
+    --ink: #e9ecf1;
+    --muted: #a8aeb9;
+    --line: #3a3f49;
+    --accent: #8fb6ea;
+    --warn: #e0b471;
+    --error: #f09a9a;
+    --ok: #86d3a3;
+    --band: #333a46;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 3rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--accent); }
+
+.top {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.top h1 { font-size: 1.1rem; margin: 0; letter-spacing: 0.02em; }
+.top nav { color: var(--muted); font-size: 0.9rem; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.small { font-size: 0.82em; }
+.aside { color: var(--muted); font-size: 0.85em; }
+
+/* --- form ------------------------------------------------------------------------------------ */
+
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  padding: 0.9rem 0;
+}
+.field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; color: var(--muted); }
+.field.grow { flex: 1 1 22rem; }
+fieldset.field { border: 1px solid var(--line); border-radius: 3px; padding: 0.2rem 0.5rem; }
+fieldset.field label { color: var(--ink); font-size: 0.9rem; }
+input, select, button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.35rem 0.5rem;
+}
+button { background: var(--accent); color: var(--bg); border-color: var(--accent); cursor: pointer; }
+@media (prefers-color-scheme: dark) { button { color: #14161a; } }
+
+.status { color: var(--muted); font-size: 0.88rem; min-height: 1.4em; margin: 0 0 0.75rem; }
+.status-error { color: var(--error); font-weight: 600; }
+
+/* --- shared header, overlap, notes ------------------------------------------------------------ */
+
+.shared, .overlap, .note, .alert {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.75rem;
+  background: var(--panel);
+}
+.shared .question { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.overlap { display: flex; gap: 0.75rem; align-items: baseline; font-size: 0.9rem; }
+.overlap-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; color: var(--muted); }
+.note { border-left: 4px solid var(--warn); }
+.note p { margin: 0.4rem 0 0; font-size: 0.9rem; }
+.alert { border-left: 4px solid var(--error); }
+
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 0.75rem; margin: 0; }
+.kv dt { color: var(--muted); font-size: 0.82rem; }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+/* --- columns ---------------------------------------------------------------------------------- */
+
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-items: start; }
+@media (max-width: 60rem) { .columns { grid-template-columns: 1fr; } }
+
+/*
+  Independent scroll, sticky headers. Synchronising the two scrollbars was considered and rejected:
+  one column routinely abstains with zero chunks while the other returns ten, and a synced scroll
+  would pair a paragraph with several screens of nothing. What is synchronised is the *highlight*.
+*/
+.arm {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow-y: auto;
+  max-height: 78vh;
+  background: var(--bg);
+}
+.arm-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.8rem;
+}
+.arm-head h3 { margin: 0 0 0.35rem; font-size: 1rem; text-transform: lowercase; letter-spacing: 0.04em; }
+
+.panel, .state { margin: 0.7rem 0.8rem; }
+.panel h4, .state h4 { margin: 0 0 0.35rem; font-size: 0.9rem; }
+.panel { border-top: 1px solid var(--line); padding-top: 0.7rem; }
+
+/* --- the five states, five looks --------------------------------------------------------------- */
+
+.state { border-radius: 4px; padding: 0.6rem 0.7rem; }
+.state p { margin: 0.3rem 0 0; }
+
+/* Nothing failed: dashed neutral frame, no alert colour, no icon. */
+.state-disabled { border: 1px dashed var(--line); color: var(--muted); }
+/* A correct refusal: quiet, positive, never red. */
+.state-abstained { border: 1px solid var(--line); border-left: 4px solid var(--ok); }
+/* The provider could not be asked: a warning band across the column. */
+.state-degraded { border: 1px solid var(--warn); border-left: 4px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); }
+/* It answered, it was billed, and we refused it. */
+.state-rejected { border: 1px solid var(--error); border-left: 4px solid var(--error); background: color-mix(in srgb, var(--error) 8%, transparent); }
+.state-answered { border: 1px solid var(--line); }
+
+.prose { line-height: 1.65; }
+.claim-unsupported {
+  /* Shown, marked. Not hidden and not merely faded — opacity alone is invisible to a reader who
+     never saw the supported version beside it. */
+  border: 1px dotted var(--error);
+  padding: 0 0.2rem;
+}
+.badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 0 0.25rem;
+  margin-right: 0.25rem;
+  vertical-align: 0.1em;
+}
+.badge-error { color: var(--error); }
+
+/* Citations: a focusable button, tier carried inside the glyph. */
+.cite {
+  background: none;
+  border: none;
+  border-bottom: 2px solid currentColor;
+  padding: 0 0.1rem;
+  margin: 0 0.05rem;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.95em;
+  line-height: 1;
+}
+.cite.tier-b { border-bottom-style: dashed; font-style: italic; }
+.cite:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- tier: four channels, colour last ----------------------------------------------------------
+   1. text label, always spelled out ("TIER A · manual"), never a bare letter;
+   2. frame shape — solid 4px left border for A, dashed 4px for B;
+   3. typography — A semibold, B normal italic;
+   4. colour, as reinforcement only.
+   The QA check this must pass: under `filter: grayscale(1)` the two are still distinguishable.
+   Channels 1–3 survive that, and survive monochrome printing and colour blindness with it. */
+
+.chunk.tier-a { border-left: 4px solid var(--accent); }
+.chunk.tier-a .tier-label { font-weight: 600; color: var(--accent); }
+.chunk.tier-b { border-left: 4px dashed var(--muted); }
+.chunk.tier-b .tier-label { font-style: italic; font-weight: 400; color: var(--muted); }
+.chunk.tier-b .chunk-text { font-style: italic; }
+.tier-label { font-size: 0.72rem; letter-spacing: 0.06em; }
+
+/* --- chunks -------------------------------------------------------------------------------------- */
+
+.chunks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.chunk {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.5rem 0.6rem;
+  background: var(--panel);
+}
+.chunk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chunk.linked { box-shadow: inset 0 0 0 2px var(--accent); }
+.chunk.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 25%, transparent); } }
+
+.chunk-head { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+.position { font-variant-numeric: tabular-nums; font-weight: 600; }
+.score { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.chunk-source { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
+.sep { opacity: 0.5; }
+.chunk-text { margin: 0.4rem 0; white-space: pre-wrap; font-size: 0.9rem; }
+.cross { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.score-track { position: relative; height: 6px; background: var(--band); border-radius: 2px; margin-top: 0.3rem; }
+.score-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 2px; min-width: 2px; }
+/* Gridlines, drawn only on an absolute axis (the cosine). They are what makes a distant nearest
+   neighbour legible without inventing a floor the retriever does not have. */
+.tick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--ink); opacity: 0.35; }
+
+.components { margin-top: 0.35rem; font-size: 0.8rem; }
+.components dd { font-variant-numeric: tabular-nums; }
+/* "não disparou" is a different fact from a low score, and reads as one. */
+.did-not-fire { color: var(--muted); font-style: italic; }
+
+/* --- the waterfall ------------------------------------------------------------------------------- */
+
+.waterfall { display: flex; flex-direction: column; gap: 0.45rem; }
+.trace-row.depth-1 { margin-left: 1rem; }
+.trace-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.85rem; }
+.trace-name { font-family: ui-monospace, Menlo, Consolas, monospace; }
+/* The number is the datum; the bar is support. Right-aligned so a column of them reads vertically. */
+.trace-time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.trace-row.not-run { color: var(--muted); }
+
+.bar-track { height: 10px; background: var(--band); border-radius: 2px; overflow: hidden; }
+.bar { height: 100%; background: var(--accent); min-width: 2px; }
+/* An error is a diagonal hatch plus a 2px border plus the textual ERRO badge above. Red is added on
+   top of those; it is never the signal by itself. */
+.bar-error {
+  background: repeating-linear-gradient(45deg, var(--error) 0 4px, transparent 4px 8px);
+  border: 2px solid var(--error);
+}
+/* A stage that never ran gets a dashed empty track, no bar, and an em dash for a duration. */
+.bar-absent { width: 100%; background: none; border-top: 1px dashed var(--line); margin-top: 4px; }
+
+.attrs summary { font-size: 0.78rem; color: var(--muted); cursor: pointer; }
+
+.peek {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 0.3rem 0.7rem;
+  border-radius: 3px;
+  font-size: 0.82rem;
+  z-index: 5;
+}
+.peek[hidden] { display: none; }
+
+/* --- metrics screen ------------------------------------------------------------------------------ */
+
+.metrics { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.metrics th, .metrics td { border-bottom: 1px solid var(--line); padding: 0.3rem 0.5rem; text-align: left; }
+.metrics thead th { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.metrics .num { font-variant-numeric: tabular-nums; text-align: right; }
+.metrics .worse { color: var(--error); font-weight: 600; }
+.metrics tr.ungated { color: var(--muted); }
+
+.corridor { position: relative; height: 12px; min-width: 12rem; background: var(--band); border-radius: 2px; }
+/* Policy, drawn as policy: the band the gate tolerates, not a confidence interval. */
+.corridor-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--warn) 45%, transparent); }
+.corridor-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); }
+.corridor-measured { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--accent); border-left: 2px dotted var(--accent); }

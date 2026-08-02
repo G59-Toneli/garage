@@ -22,16 +22,25 @@ provider must drop in with no change here), and whether the database is the righ
 answered once, at boot: the service checks
 `corpus_hash` and refuses to start on a mismatch (ADR-0002), because a per-request check would be a
 service willing to run against the wrong artifact as long as nobody asks it anything.
+
+The interface is served from here too, as a static build out of `garage/static/` (ADR-0006), and it
+is a *client* of this endpoint like any other — it holds no privileged route. The two-column
+comparison is two ordinary `POST /query` calls, one per strategy, which is why no `/compare`
+endpoint exists: "two columns" is a decision the interface makes, and an endpoint shaped around it
+would be that decision leaking into the API. `docs/ui.md` argues the whole of it.
 """
 
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, AsyncIterator, Literal, Sequence
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from garage import __version__
@@ -60,6 +69,11 @@ from garage.tracing import Tracer
 
 Tier = Literal["A", "B"]
 PromptContract = Literal["cited", "free"]
+
+# The interface ships inside the package and is served by this same process (ADR-0006): one
+# language, one container, one artifact. Resolved from `__file__` rather than from the working
+# directory so that `pip install -e .`, a wheel and the image all find the same files.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 class QueryRequest(BaseModel):
@@ -336,7 +350,73 @@ def create_app(
             trace=tracer.tree(),
         )
 
+    # The evaluation surface, read-only and deliberately unmodelled. Three endpoints that do nothing
+    # but hand back the bytes on disk, because the interface's job is to *show the committed
+    # numbers* and re-serialising them through a Pydantic model here would be a second place for the
+    # record format to be described — and therefore a place for it to drift from `evaluation.py`
+    # without any test noticing. `0.911765` must reach the screen from `eval/baseline.json` or not
+    # at all: nothing the interface displays may be typed by hand (acceptance criterion six).
+    #
+    # They are GETs on the serving app rather than files under `static/` because the records are
+    # written by `eval run` into `eval/runs/` and promoted by a human commit; copying them into the
+    # package would make the interface show a stale copy of a number that has a canonical location.
+
+    @app.get("/eval/baseline")
+    def eval_baseline() -> dict[str, Any]:
+        return _read_json(_baseline_path())
+
+    @app.get("/eval/runs")
+    def eval_runs() -> dict[str, list[str]]:
+        # Newest first: `run_id` starts with a UTC timestamp, so lexicographic order is chronological
+        # order, which is a property of the id format and not an accident worth re-deriving here.
+        return {"run_ids": sorted(_run_ids(), reverse=True)}
+
+    @app.get("/eval/runs/{run_id}")
+    def eval_run(run_id: str) -> dict[str, Any]:
+        # Checked against the listing rather than sanitised. A denylist of `..` and separators is a
+        # thing to get wrong; membership in the set of records that actually exist cannot be.
+        if run_id not in _run_ids():
+            raise HTTPException(status_code=404, detail=f"no run record {run_id!r}")
+        return _read_json(_runs_dir() / f"{run_id}.json")
+
+    # Mounted **last**, after every route above. `StaticFiles` at the root is a catch-all: mounted
+    # earlier it would swallow `/health`, `/query` and `/eval/*` and the service would answer every
+    # one of them with a 404 page. Absent directory means no mount rather than a boot failure — the
+    # API is the product's contract and a missing interface must never keep it from serving.
+    if STATIC_DIR.is_dir():
+        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
     return app
+
+
+def _baseline_path() -> Path:
+    from garage.evaluation import BASELINE_PATH
+
+    return BASELINE_PATH
+
+
+def _runs_dir() -> Path:
+    from garage.evaluation import RUNS_DIR
+
+    return RUNS_DIR
+
+
+def _run_ids() -> set[str]:
+    directory = _runs_dir()
+    return {path.stem for path in directory.glob("*.json")} if directory.is_dir() else set()
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    """The file, parsed and nothing else.
+
+    404 rather than 500 when it is missing, and the distinction is not pedantry: a build with no
+    promoted baseline is a legitimate state (`eval promote` is a deliberate human act, never
+    automatic), so the interface must be able to tell "not measured yet" from "the service is
+    broken" and say the right one on screen.
+    """
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"{path.name} has not been written yet")
+    return json.loads(path.read_bytes())
 
 
 def _answer(

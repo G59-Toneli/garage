@@ -85,3 +85,22 @@ tests are documented in `docs/generation.md`. Generation is optional at every le
 is an optional extra imported late, no key means no generator and no `generate` span, and no test in
 `tests/` may import the SDK or touch the network. Anything that does is marked `live` and excluded
 from the default run by `addopts`; `pytest -m live` is the deliberate opt-in, and it costs money.
+
+## Interface
+
+The two-column comparison lives in `src/garage/static/` — hand-written HTML, CSS and ES modules, no
+Node and no bundler, served by `StaticFiles` from the same process and the same image that answers
+`/query` (ADR-0006). It is a client of the public API like any other: two ordinary parallel `POST
+/query` calls, one per strategy, and deliberately no `/compare` endpoint, because "two columns" is a
+decision the interface makes and an endpoint shaped around it would be that decision leaking into
+the API. The mount is the **last** statement in `create_app`; earlier it would swallow `/health`,
+`/query` and `/eval/*`. Three read-only `GET /eval/*` endpoints hand back `eval/baseline.json` and
+`eval/runs/*.json` unmodelled, so the metrics screen reads the committed numbers from the files
+rather than from a constant. Everything is documented in `docs/ui.md`: the single adaptation
+boundary every component consumes (`adapt.toView`, the thing that makes issue #11 an adapter branch
+and the React port a rewrite of one file), the five answer states and why abstention, degradation
+and rejection are never merged, the four redundant channels the tier is carried on, why the two
+score scales are never drawn on one axis, and why a stage that did not run is absent rather than
+zero. Two rules are enforced by `tests/test_ui_contract.py` rather than by review: the exact key set
+of every response model the interface reads by name, and the total absence of `innerHTML` from
+`static/*.js` — corpus text and model output are rendered on that page.
