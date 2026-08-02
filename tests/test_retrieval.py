@@ -106,7 +106,9 @@ def test_ranking_is_deterministic_and_bounded(retriever):
 
 
 def test_the_endpoint_serves_the_same_retrieval_end_to_end(retriever):
-    settings = Settings(database_url=DATABASE_URL, corpus_dir=FIXTURE_CORPUS)
+    # No key, whatever the developer's environment holds: these tests are about retrieval, and one
+    # of them would otherwise construct a real generator and call a paid API.
+    settings = Settings(database_url=DATABASE_URL, corpus_dir=FIXTURE_CORPUS, gemini_api_key=None)
 
     # No monkeypatching: the boot check runs against the database that was just ingested, which is
     # what makes this the whole path — verify, retrieve, rank, trace, serialise.
@@ -134,7 +136,9 @@ def test_a_question_the_corpus_does_not_cover_abstains_against_the_real_database
     # The unit tests prove the endpoint abstains when handed zero candidates. This proves the real
     # retriever hands it zero for a real question: the trigram floor and the abstention are one
     # mechanism, and testing the halves separately would let them drift apart.
-    settings = Settings(database_url=DATABASE_URL, corpus_dir=FIXTURE_CORPUS)
+    # No key, whatever the developer's environment holds: these tests are about retrieval, and one
+    # of them would otherwise construct a real generator and call a paid API.
+    settings = Settings(database_url=DATABASE_URL, corpus_dir=FIXTURE_CORPUS, gemini_api_key=None)
 
     with TestClient(create_app(settings, generator=RefusingGenerator())) as client:
         body = client.post("/query", json={"question": "receita de brigadeiro de colher"}).json()

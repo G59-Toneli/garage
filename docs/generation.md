@@ -88,6 +88,13 @@ that check is not optional — it is the property the whole feature claims.
 | Some claims unsupported | `support: "partially_supported"`. |
 | `abstained: true` *and* claims | Abstention wins, the claims are dropped, `contradictory: true`. |
 | Invalid JSON (a truncated answer) | Degradation, not a 500. |
+| Valid JSON, wrong shape | Degradation — **never** an abstention. |
+
+The whole check then runs **again, at the endpoint**, against the chunks in the response being
+assembled. The duplication is deliberate: `Generator` is a runtime axis, so the implementation that
+forgets to validate is the next one, not this one. An acceptance criterion that says "every citation
+resolves" is a claim about the system, and the system only has that property if something outside
+the replaceable part enforces it. It costs a set membership per citation.
 
 Keeping an unsupported claim visible and marked is a deliberate choice over two alternatives.
 Deleting it would hide the failure, and dropping the whole answer to abstention over a single bad
@@ -124,13 +131,29 @@ quota errors would otherwise land in the abstention rate ADR-0004 measures, and 
 A provider failure produces 200, the complete `chunks`, and an answer with `degraded: true`,
 `abstained: false`, empty `text` and a legible reason. Never a blank error page. These all degrade
 identically, with different reasons: 429 `RESOURCE_EXHAUSTED`, 5xx, timeout, invalid JSON from a
-truncated answer, and a missing API key — which is indistinguishable from an exhausted quota from
-the visitor's side.
+truncated answer, and **valid JSON in the wrong shape** — a `claims` that arrived as an object, a
+missing `abstained`, a claim whose text is whitespace. That last group is the one worth naming: it
+looks like something a model chose to do, and it is not. It is a provider that changed behaviour,
+and reading it as an abstention would file provider breakage under the single metric this whole
+module exists to keep clean.
 
-The `try/except` lives in the **endpoint**, not in the adapter. The adapter is honest and raises;
-the service owns the policy. That keeps `Generator` testable as a unit, keeps the policy in one
-readable place, and lets the exception pass *through* the `generate` span on its way out — so the
-span keeps its real duration and carries `error`, `exception.type` and `exception.message`.
+**A missing API key is not a degradation.** With no key there is no generator, so `answer` is `null`
+and there is no `generate` span — nothing was attempted, and the project has already decided that a
+stage which did not run is *absent* rather than present-and-zero. Manufacturing a degradation for a
+call that never happened would be the mirror image of the zero-millisecond span, and just as untrue.
+
+A third state exists and is neither of these: the endpoint re-checks every citation an answer
+carries, and a `Generator` that publishes one resolving to nothing gets its answer refused with
+`support: "rejected"` and `contract_violation` set, `degraded: false`, `abstained: false`. That is
+this codebase failing to keep its own promise, and it is filed as such rather than blamed on the
+model or the network. The chunks are still returned; they were never in question.
+
+The `try/except` lives in the **endpoint**, not in the adapter, and wraps the provider call *only*.
+The adapter is honest and raises; the service owns the policy. That keeps `Generator` testable as a
+unit and the policy in one readable place. A bug in our own code around that call is a 500, not a
+polite note blaming a provider that answered correctly. The visitor's `degradation_reason` names the
+exception's type and stops there — the provider's raw message goes into the span, where an operator
+reads it, and not onto the public wire.
 
 ## The interface, not the implementation
 
@@ -139,8 +162,9 @@ span keeps its real duration and carries `error`, `exception.type` and `exceptio
 that it is holding Gemini than it learns that retrieval is lexical. The tests prove it by running the
 entire HTTP path against a generator that answers from memory.
 
-Generation is optional at every level: no key means no generator, no `answer`, no `generate` span,
-and a service that boots and serves normally. The boot gate is the `corpus_hash` alone
+Generation is optional at every level: no key means no generator, `"answer": null`, no `generate`
+span, and a service that boots and serves normally — the same absence, in the response and in the
+trace, for the same reason. The boot gate is the `corpus_hash` alone
 ([ADR-0002](adr/0002-database-as-derived-artifact.md)) — retrieval is the measurable layer and is not
 held hostage to a hosted model's credentials.
 
@@ -224,10 +248,12 @@ Stated plainly, because the gap is real:
   degradation policy against a fake generator. What is not covered is the SDK call itself: a change
   in the `generate_content` signature, in `response_schema` handling, or in the shape of
   `usage_metadata` would be caught by a human running the demo, not by `pytest`.
-- **One live test exists and is skipped by default.**
-  `test_generation.py::test_the_real_adapter_answers_with_citations_that_resolve` runs only when
-  `GEMINI_API_KEY` (or `GARAGE_GEMINI_API_KEY`) is in the environment *and* the `gemini` extra is
-  installed. It never runs in CI and depends on a key only the operator holds. It was run by hand
+- **One live test exists and never runs unless you ask for it.**
+  `test_generation.py::test_the_real_adapter_answers_with_citations_that_resolve` is marked `live`,
+  and `addopts = "-m 'not live'"` excludes it from every default run. Skipping on the absence of a
+  key would not have been a gate: this very document tells an operator to export `GEMINI_API_KEY`,
+  so a developer following the instructions would make a paid API call by typing `pytest`. Spending
+  money is an act — `pytest -m live` — and it additionally requires the key and the extra. It was run by hand
   against the real API on 2026-08-01 and passed: 414 input tokens, 38 output tokens, an estimated
   0.00022 USD, one claim with one citation that resolved, and an uncovered question produced a clean
   abstention.

@@ -12,11 +12,16 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from garage.corpus import FIXTURE_CORPUS
-from garage.generation import DEFAULT_MODEL
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="GARAGE_", extra="ignore")
+    # `populate_by_name` is required by the `validation_alias` on `gemini_api_key` below: a field
+    # with an explicit alias otherwise refuses its own Python name, so `Settings(gemini_api_key=None)`
+    # would be silently discarded and the environment would win. That is not theoretical — it let a
+    # test that passes no key construct a real client and call a paid API.
+    model_config = SettingsConfigDict(
+        env_prefix="GARAGE_", extra="ignore", populate_by_name=True
+    )
 
     # No default: a wrong database is worse than no database, so a missing URL is a boot failure.
     database_url: str
@@ -27,9 +32,10 @@ class Settings(BaseSettings):
     corpus_dir: Path = FIXTURE_CORPUS
 
     # Absent by default, and absence is a supported configuration rather than a misconfiguration:
-    # the service boots, retrieves, traces and abstains-by-degradation without ever holding one. The
-    # boot gate is the `corpus_hash` alone (ADR-0002) — retrieval is the measurable layer and must
-    # not be held hostage to a hosted model's credentials.
+    # the service boots, retrieves and traces without ever holding one, and simply returns no
+    # answer. Not an abstention and not a degradation — a stage that never ran, exactly as the trace
+    # already expresses it. The boot gate is the `corpus_hash` alone (ADR-0002); retrieval is the
+    # measurable layer and must not be held hostage to a hosted model's credentials.
     # Two accepted names, and the alias is not indulgence: `GEMINI_API_KEY` is what the SDK's own
     # documentation tells an operator to export and what is actually sitting in the environment,
     # while `GARAGE_GEMINI_API_KEY` is this project's prefix convention. The project's own name wins
@@ -38,7 +44,12 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("GARAGE_GEMINI_API_KEY", "GEMINI_API_KEY"),
     )
-    gemini_model: str = DEFAULT_MODEL
+    # Written out rather than imported from `garage.generation`. Configuration is the layer
+    # everything else reads; a module that imports one of its own consumers has the dependency arrow
+    # backwards, and this one string is not worth inverting it for. The duplicate is kept honest by
+    # a test asserting it equals `generation.DEFAULT_MODEL`, and by the price table living next to
+    # that constant. The 2.5 family retires in late 2026, so this value is expected to change.
+    gemini_model: str = "gemini-2.5-flash"
 
     host: str = "0.0.0.0"
     port: int = 8000

@@ -52,4 +52,5 @@ were actually retrieved before it reaches the wire. Abstention is a first-class 
 contract, the validation rules, the dated price table and what is deliberately **not** covered by
 tests are documented in `docs/generation.md`. Generation is optional at every level: `google-genai`
 is an optional extra imported late, no key means no generator and no `generate` span, and no test in
-`tests/` may import the SDK or touch the network.
+`tests/` may import the SDK or touch the network. Anything that does is marked `live` and excluded
+from the default run by `addopts`; `pytest -m live` is the deliberate opt-in, and it costs money.

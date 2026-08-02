@@ -14,7 +14,7 @@ from garage import app as app_module
 from garage.app import create_app
 from garage.config import Settings
 from garage.ingest import Artifact, ArtifactMismatch
-from garage.generation import Answer, Citation, Claim, Contract
+from garage.generation import Answer, Citation, Claim, Contract, MalformedPayload
 from garage.retrieval import Candidate, Filters
 
 ARTIFACT = Artifact(corpus_id="fixture", corpus_hash="0" * 64, ingest_version=1)
@@ -100,7 +100,12 @@ def candidate(chunk_id="svc-kadett-1993#0001", tier="A", score=0.9) -> Candidate
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(database_url="postgresql://u:p@db:5432/garage")
+    # `gemini_api_key=None` explicitly, and it is not decoration. `create_app` builds a real
+    # `GeminiGenerator` when it finds a key, and `Settings` reads the process environment — so on a
+    # developer's machine with `GEMINI_API_KEY` exported, every test here that passes no generator
+    # would quietly make a paid network call. It did, before this line: one test took sixteen
+    # seconds and hit the real API. A test's dependencies must come from the test.
+    return Settings(database_url="postgresql://u:p@db:5432/garage", gemini_api_key=None)
 
 
 @pytest.fixture
@@ -313,12 +318,85 @@ def test_a_provider_failure_degrades_to_the_retrieved_chunks_rather_than_a_blank
     assert body["answer"]["degraded"] is True
     # Not an abstention: the corpus may well cover this, we simply never got to ask.
     assert body["answer"]["abstained"] is False
-    assert "quota" in body["answer"]["degradation_reason"]
+    # The provider's raw message is *not* echoed to the visitor — free surface area — but it is in
+    # the trace, where an operator reads it.
+    assert "quota" not in body["answer"]["degradation_reason"]
+    assert "RuntimeError" in body["answer"]["degradation_reason"]
     generate = body["trace"]["children"][1]
     assert generate["name"] == "generate"
     assert generate["attributes"]["error"] is True
     assert generate["attributes"]["exception.type"] == "RuntimeError"
+    assert generate["attributes"]["exception.message"] == "quota"
     assert generate["attributes"]["generation.degraded"] is True
+
+
+def test_a_provider_that_answers_in_the_wrong_shape_degrades_rather_than_abstaining(booted):
+    # A payload that parses but does not match the schema is a provider that changed behaviour, and
+    # reading it as an abstention would put provider breakage into the ADR-0004 abstention rate.
+    generator = FakeGenerator(fails=MalformedPayload("'claims' must be a list, got dict"))
+
+    with booted(FakeRetriever([candidate()]), generator) as client:
+        body = client.post("/query", json={"question": "torque"}).json()
+
+    assert body["answer"]["degraded"] is True
+    assert body["answer"]["abstained"] is False
+
+
+def test_an_internal_bug_is_not_reported_as_the_provider_failing(booted):
+    # The `try` wraps the provider call and nothing else. If it wrapped the code around it, every
+    # mistake of ours would reach the visitor as an accusation against a dependency that behaved.
+    class BrokenGenerator(FakeGenerator):
+        """Answers fine, then hands back something this endpoint mishandles."""
+
+        def generate(self, query, *, context, contract=Contract()):
+            super().generate(query, context=context, contract=contract)
+            return "not an Answer at all"
+
+    with booted(FakeRetriever([candidate()]), BrokenGenerator()) as client:
+        with pytest.raises(AttributeError):
+            client.post("/query", json={"question": "torque"})
+
+
+def test_a_generator_that_invents_a_citation_is_caught_by_the_endpoint(booted):
+    # `Generator` is a runtime axis, so the implementation that forgets to validate is the next one.
+    # "Every citation resolves" has to hold for the system, not for one adapter's diligence.
+    invented = Answer(
+        text="inventado",
+        claims=(Claim(text="inventado", citations=(Citation(1, "NAO-RECUPERADO#7"),)),),
+        support="supported",
+        provider="fake",
+        model="fake-1",
+    )
+
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented)) as client:
+        response = client.post("/query", json={"question": "torque"})
+
+    body = response.json()
+    assert response.status_code == 200
+    answer = body["answer"]
+    # Not a degradation and not an abstention: our bug, reported as ours.
+    assert answer["degraded"] is False and answer["abstained"] is False
+    assert answer["support"] == "rejected" and answer["contract_violation"]
+    assert answer["claims"] == [] and answer["text"] == ""
+    # The retriever's work is untouched and still served.
+    assert len(body["chunks"]) == 1
+    generate = body["trace"]["children"][1]
+    assert generate["attributes"]["generation.contract.violated"] is True
+    assert generate["attributes"]["error"] is True
+
+
+def test_the_contract_that_ran_is_the_contract_the_answer_reports(booted):
+    # Both no-call paths defaulted this field to `cited`, so a `free` run was filed under the wrong
+    # configuration axis — invisible in the response, corrupting in a stored run record.
+    with booted(FakeRetriever([]), FakeGenerator()) as client:
+        abstained = client.post("/query", json={"question": "x", "contract": "free"}).json()
+
+    with booted(FakeRetriever([candidate()]), FakeGenerator(fails=RuntimeError("quota"))) as client:
+        degraded = client.post("/query", json={"question": "x", "contract": "free"}).json()
+
+    assert (abstained["contract"], abstained["answer"]["contract"]) == ("free", "free")
+    assert (degraded["contract"], degraded["answer"]["contract"]) == ("free", "free")
+    assert degraded["answer"]["degraded"] is True and abstained["answer"]["abstained"] is True
 
 
 def test_creating_the_app_without_an_api_key_does_not_raise(monkeypatch, settings):
@@ -329,6 +407,8 @@ def test_creating_the_app_without_an_api_key_does_not_raise(monkeypatch, setting
     monkeypatch.delenv("GARAGE_GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
+    # Built from the environment here, unlike everywhere else in this file, because the environment
+    # is precisely what is under test.
     app = create_app(Settings(database_url=settings.database_url), retriever=FakeRetriever())
 
     assert app.state.generator is None

@@ -38,9 +38,12 @@ from garage.config import Settings
 from garage.generation import (
     Answer,
     Contract,
+    ContractViolation,
     Generator,
     abstain_without_asking,
     degrade,
+    reject_unverifiable,
+    verify_citations,
 )
 from garage.ingest import verify_artifact
 from garage.retrieval import (
@@ -133,6 +136,10 @@ class GeneratedAnswer(BaseModel):
     abstention_reason: str | None
     degraded: bool
     degradation_reason: str | None
+    # A third, rarer state, and never folded into the two above: the provider answered but the
+    # `Generator` in front of it published a citation that resolves to nothing. That is our bug, not
+    # the corpus's silence and not the network's, and it is reported as itself.
+    contract_violation: str | None
     support: str
     provider: str | None
     model: str | None
@@ -270,63 +277,109 @@ def _answer(
 ) -> Answer | None:
     """Run generation, or say honestly why it did not run.
 
-    Three exits, and the trace differs in each. No generator: nothing happened, no span, no answer.
-    No candidates: an abstention that cost nothing and asked nobody, and still no span — the
-    retriever's similarity floor is what makes this reachable (`docs/retrieval.md`), and inventing a
-    zero-millisecond `generate` here would claim a model call that never occurred. A provider
-    failure: the span *does* exist, carrying its duration and its error, because the attempt is a
-    real thing that happened and a trace which goes quiet exactly when something broke is worth
-    little.
+    Five exits, and the trace differs in each. **No generator**: nothing happened, no span, no
+    answer. **No candidates**: an abstention that cost nothing and asked nobody, and still no span —
+    the retriever's similarity floor is what makes this reachable (`docs/retrieval.md`), and
+    inventing a zero-millisecond `generate` here would claim a model call that never occurred. **A
+    provider failure**: the span exists, carrying its duration and its error, because the attempt is
+    a real thing that happened and a trace which goes quiet exactly when something broke is worth
+    little. **A citation that does not resolve**: the answer is refused, marked as this codebase's
+    own contract violation rather than as anything the model or the network did. **A good answer**:
+    served with its tokens and its cost on the span.
+
+    Our own bugs are the one thing that is *not* handled here. The `try` covers the provider call
+    alone, so a `TypeError` in this function is a 500 rather than a polite note blaming a provider
+    that answered correctly.
     """
     if generator is None:
         return None
     if not candidates:
         return abstain_without_asking(
-            "nenhum trecho do Corpus passou o piso de similaridade para esta pergunta"
+            "nenhum trecho do Corpus passou o piso de similaridade para esta pergunta",
+            contract=contract,
         )
 
     model = getattr(generator, "model", None)
-    span = None
-    try:
-        with tracer.span(
-            "generate",
-            **{
-                "generation.provider": generator.name,
-                "generation.model": model,
-                "generation.contract": contract.mode,
-                "generation.context.chunks": len(candidates),
-            },
-        ) as span:
+    with tracer.span(
+        "generate",
+        **{
+            "generation.provider": generator.name,
+            "generation.model": model,
+            "generation.contract": contract.mode,
+            "generation.context.chunks": len(candidates),
+        },
+    ) as span:
+        try:
+            # The `try` wraps the provider call and nothing else. Widening it by one line would mean
+            # a bug in the code *below* — an attribute error of ours — reaching the visitor as "the
+            # generation provider failed", which is this service slandering a dependency for its own
+            # mistake. Our bugs are ours: they propagate, and FastAPI reports them as a 500.
             answer = generator.generate(question, context=candidates, contract=contract)
+        except Exception as failure:
+            # Recorded on the span from inside it, so the attributes land before the span closes and
+            # its duration is the real one. The full provider message goes here, in the trace, where
+            # an operator reads it — and deliberately not into the HTTP response, which gets the
+            # exception's type and nothing else. A provider's raw error text is free surface area.
             span.set(
+                error=True,
                 **{
+                    "exception.type": type(failure).__name__,
+                    "exception.message": str(failure),
+                    "generation.degraded": True,
+                },
+            )
+            return degrade(
+                f"o provedor de geração não respondeu ({type(failure).__name__})",
+                provider=generator.name,
+                model=model,
+                contract=contract,
+            )
+
+        try:
+            # The endpoint's own re-assertion of the first acceptance criterion. `Generator` is a
+            # runtime axis, so the implementation that forgets to validate is the next one, not this
+            # one — and "every citation resolves" has to be true of the system rather than of a
+            # single adapter's diligence.
+            verify_citations(answer, context=candidates, contract=contract)
+        except ContractViolation as violation:
+            span.set(
+                error=True,
+                **{
+                    "exception.type": type(violation).__name__,
+                    "exception.message": str(violation),
+                    "generation.contract.violated": True,
+                    "generation.abstained": False,
+                    "generation.degraded": False,
                     "generation.tokens.input": answer.tokens_in,
                     "generation.tokens.output": answer.tokens_out,
-                    "generation.tokens.total": answer.tokens_total,
-                    "generation.cost.usd_estimated": answer.cost_usd,
-                    "generation.cost.estimated": answer.cost_estimated,
-                    "generation.pricing.as_of": answer.pricing_as_of,
-                    "generation.abstained": answer.abstained,
-                    "generation.support": answer.support,
-                    "generation.citations": sum(len(claim.citations) for claim in answer.claims),
-                    "generation.citations.invalid": answer.invalid_citations,
-                    "generation.claims.unsupported": answer.unsupported_claims,
-                    "generation.contradictory": answer.contradictory,
-                    "generation.degraded": False,
-                }
+                },
             )
-            return answer
-    except Exception as failure:
-        # Caught outside the span, so the exception passes *through* it: the span already recorded
-        # `error`, `exception.type` and its real duration on the way out. Marking the degradation
-        # afterwards only adds an attribute; the timing was sealed when the span closed.
-        if span is not None:
-            span.set(**{"generation.degraded": True})
-        return degrade(
-            f"o provedor de geração falhou: {type(failure).__name__}: {failure}",
-            provider=generator.name,
-            model=model,
+            return reject_unverifiable(
+                f"o gerador produziu citações que não resolvem: {violation}",
+                provider=generator.name,
+                model=model,
+                contract=contract,
+            )
+
+        span.set(
+            **{
+                "generation.tokens.input": answer.tokens_in,
+                "generation.tokens.output": answer.tokens_out,
+                "generation.tokens.total": answer.tokens_total,
+                "generation.cost.usd_estimated": answer.cost_usd,
+                "generation.cost.estimated": answer.cost_estimated,
+                "generation.pricing.as_of": answer.pricing_as_of,
+                "generation.abstained": answer.abstained,
+                "generation.support": answer.support,
+                "generation.citations": sum(len(claim.citations) for claim in answer.claims),
+                "generation.citations.invalid": answer.invalid_citations,
+                "generation.claims.unsupported": answer.unsupported_claims,
+                "generation.contradictory": answer.contradictory,
+                "generation.contract.violated": False,
+                "generation.degraded": False,
+            }
         )
+        return answer
 
 
 def main() -> None:

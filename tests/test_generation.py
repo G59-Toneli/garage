@@ -15,10 +15,18 @@ import pytest
 
 from garage.generation import (
     CITED_SYSTEM_INSTRUCTION,
+    DEFAULT_MODEL,
     FREE_SYSTEM_INSTRUCTION,
+    PRICES_USD_PER_MTOK,
     PRICING_AS_OF,
+    Answer,
+    Citation,
+    Claim,
     Contract,
+    ContractViolation,
     GenerationError,
+    MalformedPayload,
+    abstain_without_asking,
     answer_from_validation,
     build_prompt,
     degrade,
@@ -26,8 +34,10 @@ from garage.generation import (
     index_map,
     numbered_context,
     parse_payload,
+    reject_unverifiable,
     tokens_from_usage,
     validate_payload,
+    verify_citations,
 )
 from garage.retrieval import Candidate
 
@@ -178,6 +188,36 @@ def test_the_free_contract_does_not_call_an_uncited_claim_unsupported():
     assert result.support == "unenforced"
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        # A dict where the schema promised a list: the provider changed shape under us.
+        {"abstained": False, "claims": {"text": "a", "citations": [1]}},
+        {},
+        {"claims": []},
+        {"abstained": False},
+        {"abstained": "false", "claims": []},
+        {"abstained": False, "claims": [{"text": "   ", "citations": [1]}]},
+        {"abstained": False, "claims": [{"citations": [1]}]},
+        {"abstained": False, "claims": ["uma frase solta"]},
+        {"abstained": False, "claims": [{"text": "a", "citations": 1}]},
+    ],
+)
+def test_valid_json_in_the_wrong_shape_degrades_rather_than_abstaining(payload):
+    # This is the defect that matters most about this function. Reading a broken provider as a model
+    # that declined to answer would file provider breakage under the abstention rate — the one
+    # metric this module exists to keep clean (ADR-0004).
+    with pytest.raises(MalformedPayload):
+        validate_payload(payload, context=CONTEXT)
+
+
+def test_a_well_formed_payload_with_no_claims_is_still_a_real_abstention():
+    # The line is drawn at shape, not at content: this one obeys the schema, and a provider that
+    # answers correctly with nothing to say has not malfunctioned.
+    assert validate_payload({"abstained": False, "claims": []}, context=CONTEXT).abstained is True
+    assert validate_payload({"abstained": True, "claims": []}, context=CONTEXT).abstained is True
+
+
 def test_a_truncated_answer_is_a_generation_error_rather_than_a_crash():
     # `max_output_tokens` cuts the model off mid-object; that has to degrade, not 500.
     with pytest.raises(GenerationError):
@@ -245,6 +285,103 @@ def test_an_answer_totals_its_own_tokens():
     assert answer.contract == "cited" and answer.provider == "gemini"
 
 
+def test_negative_token_counts_cannot_produce_a_negative_cost():
+    # Impossible input, and precisely for that reason it must not arithmetic itself into a number
+    # that subtracts from a total and makes a configuration read as cheaper than free.
+    assert estimate_cost_usd("gemini-2.5-flash", tokens_in=-5_000, tokens_out=-5_000) == 0.0
+    assert estimate_cost_usd("gemini-2.5-flash", tokens_in=-1, tokens_out=1_000_000) == pytest.approx(
+        2.50
+    )
+
+
+def test_the_configured_default_model_is_the_one_the_price_table_knows():
+    # `config.Settings` writes the model name out rather than importing it from here, so that
+    # configuration does not depend on one of its own consumers. This is what keeps the two honest.
+    from garage.config import Settings
+
+    assert Settings(database_url="postgresql://u:p@db/g").gemini_model == DEFAULT_MODEL
+    assert DEFAULT_MODEL in PRICES_USD_PER_MTOK
+
+
+# --- the citation guarantee is the system's, not the adapter's ---------------------------------
+
+
+class ForgetfulGenerator:
+    """A `Generator` that skips validation, which is exactly what a future implementation will do."""
+
+    name = "forgetful"
+    model = "forgetful-1"
+
+    def __init__(self, answer):
+        self.answer = answer
+
+    def generate(self, query, *, context, contract=Contract()):
+        return self.answer
+
+
+def test_a_citation_naming_a_chunk_that_was_never_retrieved_is_caught_outside_the_generator():
+    invented = Answer(
+        text="inventado",
+        claims=(Claim(text="inventado", citations=(Citation(1, "NAO-RECUPERADO#7"),)),),
+        support="supported",
+    )
+
+    with pytest.raises(ContractViolation):
+        verify_citations(invented, context=CONTEXT)
+
+
+def test_a_citation_whose_number_points_at_a_different_chunk_is_caught():
+    # The id is real and the number is in range, but they do not belong together: the prose would
+    # send the reader to the wrong paragraph, which is worse than sending them nowhere.
+    swapped = Answer(
+        claims=(Claim(text="trocado", citations=(Citation(1, CONTEXT[2].chunk_id),)),),
+    )
+
+    with pytest.raises(ContractViolation):
+        verify_citations(swapped, context=CONTEXT)
+
+
+def test_a_claim_called_supported_with_no_citations_at_all_is_caught_under_the_cited_contract():
+    bare = Answer(claims=(Claim(text="sem fonte", citations=(), supported=True),))
+
+    with pytest.raises(ContractViolation):
+        verify_citations(bare, context=CONTEXT)
+    # Under `free` there is no contract to violate, and an uncited claim is the expected shape.
+    verify_citations(bare, context=CONTEXT, contract=Contract(mode="free"))
+
+
+def test_an_answer_this_module_produced_itself_always_passes_the_re_assertion():
+    answer = answer_from_validation(
+        validate_payload({"abstained": False, "claims": [claim(citations=[1, 3])]}, context=CONTEXT),
+        provider="gemini",
+        model="gemini-2.5-flash",
+        contract=Contract(),
+        tokens_in=1,
+        tokens_out=1,
+    )
+
+    verify_citations(answer, context=CONTEXT)
+
+
+def test_abstention_and_degradation_both_carry_the_contract_they_ran_under():
+    # `answer.contract` is how a run record is attributed to a configuration axis. Defaulting it to
+    # `cited` on these two paths filed every `free` run as a `cited` one.
+    free = Contract(mode="free")
+
+    assert abstain_without_asking("sem trechos", contract=free).contract == "free"
+    assert degrade("falhou", contract=free).contract == "free"
+    assert reject_unverifiable("citação inválida", contract=free).contract == "free"
+    assert abstain_without_asking("sem trechos").contract == "cited"
+
+
+def test_a_rejected_answer_is_neither_an_abstention_nor_a_degradation():
+    rejected = reject_unverifiable("citação inválida", provider="fake", model="fake-1")
+
+    assert rejected.abstained is False and rejected.degraded is False
+    assert rejected.support == "rejected" and rejected.contract_violation
+    assert rejected.text == "" and rejected.claims == ()
+
+
 def test_a_degradation_is_not_an_abstention():
     # The two must never be collapsed: one says the corpus does not cover the question, the other
     # says the model could not be asked, and the ADR-0004 abstention rate depends on the difference.
@@ -257,6 +394,7 @@ def test_a_degradation_is_not_an_abstention():
 LIVE_KEY = os.environ.get("GARAGE_GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
 
+@pytest.mark.live
 @pytest.mark.skipif(not LIVE_KEY, reason="no Gemini key in the environment; this never runs in CI")
 def test_the_real_adapter_answers_with_citations_that_resolve():
     """The one test that leaves the machine, and it is opt-in on purpose.
@@ -265,6 +403,11 @@ def test_the_real_adapter_answers_with_citations_that_resolve():
     reproducible). This exists so that the adapter is known to have worked at least once against the
     real API rather than only against the author's reading of the documentation. Everything it
     proves is about the adapter; nothing about the system depends on it passing.
+
+    Marked `live` and therefore excluded from the default run, which matters more than the `skipif`
+    below: the documentation tells an operator to export `GEMINI_API_KEY`, so gating on that
+    variable alone would mean a developer who follows the instructions makes a paid API call by
+    typing `pytest`. Spending money must be something you asked for — `pytest -m live`.
     """
     pytest.importorskip("google.genai", reason="the `gemini` extra is not installed")
     from garage.generation import GeminiGenerator
@@ -284,9 +427,11 @@ def test_the_real_adapter_answers_with_citations_that_resolve():
         assert answer.invalid_citations == 0
 
 
+@pytest.mark.live
 def test_constructing_the_gemini_adapter_is_the_only_thing_the_suite_asks_of_it():
-    # Mirrors `LexicalRetriever`: constructing one opens nothing. Skipped rather than failed where
-    # the optional extra is absent, which is the normal state of this repository's CI.
+    # Mirrors `LexicalRetriever`: constructing one opens nothing — no request is made with this
+    # obviously fake key. Marked `live` all the same, because it imports the optional extra, and the
+    # default run must not depend on which packages happen to be in the developer's environment.
     genai = pytest.importorskip("google.genai", reason="the `gemini` extra is not installed")
     assert genai is not None
 

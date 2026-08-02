@@ -142,6 +142,31 @@ class GenerationError(RuntimeError):
     """
 
 
+class MalformedPayload(GenerationError):
+    """Valid JSON that is not the shape the provider was asked for.
+
+    A separate case from invalid JSON only in its message; identical in consequence, and that is the
+    point. `{"claims": {"text": "…"}}`, a missing `abstained`, a claim whose text is whitespace —
+    these are a provider that changed behaviour, not a model that considered the question and
+    declined. Reading them as abstentions would quietly file provider breakage under the one metric
+    this module exists to keep clean (ADR-0004), so they degrade instead.
+
+    The line is drawn at *shape*, not at content: a well-formed payload saying `abstained: true`, or
+    a well-formed one carrying no claims at all, is a real answer from a working provider and stays
+    an abstention.
+    """
+
+
+class ContractViolation(RuntimeError):
+    """A `Generator` returned a citation that resolves to nothing.
+
+    Not a subclass of `GenerationError`, because it is not the provider's failure: it is a bug in an
+    implementation of this module's interface, and the two must not be treated alike. Degradation
+    means "the model could not be asked"; this means "the model was asked, answered, and the object
+    standing between us and it published something unverifiable."
+    """
+
+
 @dataclass(frozen=True)
 class Contract:
     """The prompt contract, as a validated value rather than loose keyword arguments.
@@ -214,6 +239,9 @@ class Answer:
     abstention_reason: str | None = None
     degraded: bool = False
     degradation_reason: str | None = None
+    # Set only when this codebase caught one of its own `Generator` implementations publishing a
+    # citation that resolves to nothing. A third state on purpose: see `reject_unverifiable`.
+    contract_violation: str | None = None
     support: str = "not_applicable"
     provider: str | None = None
     model: str | None = None
@@ -338,20 +366,26 @@ def validate_payload(
     """
     # The same numbering the prompt used, from the same function, so the two cannot drift apart.
     index_to_candidate = index_map(context)
-    abstained = bool(payload.get("abstained", False))
+    abstained = _require_bool(payload, "abstained")
     reason = payload.get("reason")
     reason = str(reason) if reason else None
 
     claims: list[Claim] = []
     invalid = 0
-    for raw_claim in _as_sequence(payload.get("claims")):
+    for raw_claim in _require_list(payload, "claims"):
         if not isinstance(raw_claim, Mapping):
-            continue
-        text = str(raw_claim.get("text", "")).strip()
-        if not text:
-            continue
+            raise MalformedPayload(f"a claim must be an object, got {type(raw_claim).__name__}")
+        text = raw_claim.get("text")
+        if not isinstance(text, str) or not text.strip():
+            # An empty or missing `text` is not a quiet claim, it is a payload that does not match
+            # the schema the provider was asked to obey. Skipping it silently is how a broken
+            # provider ends up reported as a model that had nothing to say — see `MalformedPayload`.
+            raise MalformedPayload("a claim must carry non-empty text")
+        text = text.strip()
         citations: list[Citation] = []
         seen: set[int] = set()
+        if not isinstance(raw_claim.get("citations", []), (list, tuple)):
+            raise MalformedPayload("a claim's citations must be a list")
         for raw_index in _as_sequence(raw_claim.get("citations")):
             index = _as_index(raw_index)
             if index is None or index not in index_to_candidate:
@@ -408,6 +442,41 @@ def validate_payload(
     )
 
 
+def verify_citations(
+    answer: Answer, *, context: Sequence[Candidate], contract: Contract = Contract()
+) -> None:
+    """Re-assert, at the seam, that every served citation names a chunk that was really retrieved.
+
+    `GeminiGenerator` already validates. That is not enough, and the duplication is the point:
+    `Generator` is a runtime axis, so the next implementation behind this interface is the one that
+    forgets. "Every citation resolves" is an acceptance criterion about *the system*, and a property
+    the system only has if something outside the replaceable part checks it.
+
+    Cheap, too — a set membership per citation against chunks already in hand. Raises
+    `ContractViolation` rather than repairing anything: an answer whose provenance cannot be
+    established is not improved by deleting the offending citation and serving the rest.
+    """
+    retrieved = {candidate.chunk_id for candidate in context}
+    known = index_map(context)
+    for claim in answer.claims:
+        for citation in claim.citations:
+            if citation.chunk_id not in retrieved:
+                raise ContractViolation(
+                    f"citation [{citation.index}] names {citation.chunk_id!r}, "
+                    "which is not among the retrieved chunks"
+                )
+            if known.get(citation.index) is None or known[citation.index].chunk_id != citation.chunk_id:
+                # The id exists but under a different number: the answer's prose would point the
+                # reader at the wrong paragraph, which is worse than pointing at nothing.
+                raise ContractViolation(
+                    f"citation [{citation.index}] does not resolve to {citation.chunk_id!r}"
+                )
+        # Under `free` there is no contract to violate and an uncited claim is expected; under
+        # `cited`, calling one supported is the same lie by a different route.
+        if contract.enforced and claim.supported and not claim.citations:
+            raise ContractViolation("a claim was marked supported with no citations at all")
+
+
 def estimate_cost_usd(model: str, *, tokens_in: int, tokens_out: int) -> float | None:
     """USD for one call, or `None` for a model with no price on record.
 
@@ -418,6 +487,11 @@ def estimate_cost_usd(model: str, *, tokens_in: int, tokens_out: int) -> float |
     price = PRICES_USD_PER_MTOK.get(model)
     if price is None:
         return None
+    # A negative token count cannot happen and therefore must not be quietly arithmetic'd into a
+    # negative cost, which would subtract from a total and make a comparison read as cheaper than
+    # free. Clamped rather than raised, matching `tokens_from_usage`: a nonsense counter from a
+    # provider should not take down a query that otherwise succeeded.
+    tokens_in, tokens_out = max(tokens_in, 0), max(tokens_out, 0)
     million = Decimal(1_000_000)
     cost = (Decimal(tokens_in) / million) * price[0] + (Decimal(tokens_out) / million) * price[1]
     return float(cost)
@@ -469,17 +543,33 @@ def answer_from_validation(
     )
 
 
-def abstain_without_asking(reason: str) -> Answer:
+def abstain_without_asking(reason: str, *, contract: Contract = Contract()) -> Answer:
     """The zero-cost abstention: no candidates, so no call.
 
     `WORD_SIMILARITY_FLOOR` in the retriever is what makes this reachable at all — a retriever that
     always returned its ten least-bad chunks would leave nothing to abstain on. Nothing was asked of
     any model here, so no model, no tokens, and no `generate` span in the trace.
+
+    The contract still travels, even though nothing was generated under it. `answer.contract` is how
+    a stored run record is attributed to a configuration axis, and a `free` run filed as `cited`
+    corrupts exactly the comparison the axis exists for. It defaulted before, silently, which is the
+    subtlest way for a field like this to be wrong.
     """
-    return Answer(abstained=True, abstention_reason=reason, support="not_applicable")
+    return Answer(
+        abstained=True,
+        abstention_reason=reason,
+        support="not_applicable",
+        contract=contract.mode,
+    )
 
 
-def degrade(reason: str, *, provider: str | None = None, model: str | None = None) -> Answer:
+def degrade(
+    reason: str,
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    contract: Contract = Contract(),
+) -> Answer:
     """The provider failed; the retrieved chunks still stand.
 
     Deliberately `abstained=False`. The corpus may well cover the question — we never got to ask.
@@ -492,6 +582,35 @@ def degrade(reason: str, *, provider: str | None = None, model: str | None = Non
         support="not_applicable",
         provider=provider,
         model=model,
+        contract=contract.mode,
+    )
+
+
+def reject_unverifiable(
+    reason: str,
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    contract: Contract = Contract(),
+) -> Answer:
+    """A `Generator` produced an answer whose citations do not resolve, so none of it is served.
+
+    A third state, and it earns its place by being neither of the other two. It is not an abstention
+    — the corpus may cover the question perfectly well. It is not a degradation — the provider
+    answered, on time, and was paid for it. It is this codebase failing to keep its own promise, and
+    filing it under either of the other flags would hide a bug of ours inside a metric about the
+    model or about the network.
+
+    The prose is dropped rather than trimmed: an answer whose provenance is unverifiable is not
+    salvaged by removing the citation that gave it away. The chunks are still returned — those are
+    the retriever's work and remain trustworthy — and the trace says what happened.
+    """
+    return Answer(
+        support="rejected",
+        contract_violation=reason,
+        provider=provider,
+        model=model,
+        contract=contract.mode,
     )
 
 
@@ -566,6 +685,20 @@ class GeminiGenerator:
             tokens_in=tokens_in,
             tokens_out=tokens_out,
         )
+
+
+def _require_bool(payload: Mapping[str, Any], key: str) -> bool:
+    value = payload.get(key)
+    if not isinstance(value, bool):
+        raise MalformedPayload(f"{key!r} must be present and boolean, got {value!r}")
+    return value
+
+
+def _require_list(payload: Mapping[str, Any], key: str) -> Iterable[Any]:
+    value = payload.get(key)
+    if not isinstance(value, (list, tuple)):
+        raise MalformedPayload(f"{key!r} must be present and a list, got {type(value).__name__}")
+    return value
 
 
 def _as_sequence(value: Any) -> Iterable[Any]:
