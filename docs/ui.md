@@ -74,22 +74,37 @@ Three consequences, all handled rather than hidden:
   forced into that shape by the server, so `renderComparison` refuses to draw at all when the two
   hashes differ. A side-by-side spanning two artifacts would show a difference in retrieval that is
   really a difference in the database.
+- **One arm failing does not erase the other.** `Promise.allSettled`, not `Promise.all`: `all`
+  rejects on the first failure, so a 429 on one column would take the other column's chunks, answer
+  and trace with it. A failed arm becomes a view source like any other — empty `chunks`, null
+  `trace`, a `failed` flag — and renders as a failure *column*, in place. It is excluded from the
+  overlap band and from the `corpus_hash` check, because a column that never ran is not a column
+  that retrieved nothing.
 - **Latency is not a result.** One connection per query with no pool, and `dense` embeds the query
   on the CPU. Every waterfall is labelled *tempo de parede, uma amostra, conexão fria — não é uma
   medição de desempenho*. The two columns do share one absolute millisecond scale, normalised
   against the larger root, because otherwise the difference disappears.
 
-### The strategy list, and the one place prose is parsed
+### The strategy list
 
-`app.query` rejects an unknown strategy with FastAPI's standard 422 envelope and puts the list of
-served strategies in `msg` as `"this build serves lexical, dense"` — a human sentence, not a
-structured field. `main.refreshStrategies` sends a deliberate invalid strategy at load and parses
-that sentence with one regex, so a lexical-only build does not render a permanently failing second
-column. It fails safe: any surprise leaves `DEFAULT_COLUMNS` standing.
+`GET /strategies` publishes what this build serves, in the order `available_retrievers` returns it,
+with each strategy's `embedder` beside it (null under `lexical`, for the same reason `QueryResponse`
+carries it). `main.refreshStrategies` reads that and fills the two selects.
 
-This is a wart, named as one. The clean fix is a structured field on that error; it is a contract
-change and was not made unilaterally. The visible cost today is one 422 in the browser console on
-every page load.
+The order is the pipeline's and is deliberately not sorted: it decides which arm the comparison opens
+with, so alphabetising it would be a presentation decision taken in the wrong layer. The interface
+does no re-ordering of its own.
+
+The invalid-strategy 422 also carries the list structurally now, in `detail[0].ctx.strategies`, again
+in pipeline order. The human sentence in `msg` is unchanged — someone is already reading it in a
+terminal — and the structured field was added beside it.
+
+Both replace what was here before: the interface used to provoke a deliberate 422 at load and pull
+the list out of `msg` with a regular expression. That parsed a human sentence *and* put a red error
+in the console of every visitor loading a page that was working perfectly. An empty `<link
+rel="icon" href="data:,">` removes the browser's automatic `/favicon.ico` 404 for the same reason:
+the console of this demo is part of the demo, and a visitor who opens the developer tools to check
+that nothing is being hidden should find it quiet.
 
 ## The five states
 
@@ -236,6 +251,23 @@ So the work in #11 is a **record source that produces the same shape `liveView` 
 with `chunks`, an `answer` in one of the five states, and a `trace` — which means the record format
 grows the fields above. When it does, the change lands in `adapt.recordView` and **no component
 changes**. That is what the boundary was built for.
+
+## Two things a later reader should not have to discover alone
+
+**`REPO_ROOT` is `Path(__file__).parents[2]`.** `evaluation.py` resolves `eval/` relative to the
+package, which is correct for `pip install -e .` and for the image (`/app/src/garage` → `/app`), and
+wrong for a non-editable wheel, where `eval/` would sit outside it and the three `GET /eval/*`
+endpoints would 404. Nothing in this project installs that way today, and the failure is visible
+rather than silent — the metrics screen shows the HTTP error — so it is recorded here rather than
+engineered around. Whoever first builds a real wheel will need to decide whether the evaluation data
+is package data or deployment data.
+
+**`adapt.js` has real logic and no automated test.** The five-state ordering, the overlap set
+arithmetic, the cumulative waterfall offsets and the scoring-unit inference all live there and are
+verified by hand in a browser. Adding Vitest would mean Node, which the stack decision excludes. The
+honest path when this stops being acceptable is a headless-browser test driven from `pytest`: the
+service already serves the modules, so a test can load a page, `import` the module and assert on the
+view object without any JavaScript toolchain entering the repository.
 
 ## Security
 

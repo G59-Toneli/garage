@@ -260,6 +260,10 @@ button { background: var(--accent); color: var(--bg); border-color: var(--accent
 
 .attrs summary { font-size: 0.78rem; color: var(--muted); cursor: pointer; }
 
+/* A provider's raw error message is one long line and would otherwise give the whole column a
+   horizontal scrollbar. It wraps instead: the column scrolls vertically and only vertically. */
+pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
+
 .peek {
   position: fixed;
   bottom: 1rem;

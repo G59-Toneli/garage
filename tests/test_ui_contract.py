@@ -200,6 +200,46 @@ def test_component_keys_differ_by_strategy_and_the_panel_must_iterate_them(boote
     assert all(value is None or isinstance(value, float) for value in components.values())
 
 
+def test_the_served_strategies_are_published_in_pipeline_order(monkeypatch, settings):  # noqa: F811
+    """The endpoint that removed a regular expression from the interface.
+
+    Before it existed, the only place this list appeared was the `msg` of a validation error, so the
+    interface provoked a deliberate 422 at load and parsed a human sentence out of it — prose
+    parsing plus a red console error on a page that was working correctly.
+
+    The order is the retrievers' own order and never sorted. It decides which arm a comparison opens
+    with, so alphabetising it here would be a presentation decision taken in the wrong layer.
+    """
+    monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    first, second = FakeRetriever(), FakeRetriever()
+    first.name, second.name = "zulu", "alpha"
+    second.embedder_id = "baseline@abc123"
+
+    with TestClient(create_app(settings, retrievers=[first, second])) as client:
+        body = client.get("/strategies").json()
+
+    assert set(body) == {"strategies", "default"}
+    assert body["strategies"] == [
+        {"name": "zulu", "embedder": None},
+        {"name": "alpha", "embedder": "baseline@abc123"},
+    ]
+    # An omitted `strategy` resolves to the first one, and the endpoint says so rather than leaving
+    # a reader to infer it from the ordering.
+    assert body["default"] == "zulu"
+
+
+def test_an_unknown_strategy_still_carries_the_list_structurally(booted):
+    with booted() as client:
+        response = client.post("/query", json={"question": "q", "strategy": "hybrid"})
+
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    # The sentence stays, unchanged, because someone is already reading it in a terminal. The
+    # structured field is added beside it, in pipeline order.
+    assert "this build serves" in error["msg"]
+    assert error["ctx"]["strategies"] == ["fake"]
+
+
 # --- the interface itself ---------------------------------------------------------------------
 
 

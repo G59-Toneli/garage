@@ -23,3 +23,5 @@ build/
 # `garage serve` output when it is run detached during manual verification.
 serve.log
 serve.err
+serve2.log
+serve2.err

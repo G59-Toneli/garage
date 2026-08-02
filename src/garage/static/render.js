@@ -30,7 +30,7 @@ export function renderComparison(view, root) {
   }
 
   root.append(sharedHeader(view));
-  root.append(overlapBand(view.overlap));
+  if (view.overlap) root.append(overlapBand(view.overlap));
   if (view.floorNote) root.append(floorNote(view.floorNote));
   root.append(
     el(
@@ -48,10 +48,12 @@ export function renderComparison(view, root) {
 // agree, when in fact the interface refuses to render at all unless they are the same fact.
 function sharedHeader(view) {
   return el("section", { class: "shared" }, [
-    el("h2", { class: "question", text: view.shared.question }),
+    el("h2", { class: "question", text: view.shared.question ?? "nenhuma coluna respondeu" }),
     el("dl", { class: "kv" }, [
       el("dt", { text: "corpus_hash" }),
-      el("dd", { class: "mono", text: view.shared.corpusHash }),
+      // Null only when every arm failed. It is left blank rather than filled with the hash of an
+      // arm that never ran.
+      el("dd", { class: "mono", text: view.shared.corpusHash ?? EM_DASH }),
     ]),
   ]);
 }
@@ -85,6 +87,23 @@ function floorNote(note) {
 // --- one column ----------------------------------------------------------------------------------
 
 function armColumn(arm, traceScaleMs) {
+  // A failed column reports its own failure and nothing else. Drawn as a *column*, in place, rather
+  // than as a banner across the page: the other arm's chunks, answer and trace are still valid and
+  // still the product, and a page-level error would throw them away. Issue #11 puts this behind a
+  // quota, where one arm getting a 429 must not erase the other.
+  if (arm.failed) {
+    return el("section", { class: "arm", data: { strategy: arm.strategy } }, [
+      el("header", { class: "arm-head" }, [el("h3", { text: arm.strategy })]),
+      el("article", { class: "state state-rejected" }, [
+        el("h4", { text: "Esta coluna não respondeu" }),
+        el("p", { text: arm.error }),
+        el("p", {
+          class: "aside",
+          text: "A outra coluna continua válida. Nada aqui foi estimado nem preenchido.",
+        }),
+      ]),
+    ]);
+  }
   return el("section", { class: "arm", data: { strategy: arm.strategy } }, [
     el("header", { class: "arm-head" }, [
       el("h3", { text: arm.strategy }),

@@ -63,24 +63,30 @@ export function toView(source) {
 // --- live ------------------------------------------------------------------------------------
 
 function liveView({ responses }) {
-  const arms = responses.map(armView);
+  const arms = responses.map((response) => (response.failed ? failedArm(response) : armView(response)));
+  // A failed arm is excluded from every cross-column computation rather than counted as empty. It
+  // did not retrieve nothing — it did not answer at all, and "0 em comum" against a column that
+  // never ran would be a set operation over a set that does not exist.
+  const answered = arms.filter((arm) => !arm.failed);
 
   // `question` and `corpus_hash` are properties of the *comparison*, not of an arm, so they are
   // lifted above the arms here — the same discipline Run Record v2 enforces structurally by putting
   // `provenance` above `arms`. And because two independent `POST /query` calls cannot be forced into
   // that shape by the server, the interface asserts it: two arms standing on different artifacts is
   // not a comparison, and rendering it anyway would publish a difference that is not there.
-  const hashes = [...new Set(arms.map((arm) => arm.corpusHash))];
-  const agrees = hashes.length === 1;
+  const hashes = [...new Set(answered.map((arm) => arm.corpusHash))];
+  // One answered arm agrees with itself, trivially. Zero answered arms cannot disagree either, and
+  // the screen has a failure to show instead.
+  const agrees = hashes.length <= 1;
 
-  const sets = arms.map((arm) => new Set(arm.chunks.map((chunk) => chunk.chunkId)));
-  const common = [...sets[0]].filter((id) => sets.every((set) => set.has(id)));
+  const sets = answered.map((arm) => new Set(arm.chunks.map((chunk) => chunk.chunkId)));
+  const common = sets.length ? [...sets[0]].filter((id) => sets.every((set) => set.has(id))) : [];
 
   // Set membership across the two columns, computed here and nowhere else. It is the only thing
   // this interface calculates rather than displays, and it is deliberately arithmetic on served
   // identifiers — union and difference of `chunk_id`s — not a statistic about them.
-  for (const [index, arm] of arms.entries()) {
-    const others = arms.filter((_, other) => other !== index);
+  for (const [index, arm] of answered.entries()) {
+    const others = answered.filter((_, other) => other !== index);
     for (const chunk of arm.chunks) {
       chunk.alsoIn = others
         .map((other) => {
@@ -105,8 +111,8 @@ function liveView({ responses }) {
   // `WORD_SIMILARITY_FLOOR` and can therefore return nothing at all; `DenseRetriever` has no floor
   // and always returns its k nearest vectors, however distant (`docs/retrieval.md`). One empty
   // column beside a full one is the designed behaviour of two different retrievers, not a fault.
-  const empty = arms.filter((arm) => arm.chunks.length === 0);
-  const full = arms.filter((arm) => arm.chunks.length > 0);
+  const empty = answered.filter((arm) => arm.chunks.length === 0);
+  const full = answered.filter((arm) => arm.chunks.length > 0);
   const floorNote =
     empty.length > 0 && full.length > 0
       ? {
@@ -118,23 +124,47 @@ function liveView({ responses }) {
   return {
     source: "live",
     shared: {
-      question: arms[0].question,
-      corpusHash: agrees ? hashes[0] : null,
+      question: answered.length ? answered[0].question : null,
+      corpusHash: agrees ? hashes[0] ?? null : null,
       hashes,
       agrees,
     },
     arms,
-    overlap: {
-      perArm: arms.map((arm) => ({ strategy: arm.strategy, count: arm.chunks.length })),
-      common: common.length,
-      only: arms.map((arm, index) => ({
-        strategy: arm.strategy,
-        count: arm.chunks.length - common.length,
-        total: sets[index].size,
-      })),
-    },
+    overlap: answered.length
+      ? {
+          perArm: answered.map((arm) => ({ strategy: arm.strategy, count: arm.chunks.length })),
+          common: common.length,
+          only: answered.map((arm, index) => ({
+            strategy: arm.strategy,
+            count: arm.chunks.length - common.length,
+            total: sets[index].size,
+          })),
+        }
+      : null,
     floorNote,
     traceScaleMs,
+  };
+}
+
+function failedArm({ strategy, error }) {
+  // A column that never answered, shaped like every other arm so that nothing downstream has to
+  // branch on its absence. Empty `chunks` and a null `trace` are the honest values: this arm has no
+  // ranking and no spans, and inventing either would be the interface reporting a pipeline run that
+  // did not happen. `failed` is what tells the renderer to draw a failure rather than a result.
+  return {
+    failed: true,
+    error,
+    strategy,
+    question: null,
+    corpusHash: null,
+    embedder: null,
+    k: null,
+    tiers: [],
+    contract: null,
+    scoring: { unit: null, axis: null, max: 1, ticks: [] },
+    chunks: [],
+    answer: { state: "disabled", cost: null },
+    trace: null,
   };
 }
 

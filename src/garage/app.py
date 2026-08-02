@@ -189,6 +189,27 @@ class GeneratedAnswer(BaseModel):
         return cls(**asdict(answer))
 
 
+class Strategy(BaseModel):
+    """One strategy this build can answer with, and which stored vectors it stands on."""
+
+    name: str
+    embedder: str | None
+
+
+class StrategiesResponse(BaseModel):
+    """What `GET /strategies` publishes: the runtime axis, enumerable rather than guessable.
+
+    In the order `available_retrievers` returns them — the pipeline's order, never alphabetical —
+    because the client that asks this question is choosing which arm to show first.
+    """
+
+    strategies: tuple[Strategy, ...]
+    # Which one an omitted `strategy` field resolves to. Published rather than left implicit: a
+    # request written before `dense` existed still means what it meant then, and a reader should be
+    # able to see what that is instead of inferring it from the ordering.
+    default: str
+
+
 class QueryResponse(BaseModel):
     question: str
     # Echoed on every response, not only checked at boot: an answer kept without the identity of the
@@ -280,6 +301,34 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
 
+    @app.get("/strategies")
+    def strategies(http: Request) -> StrategiesResponse:
+        """What this build serves, in the order the pipeline lists it.
+
+        It exists because the interface needs the list and the only place it was published was the
+        `msg` of a validation error — so the interface was provoking a deliberate 422 at load and
+        reading a human sentence out of it with a regular expression. Two defects buying one: prose
+        parsing, and an error in every visitor's console on a page that is working correctly.
+
+        The order is `available_retrievers`' order and is deliberately **not** sorted. That tuple is
+        "every strategy this build can measure, in the order a report should show them", so it is
+        the pipeline's own ordering and it is what decides which arm a comparison opens with.
+        Alphabetising it here would be a presentation decision taken in the wrong layer — and it was:
+        the sorted list in the 422 below is what forced the interface to re-order it back.
+
+        `embedder` travels with each one, null under `lexical`, for the same reason `QueryResponse`
+        carries it: `strategy` alone stops being an identity the moment ADR-0005's second embedder
+        exists.
+        """
+        available: dict[str, Retriever] = http.app.state.retrievers
+        return StrategiesResponse(
+            strategies=tuple(
+                Strategy(name=name, embedder=retriever.embedder_id)
+                for name, retriever in available.items()
+            ),
+            default=http.app.state.default_strategy,
+        )
+
     @app.post("/query")
     def query(query_request: QueryRequest, http: Request) -> QueryResponse:
         # From `app.state`, not from a closure: it is written by the lifespan, so reading it here is
@@ -298,6 +347,16 @@ def create_app(
                         "loc": ("body", "strategy"),
                         "msg": f"this build serves {', '.join(sorted(strategies))}",
                         "input": query_request.strategy,
+                        # The same list again, structurally, in the place Pydantic puts an enum's
+                        # permitted values. Added beside the sentence and never in place of it: the
+                        # sentence is what a human reads in a terminal, and changing its wording
+                        # would break whoever is already reading it.
+                        #
+                        # Pipeline order here, unlike the message above, which is sorted for
+                        # readability. A client picking column order out of an alphabetised list
+                        # gets `dense` on the left, which is a presentation decision made by a
+                        # `sorted()` call in an error handler.
+                        "ctx": {"strategies": list(strategies)},
                     }
                 ]
             )

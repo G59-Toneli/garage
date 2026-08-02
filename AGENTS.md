@@ -93,8 +93,12 @@ Node and no bundler, served by `StaticFiles` from the same process and the same 
 `/query` (ADR-0006). It is a client of the public API like any other: two ordinary parallel `POST
 /query` calls, one per strategy, and deliberately no `/compare` endpoint, because "two columns" is a
 decision the interface makes and an endpoint shaped around it would be that decision leaking into
-the API. The mount is the **last** statement in `create_app`; earlier it would swallow `/health`,
-`/query` and `/eval/*`. Three read-only `GET /eval/*` endpoints hand back `eval/baseline.json` and
+the API. The two calls go out under `Promise.allSettled`, so an arm that fails reports its own
+failure in its own column and never erases the other one. The mount is the **last** statement in
+`create_app`; earlier it would swallow `/health`, `/query`, `/strategies` and `/eval/*`.
+`GET /strategies` publishes what this build serves, in `available_retrievers`' order and never
+sorted — that order decides which arm a comparison opens with, and the invalid-strategy 422 carries
+the same list in `ctx.strategies` as a backstop. Three read-only `GET /eval/*` endpoints hand back `eval/baseline.json` and
 `eval/runs/*.json` unmodelled, so the metrics screen reads the committed numbers from the files
 rather than from a constant. Everything is documented in `docs/ui.md`: the single adaptation
 boundary every component consumes (`adapt.toView`, the thing that makes issue #11 an adapter branch
