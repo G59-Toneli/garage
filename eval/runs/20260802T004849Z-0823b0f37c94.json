@@ -1,0 +1,756 @@
+{
+  "configuration": {
+    "embedder": null,
+    "k": 10,
+    "reranker": null,
+    "strategy": "lexical",
+    "tiers": [
+      "A",
+      "B"
+    ]
+  },
+  "duration_ms": 721,
+  "facts_sha256": "864b1703fbb6a1d09d32dcc18eb81e9c19114bf2764042cbc53498310040d643",
+  "layer": "deterministic",
+  "metrics": {
+    "mrr@10": 0.914894,
+    "ndcg@10": 0.914894,
+    "recall@1": 0.904255,
+    "recall@10": 0.914894,
+    "recall@5": 0.914894,
+    "value_match_rate": 0.914894
+  },
+  "per_item": [
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0001"
+      ],
+      "expected_value": "41",
+      "fact_id": "torque-cabecote-estagio-1",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cylinder head bolt stage 1 torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0001",
+        "svc-kadett-1993#0002"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0002"
+      ],
+      "expected_value": "77",
+      "fact_id": "torque-cabecote-estagio-2",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cylinder head bolt stage 2 tightening torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0002",
+        "svc-kadett-1993#0001",
+        "svc-kadett-1993#0003",
+        "svc-kadett-1993#0004",
+        "svc-kadett-1993#0005",
+        "svc-kadett-1993#0006"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0001",
+        "svc-kadett-1993#0002"
+      ],
+      "expected_value": "M11",
+      "fact_id": "torque-cabecote-rosca-m11",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cylinder head bolt thread M11",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0001",
+        "svc-kadett-1993#0002"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0001",
+        "svc-kadett-1993#0002"
+      ],
+      "expected_value": "M11",
+      "fact_id": "torque-cabecote-em-portugues",
+      "hit_rank": null,
+      "ndcg": 0.0,
+      "question": "torque do parafuso do cabeçote",
+      "reciprocal_rank": 0.0,
+      "retrieved_chunk_ids": [],
+      "value_matched": false
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0003"
+      ],
+      "expected_value": "23",
+      "fact_id": "torque-mancal-comando",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "camshaft bearing cap nut torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0003",
+        "svc-kadett-1993#0012"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0004"
+      ],
+      "expected_value": "19",
+      "fact_id": "torque-coletor-admissao",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "intake manifold nut tightening torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0005"
+      ],
+      "expected_value": "26",
+      "fact_id": "torque-coletor-escape",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "exhaust manifold nut tightening torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0005"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0006"
+      ],
+      "expected_value": "63",
+      "fact_id": "torque-volante-motor",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "flywheel bolt torque",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0006"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0007"
+      ],
+      "expected_value": "0.18",
+      "fact_id": "folga-valvula-admissao",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "valve clearance intake engine cold",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0007",
+        "svc-kadett-1993#0008"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0008"
+      ],
+      "expected_value": "0.31",
+      "fact_id": "folga-valvula-escape",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "exhaust valve clearance cold",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0008",
+        "svc-kadett-1993#0007"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0015"
+      ],
+      "expected_value": "3.9",
+      "fact_id": "capacidade-oleo-motor",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "engine oil capacity with filter litres",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0015"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0015"
+      ],
+      "expected_value": "SAE 20W-50",
+      "fact_id": "especificacao-oleo-motor",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "engine oil specification",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0015"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0016"
+      ],
+      "expected_value": "6.4",
+      "fact_id": "capacidade-arrefecimento",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cooling system capacity litres",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0016"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0017"
+      ],
+      "expected_value": "1.7",
+      "fact_id": "capacidade-cambio-manual",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "manual gearbox oil capacity",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0017"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0018"
+      ],
+      "expected_value": "52",
+      "fact_id": "capacidade-tanque-combustivel",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "fuel tank capacity litres",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0018",
+        "svc-kadett-1993#0015",
+        "svc-kadett-1993#0016",
+        "svc-kadett-1993#0017"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0009"
+      ],
+      "expected_value": "battery negative lead",
+      "fact_id": "procedimento-bateria-primeiro",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "disconnect battery before removing the camshaft",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0009"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0010"
+      ],
+      "expected_value": "top dead centre",
+      "fact_id": "procedimento-ponto-morto-superior",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "crankshaft top dead centre cylinder one",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0010"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0011"
+      ],
+      "expected_value": "Slacken the timing belt tensioner",
+      "fact_id": "procedimento-tensionador-correia",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "slacken timing belt tensioner camshaft sprocket",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0011"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "svc-kadett-1993#0012"
+      ],
+      "expected_value": "cap 5 to cap 1",
+      "fact_id": "procedimento-ordem-mancais",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "loosen camshaft bearing cap nuts order",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "svc-kadett-1993#0012",
+        "svc-kadett-1993#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "expected_value": "28",
+      "fact_id": "pressao-pneu-dianteiro",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cold tyre inflation pressure front",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "expected_value": "41",
+      "fact_id": "pressao-estepe",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "spare wheel stored inflation pressure",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "expected_value": "28",
+      "fact_id": "pressao-pneu-em-portugues",
+      "hit_rank": null,
+      "ndcg": 0.0,
+      "question": "pressao do pneu dianteiro",
+      "reciprocal_rank": 0.0,
+      "retrieved_chunk_ids": [],
+      "value_matched": false
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "expected_value": "185/60 R14",
+      "fact_id": "medida-do-pneu",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "factory tyres",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0001"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0002"
+      ],
+      "expected_value": "10 000 km",
+      "fact_id": "intervalo-de-revisao",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "take the car to a workshop",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0002",
+        "owner-kadett-1993#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0002"
+      ],
+      "expected_value": "60 000 km",
+      "fact_id": "troca-correia-dentada",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "timing belt replacement",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0002"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0003"
+      ],
+      "expected_value": "stop immediately",
+      "fact_id": "luz-pressao-oleo-vermelha",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "red oil pressure lamp",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0003"
+      ],
+      "expected_value": "amber",
+      "fact_id": "luz-injecao-ambar",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "engine management warning lamp colour",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "owner-kadett-1993#0004"
+      ],
+      "expected_value": "25",
+      "fact_id": "tolerancia-alcool",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "álcool blend the engine tolerates without adjustment",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "owner-kadett-1993#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0006"
+      ],
+      "expected_value": "90 484 220",
+      "fact_id": "peca-bomba-combustivel",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "in-tank fuel pump part number",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0006"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0004"
+      ],
+      "expected_value": "90 512 113",
+      "fact_id": "peca-correia-dentada",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "timing belt part number 137 teeth",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0003"
+      ],
+      "expected_value": "90 512 007",
+      "fact_id": "peca-sensor-comando",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "camshaft position sensor part number",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0001"
+      ],
+      "expected_value": "0.8 mm",
+      "fact_id": "peca-vela-de-ignicao",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "spark plug gap resistive",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0001"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0008"
+      ],
+      "expected_value": "190",
+      "fact_id": "peca-bico-injetor",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "injector cc/min GSi",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0008"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "parts-gsi-1994#0010"
+      ],
+      "expected_value": "90 484 209",
+      "fact_id": "peca-bomba-substituida",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "pump supersedes",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "parts-gsi-1994#0010"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0004"
+      ],
+      "expected_value": "não cabe bonito",
+      "fact_id": "swap-250s-cabe-no-cofre",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cabe no cofre do Kadett",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0008"
+      ],
+      "expected_value": "não é pra Kadett",
+      "fact_id": "swap-250s-vale-a-pena",
+      "hit_rank": null,
+      "ndcg": 0.0,
+      "question": "vale a pena swap 250-S no Kadett",
+      "reciprocal_rank": 0.0,
+      "retrieved_chunk_ids": [],
+      "value_matched": false
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0008"
+      ],
+      "expected_value": "não é pra Kadett",
+      "fact_id": "swap-250s-linha-reta",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "swap 250-S barulho em linha reta",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0008",
+        "forum-swap-250s#0009"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0004"
+      ],
+      "expected_value": "mesa nova",
+      "fact_id": "longarina-reforcada",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "precisa de longarina reforçada",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0009"
+      ],
+      "expected_value": "comendo pistão",
+      "fact_id": "cabecote-plainado-come-pistao",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cabecote plainado demais comendo pistao",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0009",
+        "forum-swap-250s#0010"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0008"
+      ],
+      "expected_value": "150 cv",
+      "fact_id": "potencia-cabecote-trabalhado",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "cabecote trabalhado comando 280",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0008",
+        "blog-projetinho-de-rua#0005"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "forum-swap-250s#0011"
+      ],
+      "expected_value": "curta demais",
+      "fact_id": "coroa-curta-demais",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "coroa curta demais motor bravo",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "forum-swap-250s#0011"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0001"
+      ],
+      "expected_value": "correia dentada",
+      "fact_id": "barulho-era-tensionador",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "barulho de corrente tensionador",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "blog-projetinho-de-rua#0001"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0002"
+      ],
+      "expected_value": "ordem certa",
+      "fact_id": "suspensao-antes-do-motor",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "refiz a suspensao antes do motor",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "blog-projetinho-de-rua#0002"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0003"
+      ],
+      "expected_value": "sob medida",
+      "fact_id": "escape-sob-medida",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "escape 4x2x1 de catálogo é plug and play",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "blog-projetinho-de-rua#0003"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0003"
+      ],
+      "expected_value": "sob medida",
+      "fact_id": "escape-sem-acento",
+      "hit_rank": null,
+      "ndcg": 0.0,
+      "question": "escape de catalogo plug and play",
+      "reciprocal_rank": 0.0,
+      "retrieved_chunk_ids": [],
+      "value_matched": false
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0004"
+      ],
+      "expected_value": "mesa que virou sucata",
+      "fact_id": "mesa-virou-sucata",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "gastei dinheiro insistindo no swap 250-S",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "blog-projetinho-de-rua#0004"
+      ],
+      "value_matched": true
+    },
+    {
+      "expected_chunk_ids": [
+        "blog-projetinho-de-rua#0005"
+      ],
+      "expected_value": "gerenciamento programável",
+      "fact_id": "projetinho-de-rua-hoje",
+      "hit_rank": 1,
+      "ndcg": 1.0,
+      "question": "projetinho de rua gerenciamento",
+      "reciprocal_rank": 1.0,
+      "retrieved_chunk_ids": [
+        "blog-projetinho-de-rua#0005"
+      ],
+      "value_matched": true
+    }
+  ],
+  "provenance": {
+    "corpus_hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+    "corpus_id": "fixture",
+    "git_dirty": true,
+    "git_sha": "0823b0f37c9490729791e8fb20a852fec7efb0c0",
+    "ingest_version": 1,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.13"
+  },
+  "run_id": "20260802T004849Z-0823b0f37c94",
+  "run_record_version": 1,
+  "sample_count": 47,
+  "started_at": "2026-08-02T00:48:49Z",
+  "suite": "facts"
+}

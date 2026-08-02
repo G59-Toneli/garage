@@ -1,0 +1,47 @@
+{"fact_id": "torque-cabecote-estagio-1", "question": "cylinder head bolt stage 1 torque", "expected_value": "41", "chunk_ids": ["svc-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "torque-cabecote-estagio-2", "question": "cylinder head bolt stage 2 tightening torque", "expected_value": "77", "chunk_ids": ["svc-kadett-1993#0002"], "tolerance": 0.5}
+{"fact_id": "torque-cabecote-rosca-m11", "question": "cylinder head bolt thread M11", "expected_value": "M11", "chunk_ids": ["svc-kadett-1993#0001", "svc-kadett-1993#0002"]}
+{"fact_id": "torque-cabecote-em-portugues", "question": "torque do parafuso do cabeçote", "expected_value": "M11", "chunk_ids": ["svc-kadett-1993#0001", "svc-kadett-1993#0002"]}
+{"fact_id": "torque-mancal-comando", "question": "camshaft bearing cap nut torque", "expected_value": "23", "chunk_ids": ["svc-kadett-1993#0003"], "tolerance": 0.5}
+{"fact_id": "torque-coletor-admissao", "question": "intake manifold nut tightening torque", "expected_value": "19", "chunk_ids": ["svc-kadett-1993#0004"], "tolerance": 0.5}
+{"fact_id": "torque-coletor-escape", "question": "exhaust manifold nut tightening torque", "expected_value": "26", "chunk_ids": ["svc-kadett-1993#0005"], "tolerance": 0.5}
+{"fact_id": "torque-volante-motor", "question": "flywheel bolt torque", "expected_value": "63", "chunk_ids": ["svc-kadett-1993#0006"], "tolerance": 0.5}
+{"fact_id": "folga-valvula-admissao", "question": "valve clearance intake engine cold", "expected_value": "0.18", "chunk_ids": ["svc-kadett-1993#0007"], "tolerance": 0.005}
+{"fact_id": "folga-valvula-escape", "question": "exhaust valve clearance cold", "expected_value": "0.31", "chunk_ids": ["svc-kadett-1993#0008"], "tolerance": 0.005}
+{"fact_id": "capacidade-oleo-motor", "question": "engine oil capacity with filter litres", "expected_value": "3.9", "chunk_ids": ["svc-kadett-1993#0015"], "tolerance": 0.05}
+{"fact_id": "especificacao-oleo-motor", "question": "engine oil specification", "expected_value": "SAE 20W-50", "chunk_ids": ["svc-kadett-1993#0015"]}
+{"fact_id": "capacidade-arrefecimento", "question": "cooling system capacity litres", "expected_value": "6.4", "chunk_ids": ["svc-kadett-1993#0016"], "tolerance": 0.05}
+{"fact_id": "capacidade-cambio-manual", "question": "manual gearbox oil capacity", "expected_value": "1.7", "chunk_ids": ["svc-kadett-1993#0017"], "tolerance": 0.05}
+{"fact_id": "capacidade-tanque-combustivel", "question": "fuel tank capacity litres", "expected_value": "52", "chunk_ids": ["svc-kadett-1993#0018"], "tolerance": 0.5}
+{"fact_id": "procedimento-bateria-primeiro", "question": "disconnect battery before removing the camshaft", "expected_value": "battery negative lead", "chunk_ids": ["svc-kadett-1993#0009"]}
+{"fact_id": "procedimento-ponto-morto-superior", "question": "crankshaft top dead centre cylinder one", "expected_value": "top dead centre", "chunk_ids": ["svc-kadett-1993#0010"]}
+{"fact_id": "procedimento-tensionador-correia", "question": "slacken timing belt tensioner camshaft sprocket", "expected_value": "Slacken the timing belt tensioner", "chunk_ids": ["svc-kadett-1993#0011"]}
+{"fact_id": "procedimento-ordem-mancais", "question": "loosen camshaft bearing cap nuts order", "expected_value": "cap 5 to cap 1", "chunk_ids": ["svc-kadett-1993#0012"]}
+{"fact_id": "pressao-pneu-dianteiro", "question": "cold tyre inflation pressure front", "expected_value": "28", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "pressao-estepe", "question": "spare wheel stored inflation pressure", "expected_value": "41", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "pressao-pneu-em-portugues", "question": "pressao do pneu dianteiro", "expected_value": "28", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "medida-do-pneu", "question": "factory tyres", "expected_value": "185/60 R14", "chunk_ids": ["owner-kadett-1993#0001"]}
+{"fact_id": "intervalo-de-revisao", "question": "take the car to a workshop", "expected_value": "10 000 km", "chunk_ids": ["owner-kadett-1993#0002"]}
+{"fact_id": "troca-correia-dentada", "question": "timing belt replacement", "expected_value": "60 000 km", "chunk_ids": ["owner-kadett-1993#0002"]}
+{"fact_id": "luz-pressao-oleo-vermelha", "question": "red oil pressure lamp", "expected_value": "stop immediately", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "luz-injecao-ambar", "question": "engine management warning lamp colour", "expected_value": "amber", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "tolerancia-alcool", "question": "álcool blend the engine tolerates without adjustment", "expected_value": "25", "chunk_ids": ["owner-kadett-1993#0004"], "tolerance": 0.5}
+{"fact_id": "peca-bomba-combustivel", "question": "in-tank fuel pump part number", "expected_value": "90 484 220", "chunk_ids": ["parts-gsi-1994#0006"]}
+{"fact_id": "peca-correia-dentada", "question": "timing belt part number 137 teeth", "expected_value": "90 512 113", "chunk_ids": ["parts-gsi-1994#0004"]}
+{"fact_id": "peca-sensor-comando", "question": "camshaft position sensor part number", "expected_value": "90 512 007", "chunk_ids": ["parts-gsi-1994#0003"]}
+{"fact_id": "peca-vela-de-ignicao", "question": "spark plug gap resistive", "expected_value": "0.8 mm", "chunk_ids": ["parts-gsi-1994#0001"]}
+{"fact_id": "peca-bico-injetor", "question": "injector cc/min GSi", "expected_value": "190", "chunk_ids": ["parts-gsi-1994#0008"], "tolerance": 0.5}
+{"fact_id": "peca-bomba-substituida", "question": "pump supersedes", "expected_value": "90 484 209", "chunk_ids": ["parts-gsi-1994#0010"]}
+{"fact_id": "swap-250s-cabe-no-cofre", "question": "cabe no cofre do Kadett", "expected_value": "não cabe bonito", "chunk_ids": ["forum-swap-250s#0004"]}
+{"fact_id": "swap-250s-vale-a-pena", "question": "vale a pena swap 250-S no Kadett", "expected_value": "não é pra Kadett", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "swap-250s-linha-reta", "question": "swap 250-S barulho em linha reta", "expected_value": "não é pra Kadett", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "longarina-reforcada", "question": "precisa de longarina reforçada", "expected_value": "mesa nova", "chunk_ids": ["forum-swap-250s#0004"]}
+{"fact_id": "cabecote-plainado-come-pistao", "question": "cabecote plainado demais comendo pistao", "expected_value": "comendo pistão", "chunk_ids": ["forum-swap-250s#0009"]}
+{"fact_id": "potencia-cabecote-trabalhado", "question": "cabecote trabalhado comando 280", "expected_value": "150 cv", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "coroa-curta-demais", "question": "coroa curta demais motor bravo", "expected_value": "curta demais", "chunk_ids": ["forum-swap-250s#0011"]}
+{"fact_id": "barulho-era-tensionador", "question": "barulho de corrente tensionador", "expected_value": "correia dentada", "chunk_ids": ["blog-projetinho-de-rua#0001"]}
+{"fact_id": "suspensao-antes-do-motor", "question": "refiz a suspensao antes do motor", "expected_value": "ordem certa", "chunk_ids": ["blog-projetinho-de-rua#0002"]}
+{"fact_id": "escape-sob-medida", "question": "escape 4x2x1 de catálogo é plug and play", "expected_value": "sob medida", "chunk_ids": ["blog-projetinho-de-rua#0003"]}
+{"fact_id": "escape-sem-acento", "question": "escape de catalogo plug and play", "expected_value": "sob medida", "chunk_ids": ["blog-projetinho-de-rua#0003"]}
+{"fact_id": "mesa-virou-sucata", "question": "gastei dinheiro insistindo no swap 250-S", "expected_value": "mesa que virou sucata", "chunk_ids": ["blog-projetinho-de-rua#0004"]}
+{"fact_id": "projetinho-de-rua-hoje", "question": "projetinho de rua gerenciamento", "expected_value": "gerenciamento programável", "chunk_ids": ["blog-projetinho-de-rua#0005"]}

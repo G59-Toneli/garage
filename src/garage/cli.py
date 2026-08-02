@@ -1,8 +1,10 @@
 """Command line entry points.
 
-Two commands, because the project has two modes: an offline build step that produces the database
-artifact, and a read-only server that serves it (ADR-0002). `corpus validate` is the first piece of
-the build step — everything downstream refuses to run against material it has not verified.
+The project has two modes — an offline build step that produces the database artifact, and a
+read-only server that serves it (ADR-0002) — and one measurement that sits between them. `corpus
+validate` is the first piece of the build step, `ingest` the second, `eval` the third: everything
+downstream refuses to run against material it has not verified, and the evaluation refuses to run
+against a database that is not this commit's artifact.
 """
 
 from __future__ import annotations
@@ -10,8 +12,14 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from garage.corpus import FIXTURE_CORPUS, CorpusError, validate_corpus
+
+if TYPE_CHECKING:
+    # Type-checking only, so the annotation costs nothing at import time and `corpus validate` still
+    # runs on a machine that has never heard of psycopg.
+    from garage.evaluation import RunRecord
 
 
 def _add_corpus_arguments(command: argparse.ArgumentParser) -> None:
@@ -50,19 +58,72 @@ def _build_parser() -> argparse.ArgumentParser:
         help="rebuild the database from a Corpus (safe to re-run; drops and reloads)",
     )
     _add_corpus_arguments(ingest)
-    ingest.add_argument(
-        "--database-url",
-        default=None,
-        metavar="URL",
-        help="Postgres URL (default: GARAGE_DATABASE_URL from the environment)",
+    _add_database_argument(ingest)
+
+    evaluation = commands.add_parser("eval", help="deterministic evaluation").add_subparsers(
+        dest="eval_command", required=True
+    )
+    eval_run = evaluation.add_parser(
+        "run", help="measure retrieval against eval/facts.jsonl and write a run record"
+    )
+    _add_corpus_arguments(eval_run)
+    _add_database_argument(eval_run)
+
+    eval_gate = evaluation.add_parser(
+        "gate",
+        help="measure and fail if retrieval regressed against eval/baseline.json (writes nothing)",
+    )
+    _add_corpus_arguments(eval_gate)
+    _add_database_argument(eval_gate)
+
+    eval_promote = evaluation.add_parser(
+        "promote", help="make a recorded run the baseline the gate compares against"
+    )
+    eval_promote.add_argument(
+        "run_id",
+        help="the run_id of a record in eval/runs/ (its filename without .json)",
     )
 
     # Every leaf names its own handler. Dispatching by falling through `if command == ...` would mean
     # a future subcommand silently inheriting whatever the last branch happened to do.
     validate.set_defaults(handler=_validate)
     ingest.set_defaults(handler=_ingest)
+    eval_run.set_defaults(handler=_eval_run)
+    eval_gate.set_defaults(handler=_eval_gate)
+    eval_promote.set_defaults(handler=_eval_promote)
     commands.add_parser("serve", help="run the read-only HTTP server").set_defaults(handler=_serve)
     return parser
+
+
+def _add_database_argument(command: argparse.ArgumentParser) -> None:
+    """How every command that reaches the database names it — shared so they cannot drift apart."""
+    command.add_argument(
+        "--database-url",
+        default=None,
+        metavar="URL",
+        help="Postgres URL (default: GARAGE_DATABASE_URL from the environment)",
+    )
+
+
+def _resolve_database_url(arguments: argparse.Namespace) -> str | None:
+    """The URL from the flag, else from the environment, else None with the reason already printed.
+
+    Settings are imported here rather than at module scope for the same reason the handlers import
+    their own dependencies: `corpus validate` is an offline build step and must keep working on a
+    machine with no database configured at all.
+    """
+    if arguments.database_url is not None:
+        return arguments.database_url
+
+    from pydantic import ValidationError
+
+    from garage.config import Settings
+
+    try:
+        return Settings().database_url
+    except ValidationError:
+        print("no database URL: pass --database-url or set GARAGE_DATABASE_URL", file=sys.stderr)
+        return None
 
 
 def _validate(arguments: argparse.Namespace) -> int:
@@ -84,19 +145,9 @@ def _ingest(arguments: argparse.Namespace) -> int:
     # database in sight — the gate must never depend on the thing it gates.
     from garage.ingest import build
 
-    database_url = arguments.database_url
+    database_url = _resolve_database_url(arguments)
     if database_url is None:
-        from pydantic import ValidationError
-
-        from garage.config import Settings
-
-        try:
-            database_url = Settings().database_url
-        except ValidationError:
-            print(
-                "no database URL: pass --database-url or set GARAGE_DATABASE_URL", file=sys.stderr
-            )
-            return 1
+        return 1
 
     try:
         report = build(database_url, arguments.corpus_dir, sources_dir=arguments.sources)
@@ -114,6 +165,139 @@ def _ingest(arguments: argparse.Namespace) -> int:
     print(f"chunks:         {report.chunk_count} ({kinds})")
     print(f"jargon terms:   {report.jargon_term_count}")
     return 0
+
+
+def _eval_run(arguments: argparse.Namespace) -> int:
+    """Measure and write a record. The record is a repository artifact, so this is not a CI step —
+    a developer runs it and commits the file alongside the change that moved the numbers.
+    """
+    # Imported inside the handler, like every other command that needs a database: `corpus validate`
+    # must not acquire a psycopg dependency because a sibling subcommand has one.
+    from garage.evaluation import EvaluationError, run_evaluation, write_run_record
+    from garage.ingest import ArtifactMismatch
+
+    database_url = _resolve_database_url(arguments)
+    if database_url is None:
+        return 1
+
+    try:
+        record = run_evaluation(database_url, arguments.corpus_dir)
+    except (EvaluationError, ArtifactMismatch) as failure:
+        print(f"evaluation failed\n{failure}", file=sys.stderr)
+        return 1
+
+    path = write_run_record(record)
+    _print_metrics(record)
+    print(f"run record:  {path}")
+    if record.provenance.git_dirty:
+        # Not a failure — the normal way to produce a record is to run it on the change you are
+        # about to commit, which is a dirty tree by definition. Said out loud because a record whose
+        # git_sha does not describe what was measured is only reproducible by the person holding it.
+        print("note: measured from a dirty working tree; commit the record with the change it describes")
+    return 0
+
+
+def _eval_gate(arguments: argparse.Namespace) -> int:
+    """The build gate. Writes nothing at all.
+
+    Two independent questions, both of which fail the build. Did retrieval regress against the
+    promoted baseline? And does the newest run record committed to the tree still describe this
+    build? The second is what makes a committed record an assertion rather than a souvenir: a change
+    that moves the numbers and does not regenerate the record is caught here (ADR-0002).
+    """
+    from garage.evaluation import (
+        EvaluationError,
+        compare,
+        latest_run_record,
+        load_baseline,
+        load_run_record,
+        measurement,
+        run_evaluation,
+    )
+    from garage.ingest import ArtifactMismatch
+
+    database_url = _resolve_database_url(arguments)
+    if database_url is None:
+        return 1
+
+    try:
+        baseline = load_baseline()
+        record = run_evaluation(database_url, arguments.corpus_dir)
+        committed_path = latest_run_record()
+        committed = load_run_record(committed_path) if committed_path else None
+        promoted_path = _run_record_path(baseline.run_id)
+        promoted = load_run_record(promoted_path) if promoted_path.is_file() else None
+    except (EvaluationError, ArtifactMismatch) as failure:
+        print(f"evaluation gate failed\n{failure}", file=sys.stderr)
+        return 1
+
+    report = compare(baseline, record, promoted)
+    failures = list(report.failures)
+
+    if promoted is None:
+        failures.append(
+            f"the baseline names run {baseline.run_id}, which is not in eval/runs/. A baseline must "
+            "point at a record someone can read."
+        )
+    if committed is None:
+        failures.append(
+            "no run record in eval/runs/. Records are generated and committed, never written by CI."
+        )
+    elif measurement(committed) != measurement(record):
+        failures.append(
+            f"the newest run record in the tree ({committed_path.name}) does not match what this "
+            "build measures. It was committed against a different corpus, Configuration or "
+            "retrieval behaviour."
+        )
+
+    _print_metrics(record)
+    for note in report.notes:
+        print(note)
+
+    if not failures:
+        print("gate: pass")
+        return 0
+
+    print(f"\nevaluation gate failed: {len(failures)} problem(s)", file=sys.stderr)
+    for failure in failures:
+        print(f"  - {failure}", file=sys.stderr)
+    for note in report.notes:
+        print(f"  {note}", file=sys.stderr)
+    # Last line, always the next action: a gate that only says "no" costs more time than it saves.
+    print(
+        "\nNext: run `python -m garage eval run`, inspect the new record, and either fix the "
+        "regression or promote it deliberately with `python -m garage eval promote <run_id>`.",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def _eval_promote(arguments: argparse.Namespace) -> int:
+    """Deliberate, local, and never run by CI — the promoting commit is the human sign-off."""
+    from garage.evaluation import EvaluationError, promote
+
+    try:
+        path = promote(arguments.run_id)
+    except EvaluationError as failure:
+        print(f"promotion failed\n{failure}", file=sys.stderr)
+        return 1
+
+    print(f"baseline: {path} now points at {arguments.run_id}")
+    return 0
+
+
+def _run_record_path(run_id: str) -> Path:
+    from garage.evaluation import RUNS_DIR
+
+    return RUNS_DIR / f"{run_id}.json"
+
+
+def _print_metrics(record: RunRecord) -> None:
+    print(f"strategy:    {record.configuration.strategy}  k={record.configuration.k}")
+    print(f"corpus_hash: {record.provenance.corpus_hash}")
+    print(f"facts:       {record.sample_count} (sha256 {record.facts_sha256[:12]}…)")
+    for name, value in sorted(record.metrics.items()):
+        print(f"  {name:<18} {value:.6f}")
 
 
 def _serve(_: argparse.Namespace) -> int:

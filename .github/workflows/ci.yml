@@ -39,6 +39,16 @@ jobs:
       # The build step operators actually run. `pytest` already ingested through the library; this
       # proves the command does it too, against a database it did not create itself.
       - run: python -m garage ingest
+      # Retrieval quality as a build gate. Needs no API key and no network — the questions, the
+      # expected answers, the baseline and the thresholds are all committed, so this step is a pure
+      # function of the checkout and the artifact `ingest` just built (ADR-0004). It runs last
+      # because it is the only step that needs a populated database it did not populate itself.
+      #
+      # It also re-measures the newest run record in `eval/runs/` and fails if the two disagree.
+      # Records are generated locally and committed with the change that moved them, which makes
+      # each one a reproducible assertion rather than a by-product of whichever CI machine ran
+      # (ADR-0002). Nothing here ever writes to the repository: promotion is a human commit.
+      - run: python -m garage eval gate
 
   image:
     # The deployment target is an ARM VM (ADR-0001), so arm64 must build on every change,
