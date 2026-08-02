@@ -474,3 +474,38 @@ def test_a_build_with_no_generator_does_not_advertise_a_generation_budget(monkey
 
     assert configured["origin_detail"]["generation_configured"] is True
     assert provenance["generation_configured"] is True
+
+
+def test_the_suite_wide_default_leaves_the_bucket_off_but_a_test_can_turn_it_on(settings):  # noqa: F811
+    """The order-independence policy, asserted rather than assumed.
+
+    `conftest.the_anti_abuse_bucket_is_off_unless_a_test_asks_for_it` sets the environment variable
+    for every test, so an app built from ambient settings anywhere in this suite cannot accumulate a
+    hidden budget and fail whichever test happens to be eleventh. This asserts both halves of that:
+    the default really is off, and an explicit value really does win — the second half is what keeps
+    `test_the_anti_abuse_bucket_is_only_429_and_it_carries_retry_after` above from being silently
+    neutered by the very fixture that makes the rest of the suite safe.
+    """
+    from garage.config import Settings
+
+    assert Settings(database_url="postgresql://u:p@db/g").requests_per_minute == 0
+    # A constructor argument beats the environment (pydantic-settings priority), and so does
+    # `model_copy`, which bypasses validation entirely. Both spellings are used by tests above.
+    assert Settings(database_url="postgresql://u:p@db/g", requests_per_minute=7).requests_per_minute == 7
+    assert settings.model_copy(update={"requests_per_minute": 2}).requests_per_minute == 2
+
+
+def test_an_app_built_from_ambient_settings_cannot_run_out_of_bucket(monkeypatch, settings):  # noqa: F811
+    """The regression, as a test: more than ten `POST /query` calls against one app object.
+
+    Before the conftest fixture this was a 429 on the eleventh call, and the failure landed on
+    whichever unlucky test in the suite crossed the line first rather than on anything to do with
+    rate limiting.
+    """
+    with client(settings, generator=FakeGenerator(), monkeypatch=monkeypatch) as http:
+        codes = [
+            http.post("/query", json={"question": f"pergunta {index}"}).status_code
+            for index in range(25)
+        ]
+
+    assert set(codes) == {200}
