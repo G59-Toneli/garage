@@ -1102,7 +1102,7 @@
     },
     {
       "configuration": {
-        "embedder": "baseline@37211055ebcf",
+        "embedder": "baseline@6f852da7deb1",
         "k": 10,
         "reranker": null,
         "strategy": "dense",
@@ -2950,14 +2950,14 @@
       ]
     }
   ],
-  "duration_ms": 5761,
+  "duration_ms": 7672,
   "facts_sha256": "3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632",
   "layer": "deterministic",
   "provenance": {
     "corpus_hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
     "corpus_id": "fixture",
     "git_dirty": false,
-    "git_sha": "69ecf7d0bb69c1bfbc238b4efdea483dc8ee7816",
+    "git_sha": "604c0f58a2102158ca6e46c26213258a54d0b6e4",
     "ingest_version": 1,
     "pg_trgm_version": "1.6",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -2966,9 +2966,9 @@
     "text_search_config": "pg_catalog.portuguese",
     "text_search_dictionaries": "portuguese_stem, simple"
   },
-  "run_id": "20260802T020612Z-69ecf7d0bb69",
+  "run_id": "20260802T024452Z-604c0f58a210",
   "run_record_version": 2,
   "sample_count": 76,
-  "started_at": "2026-08-02T02:06:12Z",
+  "started_at": "2026-08-02T02:44:52Z",
   "suite": "facts"
 }

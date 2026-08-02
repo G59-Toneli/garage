@@ -33,7 +33,7 @@
     },
     {
       "configuration": {
-        "embedder": "baseline@37211055ebcf",
+        "embedder": "baseline@6f852da7deb1",
         "k": 10,
         "reranker": null,
         "strategy": "dense",
@@ -42,7 +42,15 @@
           "B"
         ]
       },
-      "gated_metrics": [],
+      "gated_metrics": [
+        "mrr@10",
+        "ndcg@10",
+        "recall@1",
+        "recall@10",
+        "recall@10:keyword",
+        "recall@10:natural",
+        "recall@5"
+      ],
       "metrics": {
         "mrr@10": 0.755738,
         "ndcg@10": 0.790693,
@@ -58,7 +66,7 @@
   "baseline_version": 2,
   "facts_sha256": "3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632",
   "noise_floor": 0.013,
-  "run_id": "20260802T020612Z-69ecf7d0bb69",
+  "run_id": "20260802T024452Z-604c0f58a210",
   "sample_count": 76,
   "tolerance": 0.014
 }
