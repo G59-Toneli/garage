@@ -93,13 +93,26 @@ in the same process — no rebuild, no redeploy, no second container. Omit the f
 build does not serve is a 422 naming the ones it does, never a silent fall back: a visitor comparing
 two strategies who typos one and is quietly served the other reads a difference that is not there.
 
-The response shape does not change at all. Only `components` differs, because it is
-`dict[str, float | None]` rather than four named fields:
+No existing field changes shape. `components` differs, because it is `dict[str, float | None]`
+rather than four named fields, and one field is **added**:
 
 ```jsonc
-{"chunk_id": "svc-kadett-1993#0006", "score": 0.8376,
- "components": {"cosine": 0.8376, "dense_rank": 1}}
+{
+  "strategy": "dense",
+  "embedder": "baseline@6f852da7deb1",
+  "chunks": [
+    {"chunk_id": "svc-kadett-1993#0006", "score": 0.8376,
+     "components": {"cosine": 0.8376, "dense_rank": 1}}
+  ]
+}
 ```
+
+`embedder` is `<model_key>@<fingerprint prefix>`, null under `lexical`, and it also rides the
+`retrieve` span as `retrieval.embedder`. It exists because `strategy` alone stops being an identity
+the moment ADR-0005's second embedder does: Phase 4 puts `baseline` and `finetuned` in one
+`embeddings` table under two `model_key`s, and two arms both labelled `dense` would be a comparison
+a reader cannot name. An interface can then show which embedder answered without hard-coding it —
+the same thing `Configuration.embedder` has done for run records all along.
 
 `score` **is** the cosine, `1 - (embedding <=> :q)`, **rounded to five decimals before anything
 orders by it**. That rounding is not cosmetic. ONNX Runtime is not bit-reproducible across

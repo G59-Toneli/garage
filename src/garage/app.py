@@ -181,6 +181,14 @@ class QueryResponse(BaseModel):
     # material it came from cannot be reproduced, and a run record is assembled out of responses.
     corpus_hash: str
     strategy: str
+    # Which stored vectors answered, as `<model_key>@<fingerprint prefix>`; null under `lexical`,
+    # exactly as `Configuration.embedder` is null there. Added because `strategy` alone stops being
+    # an identity the moment ADR-0005's second embedder exists: Phase 4 puts `baseline` and
+    # `finetuned` in one `embeddings` table under two `model_key`s, and comparing them is the point
+    # of the phase — two arms both labelled `dense` would be a comparison a reader cannot name.
+    # It also lets an interface show the embedder without hard-coding it, which the run record has
+    # been able to do all along and the HTTP surface could not.
+    embedder: str | None
     k: int
     tiers: tuple[Tier, ...]
     chunks: tuple[RetrievedChunk, ...]
@@ -289,6 +297,10 @@ def create_app(
                 "retrieve",
                 **{
                     "retrieval.strategy": retriever.name,
+                    # Beside the strategy rather than folded into it, and null under `lexical`. A
+                    # trace that says `dense` without saying *which* vectors is a trace that cannot
+                    # tell the Phase 4 arms apart (ADR-0005) — and the trace is the product.
+                    "retrieval.embedder": retriever.embedder_id,
                     "retrieval.k": query_request.k,
                     "retrieval.tiers": ",".join(query_request.tiers),
                 },
@@ -315,6 +327,7 @@ def create_app(
             question=query_request.question,
             corpus_hash=corpus_hash,
             strategy=retriever.name,
+            embedder=retriever.embedder_id,
             k=query_request.k,
             tiers=query_request.tiers,
             chunks=tuple(RetrievedChunk.of(candidate) for candidate in candidates),

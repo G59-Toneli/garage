@@ -370,3 +370,38 @@ def test_the_endpoint_serves_dense_without_learning_anything_about_it(artifact, 
     # not there.
     assert unknown.status_code == 422
     assert "lexical, dense" in unknown.text or "dense, lexical" in unknown.text
+
+
+def test_the_response_names_the_embedder_that_produced_the_vectors(artifact, embedder):
+    """`strategy` alone stops identifying an arm the moment ADR-0005's second embedder exists.
+
+    Phase 4 puts `baseline` and `finetuned` in one `embeddings` table under two `model_key`s and the
+    comparison between them is the point of the phase. Two responses both saying `dense` and nothing
+    else would be a comparison a reader cannot name — and an interface that wanted to label them
+    would have to hard-code the label, which is exactly what a Glass Box must not do. The run record
+    has carried this in `Configuration.embedder` since day one; this is the HTTP surface catching up.
+    """
+    settings = Settings(database_url=artifact, corpus_dir=FIXTURE_CORPUS, gemini_api_key=None)
+    retrievers = (LexicalRetriever(artifact), DenseRetriever(artifact, embedder))
+
+    with TestClient(create_app(settings, retriever=None, retrievers=retrievers)) as client:
+        lexical = client.post("/query", json={"question": "torque", "k": 3}).json()
+        dense = client.post(
+            "/query", json={"question": "torque", "k": 3, "strategy": "dense"}
+        ).json()
+
+    # Null under lexical, exactly as `Configuration.embedder` is — an absent field would make the
+    # two look alike instead of making the difference legible.
+    assert lexical["embedder"] is None
+    assert dense["embedder"] == f"{embedder.model_key}@{embedder.fingerprint[:12]}"
+    # The same identity in the trace, beside the strategy it qualifies. The trace is the product, so
+    # a span saying `dense` without saying which vectors is the same gap one layer down.
+    assert lexical["trace"]["children"][0]["attributes"]["retrieval.embedder"] is None
+    assert (
+        dense["trace"]["children"][0]["attributes"]["retrieval.embedder"] == dense["embedder"]
+    )
+    # Additive, and asserted as such: the gate re-measures this response and another team is
+    # building an interface against it, so the pre-existing fields must be untouched.
+    assert dense["strategy"] == "dense" and dense["k"] == 3
+    assert {"question", "corpus_hash", "strategy", "k", "tiers", "chunks", "contract", "answer",
+            "trace"} <= set(dense)

@@ -24,6 +24,10 @@ class FakeRetriever:
     """A `Retriever` with no database under it. Records what it was asked."""
 
     name = "fake"
+    # Part of the `Retriever` contract, so the fake implements it rather than letting the endpoint
+    # fall back to a default: the endpoint reads it directly, and a fake that omitted it would hide
+    # a real implementation forgetting it too.
+    embedder_id = None
 
     def __init__(self, candidates=()):
         self.candidates = tuple(candidates)
