@@ -28,6 +28,48 @@ is a *client* of this endpoint like any other — it holds no privileged route. 
 comparison is two ordinary `POST /query` calls, one per strategy, which is why no `/compare`
 endpoint exists: "two columns" is a decision the interface makes, and an endpoint shaped around it
 would be that decision leaking into the API. `docs/ui.md` argues the whole of it.
+
+## The cascade (issue #11)
+
+The moment this service sits behind a public URL, `POST /query` stops being "run the pipeline" and
+becomes "decide *which* pipeline this request deserves", because one of the stages costs money out of
+a free tier with a daily ceiling. Four origins, in this order, and the order is the design:
+
+```
+POST /query
+  ├─ anti-abuse: 10 requests a minute per address ────────────── 429, and the only 429 here
+  ├─ 0. `rerun: true`?  skip 1 and 2 — a re-run that is served from a record or a cache is not a
+  │     re-run — and fall back to the record if the live attempt is refused
+  ├─ 1. a committed showcase arm matches this exact request? ──── origin="precomputed"
+  ├─ 2. the answer cache holds this exact request? ────────────── origin="cache"
+  ├─ 3. a generator exists and both daily budgets allow it? ───── origin="live"
+  └─ 4. refused, or the provider said 429 ────────────────────── origin="live_degraded"
+        retrieval ran anyway, because retrieval is local and free and is the product
+```
+
+Four things about that are decisions rather than mechanics.
+
+**The showcase lookup is before the budgets.** A curated question was paid for once, months ago, and
+costs nothing now. Rationing it would be rationing a free resource, and it is precisely what makes
+acceptance criterion four true: when the quota is gone, the curated questions are still there and
+still identical. The anti-abuse bucket *is* in front of everything, including the curated path,
+because that limiter is not about the provider's quota — it is about a loop hammering an endpoint
+that still touches Postgres on every call.
+
+**A refused budget is never a 429.** It degrades. The visitor gets the chunks, the scores, the trace
+and a marked answer saying the model could not be asked. Returning an error would throw away the free
+half of the product in order to report the unavailability of the paid half — and the free half is the
+half this project is actually about.
+
+**No sixth answer state.** `degraded=true` with a different `degradation_reason`, reusing the state
+issue #8 argued into existence. "I could not ask" already covers "I could not ask because the day's
+budget is spent", and adding a state would undo work that was done deliberately.
+
+**`origin` is a response field, not a header.** A header would be cheaper and is the wrong choice:
+`adapt.toView` consumes bodies, not responses, and putting a fact the screen must render outside the
+body would punch through the issue #9 boundary on its first day. It costs one key on `QueryResponse`
+and breaks `tests/test_ui_contract.py`, which is exactly what that test is for — an addition to this
+payload is supposed to be a decision somebody makes, not a thing that happens.
 """
 
 from __future__ import annotations
@@ -35,6 +77,7 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, AsyncIterator, Literal, Sequence
 
@@ -44,7 +87,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from garage import __version__
+from garage.cache import AnswerCache, CachedAnswer, cache_key
 from garage.config import Settings
+from garage.limits import Limiter, client_address
 from garage.generation import (
     Answer,
     Contract,
@@ -71,6 +116,9 @@ from garage.tracing import Tracer
 
 Tier = Literal["A", "B"]
 PromptContract = Literal["cited", "free"]
+# Where the answer on this response came from. A closed set, because the interface renders a
+# different band for each one and an unrecognised value would render as nothing.
+Origin = Literal["live", "cache", "precomputed", "live_degraded"]
 
 # The interface ships inside the package and is served by this same process (ADR-0006): one
 # language, one container, one artifact. Resolved from `__file__` rather than from the working
@@ -105,6 +153,18 @@ class QueryRequest(BaseModel):
     # switched off by omitting a field would not have that property. A `Literal` rather than a plain
     # string so that `extra="forbid"` and an unknown value both produce a 422 rather than a guess.
     contract: PromptContract = "cited"
+    # The re-run button (issue #11, criterion five), and an explicit flag rather than a guess.
+    #
+    # It means "do not serve me a record and do not serve me a cache — call the provider now". Both
+    # skips are required for the button to mean anything: a re-run answered out of the cache is a
+    # re-run of nothing, and the visitor is being invited to *falsify* a published number, which they
+    # cannot do against a copy of it (ADR-0004).
+    #
+    # It is not a way around the budget. It goes through the same admission as any other generation
+    # and, when refused, the endpoint answers with the recorded arm marked `rerun_refused` — the
+    # honest outcome, and better than an error, because the recorded number is still the thing the
+    # visitor came to look at.
+    rerun: bool = False
 
 
 class RetrievedChunk(BaseModel):
@@ -121,7 +181,13 @@ class RetrievedChunk(BaseModel):
     page: int | None
     section: str | None
     kind: str
-    text: str
+    # Null is reachable on exactly one path and is a *designed* state there: a precomputed answer
+    # stores `chunk_id`s and never a word of the material (ADR-0003), so a deployment whose database
+    # does not hold the operator's Corpus hydrates the identity, the rank, the score and the tier and
+    # leaves the paragraph absent. `adapt.chunkView` already turns that null into `textAbsent` and
+    # `render.chunkText` already draws it as an identified absence — the vocabulary existed before
+    # this field could produce it. A live retrieval always carries text.
+    text: str | None
     score: float
     components: dict[str, float | None]
 
@@ -213,6 +279,19 @@ class StrategiesResponse(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    # First field on the model and first key a reader sees, deliberately. Everything under it is a
+    # measurement, and the single most important thing to know about a measurement on this site is
+    # whether it was taken just now, read out of a cache, or copied from a file somebody committed in
+    # April. See the cascade in the module docstring.
+    origin: Origin
+    # Whatever that origin needs said about itself, and nothing shared between them. A `showcase_id`
+    # is meaningless on a live answer and `generations_remaining` is meaningless on a precomputed
+    # one; a flat model holding the union would publish a null for every field that does not apply
+    # and invite a screen to render it. Null when there is genuinely nothing to add.
+    #
+    # The key sets are per-origin and are asserted in `tests/test_ui_contract.py`, so this being a
+    # bare dict is a shape the interface can rely on rather than a place to put anything.
+    origin_detail: dict[str, Any] | None
     question: str
     # Echoed on every response, not only checked at boot: an answer kept without the identity of the
     # material it came from cannot be reproduced, and a run record is assembled out of responses.
@@ -236,6 +315,40 @@ class QueryResponse(BaseModel):
     # matching the trace, which has no `generate` span either.
     answer: GeneratedAnswer | None
     trace: dict[str, Any]
+
+
+class ProvenanceResponse(BaseModel):
+    """What this build is standing on, answerable before a visitor asks anything.
+
+    It exists for one requirement that could not be met any other way: while the corpus is the
+    fixture, **every screen** must say so, permanently and above everything else, because the
+    documents in it were invented for this project and a demo that falsifies a claim about invented
+    material is an exercise (ADR-0003, `corpus/fixture/`). That banner has to be on the page at load,
+    before any query, on the metrics screen and on the showcase screen too — so the fact has to be
+    readable from a GET that costs nothing.
+
+    `POST /query` was not an option: it needs a question. `/health` was not an option either — a
+    health check that grows fields is a health check that starts failing for reasons unrelated to
+    health, and orchestrators read it.
+
+    `corpus_id` rather than a `fixture: true` boolean. The interface asks "is this the fixture", but
+    the *fact* is which Corpus is loaded, and a boolean would have to be recomputed here the day a
+    second synthetic corpus exists. `banner.js` compares the string; the string is the truth.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    corpus_id: str
+    corpus_hash: str
+    ingest_version: int
+    # The commit this container was built from, or `unknown` in a build that has no git and was given
+    # no `GARAGE_GIT_SHA`. Never invented: `unknown` is printed as `unknown`.
+    git_sha: str
+    version: str
+    # The generation budget as it stands right now, published to anyone who asks. A visitor watching
+    # the number fall is a visitor who is not surprised when the answers stop being live — and an
+    # operator can read the state of the quota without shelling into the VM.
+    budget: dict[str, int | str]
 
 
 class HydratedChunk(BaseModel):
@@ -304,6 +417,19 @@ def create_app(
 
         generator = GeminiGenerator(api_key=settings.gemini_api_key, model=settings.gemini_model)
 
+    # One limiter and one cache per process, constructed here rather than at module scope. Module
+    # scope would give two `TestClient`s in one test session a shared budget, which is a test
+    # depending on the order the suite happens to run in — and would make "the counters reset on
+    # restart" untrue in the one place it is convenient for it to be true.
+    limiter = Limiter(
+        requests_per_minute=settings.requests_per_minute,
+        generations_per_day_per_client=settings.generations_per_day_per_client,
+        generation_budget_per_day=settings.generation_budget_per_day,
+    )
+    cache = AnswerCache(
+        max_entries=settings.cache_max_entries, ttl_seconds=settings.cache_ttl_seconds
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Retrievers are built here rather than above, and the reason is `dense`: it holds an
@@ -334,11 +460,20 @@ def create_app(
         # against a different Corpus would put the wrong paragraph under a real citation and nothing
         # on screen could tell. Loud, at boot, exactly like the database check above — and here
         # rather than inside `showcase.py` because refusing to *serve* is this layer's decision.
-        from garage.showcase import verify_showcase_records
+        from garage.showcase import precomputed_index, verify_showcase_records
 
         app.state.showcase_ids = verify_showcase_records(
             app.state.artifact.corpus_hash, settings.showcase_dir
         )
+        # Indexed once, here, immediately after the gate that just agreed every record stands on this
+        # artifact. Rebuilding it per request would put file reads and Pydantic validation on the hot
+        # path of the one endpoint that has to answer a curated question instantly — which is
+        # acceptance criterion two, and would be defeated by the very mechanism meant to serve it.
+        app.state.precomputed = precomputed_index(_showcase_dir(settings))
+        # Resolved once, for the same reason and one more: `git_provenance` shells out to git, and a
+        # subprocess on every request would be a subprocess on every request. The environment wins
+        # over the checkout, because the image is built from a tarball where git knows nothing.
+        app.state.git_sha = settings.git_sha or _git_sha()
         app.state.retrievers = {strategy.name: strategy for strategy in strategies}
         app.state.default_strategy = strategies[0].name
         yield
@@ -346,10 +481,29 @@ def create_app(
     app = FastAPI(title="Garage", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.generator = generator
+    app.state.limiter = limiter
+    app.state.cache = cache
 
     @app.get("/health")
     def health() -> dict[str, str]:
+        # Deliberately unchanged and deliberately never extended. Compose and systemd read this, and
+        # a health check that grows fields is a health check that starts failing for reasons that
+        # have nothing to do with health. Everything issue #11 wanted published went to
+        # `/provenance` below instead.
         return {"status": "ok", "version": __version__}
+
+    @app.get("/provenance")
+    def provenance(http: Request) -> ProvenanceResponse:
+        """Which Corpus, which commit, and how much of today's generation budget is left."""
+        artifact = http.app.state.artifact
+        return ProvenanceResponse(
+            corpus_id=artifact.corpus_id,
+            corpus_hash=artifact.corpus_hash,
+            ingest_version=artifact.ingest_version,
+            git_sha=http.app.state.git_sha,
+            version=__version__,
+            budget=limiter.snapshot(_utcnow()),
+        )
 
     @app.get("/strategies")
     def strategies(http: Request) -> StrategiesResponse:
@@ -412,6 +566,88 @@ def create_app(
             )
         retriever = strategies[name]
 
+        now = _utcnow()
+        client = client_address(
+            http.headers.get("x-forwarded-for"),
+            http.client.host if http.client else None,
+            trust_forwarded_for=settings.trust_forwarded_for,
+        )
+
+        # The anti-abuse bucket, in front of everything including the free paths. It is not the
+        # provider's quota — it is a loop hammering an endpoint that touches Postgres on every call,
+        # and the correct answer to that is the one 429 this endpoint produces. See the cascade in
+        # the module docstring for why every *other* refusal degrades instead.
+        admitted = limiter.admit_request(client, now)
+        if not admitted.allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "muitas requisições em pouco tempo. Nada foi consultado; tente de novo em "
+                    f"{admitted.retry_after_seconds}s."
+                ),
+                headers={"Retry-After": str(admitted.retry_after_seconds)},
+            )
+
+        # Step 1. A curated question, answered months ago, costing nothing now — so it is looked up
+        # before the budgets and never rationed by them. A re-run skips it by definition: a re-run
+        # served from the record is a re-run of nothing (ADR-0004 — the published number is a claim
+        # to falsify, and you cannot falsify a copy of it).
+        from garage.showcase import find_precomputed
+
+        recorded = find_precomputed(
+            http.app.state.precomputed,
+            question=query_request.question,
+            strategy=name,
+            k=query_request.k,
+            tiers=query_request.tiers,
+            contract=query_request.contract,
+            corpus_hash=corpus_hash,
+        )
+        if recorded is not None and not query_request.rerun:
+            return _precomputed_response(
+                recorded, query_request, settings, rerun_refused=False
+            )
+
+        key = cache_key(
+            question=query_request.question,
+            strategy=name,
+            k=query_request.k,
+            tiers=list(query_request.tiers),
+            contract=query_request.contract,
+            corpus_hash=corpus_hash,
+            embedder=retriever.embedder_id,
+            model=getattr(generator, "model", None) if generator is not None else None,
+            git_sha=http.app.state.git_sha,
+        )
+
+        # Step 2. Same skip, same reason.
+        if not query_request.rerun:
+            hit = cache.get(key, now)
+            if hit is not None:
+                return hit.payload.model_copy(
+                    update={
+                        "origin": "cache",
+                        "origin_detail": {
+                            "key": key[:16],
+                            "stored_at": _iso(hit.stored_at),
+                            "age_seconds": int((now - hit.stored_at).total_seconds()),
+                            **cache.stats(),
+                        },
+                    }
+                )
+
+        # Step 3. Admission, and the one place a generation is debited. Checked *before* the
+        # retriever runs — not after — because the trace has to be able to say honestly that the
+        # model was never consulted, and a `generate` span opened and then abandoned would be a trace
+        # describing a call that did not happen.
+        #
+        # No generator at all is not a refusal and is not a degradation: it is the supported
+        # retrieval-only configuration this service has always had, and it reports `origin="live"`
+        # with a null answer, exactly as it reported a null answer before this cascade existed.
+        decision = None
+        if generator is not None:
+            decision = limiter.admit_generation(client, now)
+
         tracer = Tracer()
         with tracer.span(
             "query", **{"query.question": query_request.question, "corpus.hash": corpus_hash}
@@ -437,16 +673,52 @@ def create_app(
             # `rerank` is the other stage the design names (§12), and it is absent rather than
             # empty: a span reporting zero milliseconds for a stage that does not exist would be a
             # trace lying about the pipeline it describes. `generate` obeys the same rule below.
+            #
+            # Step 4 lives in this `if`. A refused budget passes `generator=None` down, so `_answer`
+            # opens no `generate` span and the trace says truthfully that nothing was asked; the
+            # degradation is then built here, from the refusal, in the page's language.
+            refused = decision is not None and not decision.allowed
             answer = _answer(
                 tracer,
-                generator=generator,
+                generator=None if refused else generator,
                 question=query_request.question,
                 candidates=candidates,
                 contract=Contract(mode=query_request.contract),
             )
+            if refused:
+                answer = degrade(
+                    _budget_sentence(decision.reason),
+                    provider=generator.name,
+                    model=getattr(generator, "model", None),
+                    contract=Contract(mode=query_request.contract),
+                )
+                root.set(
+                    **{
+                        "generation.admitted": False,
+                        "generation.refusal": decision.reason,
+                    }
+                )
+            elif decision is not None and (answer is None or answer.provider is None):
+                # Admitted, debited, and then never spent. The zero-cost abstention is the case: no
+                # candidates means `_answer` asks nobody, and a budget that counted those would spend
+                # the day's quota on the questions the corpus does not cover — which are exactly the
+                # ones that are supposed to be free. `provider is None` is the wire-level marker for
+                # "the model was never called" that `adapt.answerView` already reads.
+                limiter.refund_generation(client, now)
             root.set(**{"query.candidates": len(candidates)})
 
-        return QueryResponse(
+        origin: Origin = "live_degraded" if refused else "live"
+        response = QueryResponse(
+            origin=origin,
+            origin_detail=_live_detail(
+                key=key,
+                decision=decision,
+                limiter=limiter,
+                now=now,
+                refused=refused,
+                rerun=query_request.rerun,
+                recorded=recorded,
+            ),
             question=query_request.question,
             corpus_hash=corpus_hash,
             strategy=retriever.name,
@@ -458,6 +730,25 @@ def create_app(
             answer=None if answer is None else GeneratedAnswer.of(answer),
             trace=tracer.tree(),
         )
+
+        # A re-run that was refused falls back to the record rather than to an error. The visitor
+        # asked to test a published number against a live call; we could not make the call, and the
+        # published number is still the thing they came to look at. `rerun_refused` is what lets the
+        # screen say so instead of silently showing them the same figures again.
+        if refused and query_request.rerun and recorded is not None:
+            return _precomputed_response(
+                recorded, query_request, settings, rerun_refused=True
+            )
+
+        # Cached only when a provider was actually called and answered. Three exclusions, each for a
+        # different reason. A **degradation** must never be cached: the budget resets at midnight UTC
+        # and a cached refusal would go on refusing for twenty-four hours after the quota came back.
+        # A **null answer** is the retrieval-only build and there is nothing to store. A **zero-cost
+        # abstention** cost nothing, so caching it saves nothing and would only add a way for the
+        # cheapest correct behaviour in the system to be served stale.
+        if answer is not None and not answer.degraded and answer.provider is not None:
+            cache.put(key, CachedAnswer(payload=response, stored_at=now))
+        return response
 
     # The evaluation surface, read-only and deliberately unmodelled. Three endpoints that do nothing
     # but hand back the bytes on disk, because the interface's job is to *show the committed
@@ -564,6 +855,177 @@ def create_app(
         app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
 
     return app
+
+
+def _utcnow() -> datetime:
+    """The clock, in one place, so a test can freeze it by patching one name.
+
+    Timezone-aware and UTC. A naive datetime subtracted from an aware one raises, and the day
+    boundary the generation budget rolls over on is defined in UTC (`limits.utc_day`).
+    """
+    return datetime.now(timezone.utc)
+
+
+def _iso(moment: datetime) -> str:
+    return moment.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def _git_sha() -> str:
+    """The commit this checkout is on, or `unknown`.
+
+    Delegates to `evaluation.git_provenance`, which is where the subprocess and its failure mode
+    already live. A second implementation would be a second thing to get wrong, and this one already
+    answers `unknown` rather than inventing a sha for a tarball with no `.git`.
+    """
+    from garage.evaluation import git_provenance
+
+    return git_provenance()[0]
+
+
+_BUDGET_SENTENCES = {
+    # Two sentences, not one, because they are two different facts and only one of them is about the
+    # visitor. Both say what still works, because what still works is the product.
+    "client_daily": (
+        "você já usou sua cota de gerações de hoje neste endereço — os trechos recuperados abaixo "
+        "continuam válidos e continuam sendo gratuitos"
+    ),
+    "global_daily": (
+        "o orçamento diário de geração deste site acabou — os trechos recuperados abaixo continuam "
+        "válidos, e as perguntas curadas continuam idênticas porque não custam nada"
+    ),
+}
+
+
+def _budget_sentence(reason: str | None) -> str:
+    return _BUDGET_SENTENCES.get(reason or "", "a geração não foi admitida")
+
+
+def _live_detail(
+    *,
+    key: str,
+    decision: Any,
+    limiter: Limiter,
+    now: datetime,
+    refused: bool,
+    rerun: bool,
+    recorded: Any,
+) -> dict[str, Any]:
+    """What a live or degraded response says about the budget it was decided against.
+
+    Published on the successful path too, not only on the refusal. A visitor who can watch
+    `generations_remaining` fall is a visitor who is not surprised when it reaches zero — and the
+    entire argument of this deployment is that its failure modes are legible before they happen
+    rather than after.
+
+    Only sixteen characters of the cache key. It is a diagnostic handle for an operator comparing two
+    responses, not an identifier anything should be built on, and the full digest on the wire would
+    invite exactly that.
+    """
+    return {
+        "key": key[:16],
+        "refusal": decision.reason if (refused and decision is not None) else None,
+        "rerun": rerun,
+        # True only when the visitor asked for a live re-run and the budget said no *and* there was
+        # no record to fall back to. The record case returns a `precomputed` response instead, and
+        # carries its own flag.
+        "rerun_refused": refused and rerun and recorded is None,
+        **limiter.snapshot(now),
+    }
+
+
+def _precomputed_response(
+    recorded: Any,
+    query_request: QueryRequest,
+    settings: Settings,
+    *,
+    rerun_refused: bool,
+) -> QueryResponse:
+    """A committed showcase arm, served as an answer to a live question, with zero model calls.
+
+    The chunks are hydrated out of `chunks.text` by the same `fetch_chunks` `GET /chunks` uses —
+    local, free, deterministic, no provider. The record itself stores `chunk_id`s and never a word of
+    the material (ADR-0003), which is why a deployment whose database does not hold the operator's
+    Corpus gets a `text` of null here and the interface draws an identified absence.
+
+    Retrieval is **not** re-run. The recorded ranking is what the record asserts and is what the
+    published spread was measured against; re-running it would produce a response whose chunks and
+    whose answer came from two different executions, which is the same fabrication the cache
+    deliberately refuses (`cache.CachedAnswer`). The visitor who wants a fresh ranking has the re-run
+    button, and that is exactly what it is for.
+
+    `question` echoes the string the visitor actually typed, not the record's phrasing. Two questions
+    that normalise to the same key can differ in case and spacing, and echoing the record's wording
+    back would put words on screen the visitor did not write.
+    """
+    from garage.showcase import Precomputed
+
+    assert isinstance(recorded, Precomputed)
+    arm = recorded.arm
+    sample = arm.samples[arm.displayed_sample]
+    wanted = [chunk.chunk_id for chunk in arm.retrieval.chunks]
+    hydrated = {
+        chunk.chunk_id: chunk for chunk in fetch_chunks(settings.database_url, wanted)
+    }
+    chunks = tuple(
+        RetrievedChunk(
+            chunk_id=chunk.chunk_id,
+            doc_id=chunk.doc_id,
+            doc_title=chunk.doc_title,
+            tier=chunk.tier,  # type: ignore[arg-type]
+            page=chunk.page,
+            # Both come from the artifact or from neither. `section` is the source document's own
+            # heading and is source prose, so the record does not carry it either.
+            section=hydrated[chunk.chunk_id].section if chunk.chunk_id in hydrated else None,
+            kind=chunk.kind,
+            text=hydrated[chunk.chunk_id].text if chunk.chunk_id in hydrated else None,
+            score=chunk.score,
+            components=chunk.components,
+        )
+        for chunk in arm.retrieval.chunks
+    )
+    return QueryResponse(
+        origin="precomputed",
+        origin_detail={
+            "showcase_id": recorded.record.showcase_id,
+            "scope": recorded.record.scope,
+            "question_id": recorded.item.question_id,
+            "why": recorded.item.why,
+            "measured_on": recorded.record.sampling.measured_on,
+            "generator": recorded.record.sampling.generator,
+            "model": recorded.record.sampling.model,
+            "temperature": recorded.record.sampling.temperature,
+            "n": recorded.record.sampling.n,
+            "displayed_sample": arm.displayed_sample,
+            "display_rule": recorded.record.displayed_sample_rule,
+            "git_sha": recorded.record.provenance.git_sha,
+            "git_dirty": recorded.record.provenance.git_dirty,
+            # The full spread, beside the single draw in `answer`, and this is a requirement rather
+            # than generosity. `answer.tokens_out` and `answer.cost_usd` are **one draw of n** of a
+            # stochastic quantity, and ADR-0004 forbids publishing a point estimate for one of those
+            # without the distribution it came from. The showcase *record* enforces that structurally
+            # by storing no scalars; this response would break it if it shipped the draw alone.
+            "spread": {
+                metric: spread.model_dump(mode="json") for metric, spread in arm.spread.items()
+            },
+            # True when the visitor pressed the re-run button and the budget refused the live call.
+            # They asked to falsify this number and could not; saying so is the whole difference
+            # between a degraded re-run and a page that quietly redisplays the same figures.
+            "rerun_refused": rerun_refused,
+            "chunks_absent": tuple(
+                chunk_id for chunk_id in wanted if chunk_id not in hydrated
+            ),
+        },
+        question=query_request.question,
+        corpus_hash=recorded.record.provenance.corpus_hash,
+        strategy=arm.strategy,
+        embedder=arm.embedder,
+        k=arm.k,
+        tiers=tuple(arm.tiers),  # type: ignore[arg-type]
+        chunks=chunks,
+        contract=arm.contract,  # type: ignore[arg-type]
+        answer=sample.answer,
+        trace=sample.trace,
+    )
 
 
 def _showcase_dir(settings: Settings) -> Path:

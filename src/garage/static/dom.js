@@ -16,8 +16,35 @@ export function el(tag, options = {}, children = []) {
   if (options.class) node.className = options.class;
   // `textContent`, never `innerHTML`. See above.
   if (options.text !== undefined && options.text !== null) node.textContent = String(options.text);
+  // Geometry, set through the CSSOM one property at a time — never `setAttribute("style", …)` and
+  // never `cssText`.
+  //
+  // This is a Content-Security-Policy requirement and not a style preference. The public deployment
+  // serves `style-src 'self'` (`deploy/Caddyfile`), which blocks the `style` *attribute* outright:
+  // every bar in the waterfall, every tick on a score axis and every mark on a strip plot silently
+  // failed to position, so the page rendered as a column of empty tracks with no error a visitor
+  // could see. `element.style.setProperty` is the CSSOM path and is not covered by `style-src`,
+  // which is exactly the distinction the policy is drawing — a value assigned by this code is not a
+  // stylesheet the page received from anywhere.
+  //
+  // Numbers only, enforced below, and that is the second reason this is a separate channel. Every
+  // caller is placing something by percentage from an arithmetic result; nothing here ever
+  // interpolates a served string into CSS, and a `Number.isFinite` gate makes that a property of the
+  // helper rather than a habit of the callers. A `NaN` — which a null offset used to produce — is
+  // dropped instead of written, so a missing measurement leaves the element unpositioned rather than
+  // parked at the left edge pretending to be zero.
+  for (const [property, value] of Object.entries(options.style || {})) {
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    node.style.setProperty(property, `${value}%`);
+  }
   for (const [name, value] of Object.entries(options.attrs || {})) {
     if (value === null || value === undefined || value === false) continue;
+    // The one attribute this helper refuses to write. See above: it is blocked by the deployment's
+    // CSP, so a caller reaching for it would produce an element that positions correctly in
+    // development and not at all in production. `style` is a percentage map, and only that.
+    if (name === "style") {
+      throw new Error('el(): use `style: {left: 42}` (percent) rather than an inline style attribute');
+    }
     node.setAttribute(name, value === true ? "" : String(value));
   }
   for (const [name, value] of Object.entries(options.data || {})) {

@@ -33,6 +33,13 @@ from test_app import (
 )
 
 QUERY_RESPONSE_KEYS = {
+    # Issue #11. These two are what let the screen say whether a number was measured for this
+    # visitor, copied out of a cache, or read off a file somebody committed in April — and this test
+    # failing when they were added is the test working. The exact-key assertion exists precisely so
+    # that growing this payload is a decision somebody takes in a diff rather than a thing that
+    # happens; the band that renders them is `render.originBand`.
+    "origin",
+    "origin_detail",
     "question",
     "corpus_hash",
     "strategy",
@@ -80,6 +87,56 @@ GENERATED_ANSWER_KEYS = {
     "contradictory",
 }
 
+# `origin_detail` is a bare dict on the model, so its shape is asserted here rather than by Pydantic
+# — which is the whole reason these two constants exist. `adapt.originView` reads every one of these
+# by name, and a renamed key would leave the suite green and blank the origin band in a browser.
+#
+# Two sets and not one union: the fields genuinely do not overlap, and a flat model holding both
+# would have to publish a null `showcase_id` on every live answer and a null `generations_remaining`
+# on every recorded one. Nulls that mean "not applicable" are how a screen ends up rendering
+# "showcase: —" beside a live number.
+LIVE_ORIGIN_DETAIL_KEYS = {
+    "key",
+    "refusal",
+    "rerun",
+    "rerun_refused",
+    "utc_day",
+    "generation_budget",
+    "generations_used",
+    "generations_remaining",
+}
+
+PRECOMPUTED_ORIGIN_DETAIL_KEYS = {
+    "showcase_id",
+    "scope",
+    "question_id",
+    "why",
+    "measured_on",
+    "generator",
+    "model",
+    "temperature",
+    "n",
+    "displayed_sample",
+    "display_rule",
+    "git_sha",
+    "git_dirty",
+    "spread",
+    "rerun_refused",
+    "chunks_absent",
+}
+
+CACHE_ORIGIN_DETAIL_KEYS = {
+    "key",
+    "stored_at",
+    "age_seconds",
+    "entries",
+    "max_entries",
+    "hits",
+    "misses",
+}
+
+PROVENANCE_KEYS = {"corpus_id", "corpus_hash", "ingest_version", "git_sha", "version", "budget"}
+
 CLAIM_KEYS = {"text", "citations", "supported"}
 CITATION_KEYS = {"index", "chunk_id"}
 
@@ -116,6 +173,31 @@ def test_the_query_response_carries_exactly_the_keys_the_interface_reads(booted)
     assert set(body["answer"]) == GENERATED_ANSWER_KEYS
     assert set(body["answer"]["claims"][0]) == CLAIM_KEYS
     assert set(body["answer"]["claims"][0]["citations"][0]) == CITATION_KEYS
+    assert body["origin"] == "live"
+    assert set(body["origin_detail"]) == LIVE_ORIGIN_DETAIL_KEYS
+
+
+def test_the_provenance_endpoint_carries_exactly_what_the_fixture_banner_reads(booted):
+    """`banner.js` decides whether to draw the fixture warning off `corpus_id`, by name.
+
+    The whole banner is one string comparison against one field, and the field is on an endpoint the
+    interface calls at load on all three screens. A rename here is a site that stops saying its
+    corpus is invented, which is the one statement issue #11 required to be impossible to forget.
+    """
+    with booted() as client:
+        body = client.get("/provenance").json()
+
+    assert set(body) == PROVENANCE_KEYS
+    assert body["corpus_id"] == "fixture"
+    # The budget is published to everyone, not only after it runs out. `banner.js` does not read it
+    # today; an operator curling the VM does, and `render.originSentence` reads the same numbers off
+    # `origin_detail`.
+    assert set(body["budget"]) == {
+        "utc_day",
+        "generation_budget",
+        "generations_used",
+        "generations_remaining",
+    }
 
 
 def test_every_span_in_the_tree_carries_exactly_the_keys_the_waterfall_reads(booted):
@@ -298,6 +380,30 @@ def test_no_module_in_the_interface_interpolates_into_innerhtml():
         path.name
         for path in sorted(STATIC_DIR.glob("*.js"))
         if any(sink in _without_comments(path.read_text(encoding="utf-8")) for sink in sinks)
+    ]
+    assert offenders == []
+
+
+def test_no_module_writes_an_inline_style_attribute():
+    """The second mechanical rule in this directory, and it is a deployment fact rather than taste.
+
+    `deploy/Caddyfile` serves `style-src 'self'`, which blocks the `style` **attribute** outright.
+    Every bar in the waterfall, every tick on a score axis and every mark on a strip plot is
+    positioned by percentage, and when this was first written as `attrs: {style: …}` the entire
+    geometry silently failed in production — the page rendered as a column of empty tracks, with
+    eighty-five CSP violations in a console the project promises will be quiet, and nothing a visitor
+    could see saying anything was wrong.
+
+    `dom.el` now has a `style` channel that goes through `element.style.setProperty`, which is the
+    CSSOM path and is not covered by `style-src`, and it takes numbers only. This test is what stops
+    the attribute coming back — the failure it prevents is invisible in development, where there is
+    no Caddy and therefore no policy.
+    """
+    offenders = [
+        path.name
+        for path in sorted(STATIC_DIR.glob("*.js"))
+        if 'style: `' in _without_comments(path.read_text(encoding="utf-8"))
+        or 'setAttribute("style"' in _without_comments(path.read_text(encoding="utf-8"))
     ]
     assert offenders == []
 

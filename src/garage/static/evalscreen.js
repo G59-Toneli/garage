@@ -10,6 +10,12 @@
 
 import { el, clear, number, EM_DASH } from "./dom.js";
 import { toView } from "./adapt.js";
+import { mountProvenanceBanner } from "./banner.js";
+
+// This screen shows metrics measured over the corpus, so it needs the fixture warning exactly as
+// much as the other two do — arguably more, because a table of recall figures reads as authoritative
+// whatever it was measured against.
+mountProvenanceBanner();
 
 const output = document.querySelector("#output");
 const status = document.querySelector("#status");
@@ -131,15 +137,15 @@ function corridor(metric) {
     track.append(
       el("div", {
         class: "corridor-band",
-        attrs: { style: `left:${metric.floor * 100}%;width:${(metric.promoted - metric.floor) * 100}%` },
+        style: { left: metric.floor * 100, width: (metric.promoted - metric.floor) * 100 },
       })
     );
   }
   if (metric.promoted !== null) {
-    track.append(el("div", { class: "corridor-mark", attrs: { style: `left:${metric.promoted * 100}%` } }));
+    track.append(el("div", { class: "corridor-mark", style: { left: metric.promoted * 100 } }));
   }
   if (metric.measured !== null) {
-    track.append(el("div", { class: "corridor-measured", attrs: { style: `left:${metric.measured * 100}%` } }));
+    track.append(el("div", { class: "corridor-measured", style: { left: metric.measured * 100 } }));
   }
   return track;
 }

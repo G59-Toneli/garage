@@ -30,6 +30,7 @@ export function renderComparison(view, root) {
   }
 
   root.append(sharedHeader(view));
+  if (view.origins) root.append(originBand(view.origins));
   if (view.overlap) root.append(overlapBand(view.overlap));
   if (view.floorNote) root.append(floorNote(view.floorNote));
   root.append(
@@ -56,6 +57,67 @@ function sharedHeader(view) {
       el("dd", { class: "mono", text: view.shared.corpusHash ?? EM_DASH }),
     ]),
   ]);
+}
+
+// Where each column's answer came from, above the columns, on every comparison.
+//
+// A band and not a colour. "Live", "cached" and "precomputed" are three different claims about how
+// much a number is worth, and a reader who is colour-blind, printing the page, or looking at a
+// screenshot has to get all three — so each origin carries a word, a class *and* a `data-origin`
+// attribute, and the word is never the only channel that changes.
+//
+// The sentences are as specific as the payload allows. "resposta em cache" alone invites the reader
+// to assume it is minutes old; the time it was generated is the fact that makes the label useful.
+function originBand(origins) {
+  return el(
+    "section",
+    { class: "origins" },
+    origins.map((arm) =>
+      el("span", { class: `origin origin-${arm.origin ?? "unknown"}`, data: { origin: arm.origin ?? "" } }, [
+        el("span", { class: "origin-strategy", text: arm.strategy }),
+        el("span", { class: "origin-text", text: originSentence(arm) }),
+      ])
+    )
+  );
+}
+
+function originSentence(arm) {
+  if (arm.origin === "cache") {
+    // The generation time, not the age, as the primary fact. An age in seconds is arithmetic the
+    // reader has to redo against their own clock; a timestamp is a thing that happened.
+    const when = arm.storedAt ? clockTime(arm.storedAt) : null;
+    return when ? `resposta em cache, gerada às ${when}` : "resposta em cache";
+  }
+  if (arm.origin === "precomputed") {
+    // Three facts, and the sample qualifier is one of them. `answer.tokens_out` on the panel below
+    // is one draw of n, and printing it without saying so is exactly the failure ADR-0004 exists to
+    // prevent — the showcase screen learned that in its own QA round.
+    const draw =
+      arm.displayedSample !== null && arm.sampleCount !== null
+        ? ` · amostra ${arm.displayedSample + 1} de ${arm.sampleCount}`
+        : "";
+    const refused = arm.rerunRefused
+      ? " · a re-execução ao vivo foi recusada pelo orçamento; este é o número gravado"
+      : "";
+    return `resposta pré-computada · showcase ${arm.showcaseId ?? EM_DASH}${draw}${refused}`;
+  }
+  if (arm.origin === "live_degraded") {
+    return "geração não executada — o orçamento diário recusou a chamada; a recuperação abaixo é real e é de agora";
+  }
+  const left =
+    arm.generationsRemaining === null
+      ? ""
+      : ` · ${arm.generationsRemaining} de ${arm.generationBudget} gerações restantes hoje`;
+  return `resposta ao vivo${left}`;
+}
+
+function clockTime(iso) {
+  // Local time, hours and minutes. Parsed defensively: this string comes off the wire and a page
+  // that throws inside a status band would take the whole comparison down with it.
+  const moment = new Date(iso);
+  return Number.isNaN(moment.getTime())
+    ? null
+    : moment.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function overlapBand(overlap) {
@@ -164,9 +226,22 @@ function abstention(answer) {
 }
 
 function degradation(answer) {
-  return el("article", { class: "state state-degraded" }, [
-    el("h4", { text: "O provedor não respondeu" }),
-    el("p", { text: "Os trechos recuperados abaixo continuam válidos e continuam sendo o produto." }),
+  // One state, two headings, and the split is the whole of issue #11's refusal to add a sixth state.
+  // "O provedor não respondeu" is false when the provider was never called — the day's budget said
+  // no before anything left this machine — and a heading that is false is worse than a heading that
+  // is vague. `cause` comes from `origin`, never from matching the Portuguese in `reason`.
+  const budget = answer.cause === "budget";
+  return el("article", { class: "state state-degraded", data: { cause: answer.cause ?? "provider" } }, [
+    el("h4", {
+      text: budget ? "A geração não foi executada — cota do dia" : "O provedor não respondeu",
+    }),
+    el("p", {
+      text: budget
+        ? "Nenhuma chamada foi feita. Este site tem um orçamento diário de gerações porque usa o " +
+          "nível gratuito de um provedor pago, e ele acabou por hoje. As perguntas curadas do " +
+          "showcase continuam idênticas, porque já foram pagas."
+        : "Os trechos recuperados abaixo continuam válidos e continuam sendo o produto.",
+    }),
     el("p", { class: "aside", text: answer.reason ?? "" }),
     // The provider's raw message is folded away rather than dropped: it is the one string here that
     // is useful to an operator and useless to a visitor.
@@ -320,7 +395,7 @@ function traceRow(row, scaleMs) {
           class: row.error ? "bar bar-error" : "bar",
           // `min-width` in CSS keeps a sub-millisecond stage visible; the number to its right is the
           // datum, and the bar is only support.
-          attrs: { style: `margin-left:${offset}%;width:${width}%` },
+          style: { "margin-left": offset, width },
         })
       : el("div", { class: "bar bar-absent" }),
   ]);
@@ -424,9 +499,9 @@ function scoreBar(chunk, scoring) {
     // Gridlines only where the axis is absolute. On a cosine axis they are what makes "the nearest
     // neighbour was still 0.31 away" legible without inventing a floor the retriever does not have.
     ...scoring.ticks.map((tick) =>
-      el("div", { class: "tick", attrs: { style: `left:${tick * 100}%` }, data: { tick: String(tick) } })
+      el("div", { class: "tick", style: { left: tick * 100 }, data: { tick: String(tick) } })
     ),
-    el("div", { class: "score-fill", attrs: { style: `width:${chunk.scoreFraction * 100}%` } }),
+    el("div", { class: "score-fill", style: { width: chunk.scoreFraction * 100 } }),
   ]);
 }
 

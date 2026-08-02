@@ -387,3 +387,87 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
   font-size: 0.85rem;
   font-style: normal;
 }
+
+/* --- issue #11: the fixture banner, the origin band and the re-run panel ------------------------ */
+
+/* The fixture warning. Permanent, non-dismissible, and above everything else on the page including
+   the site header — a reader who scrolls past a banner has still read it, and a reader who never
+   scrolls has read it first. Three channels, colour last: a solid left rule, a bold lead-in, and a
+   tone. It has no close button and must never grow one; see `banner.js`. */
+.fixture-banner {
+  border: 1px solid var(--warn);
+  border-left: 6px solid var(--warn);
+  border-radius: 3px;
+  padding: 0.55rem 0.7rem;
+  margin: 0 0 0.75rem;
+  background: var(--panel);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.fixture-banner strong { color: var(--warn); }
+/* Provenance we could not read is a different and worse state than provenance we read and disliked:
+   the page does not know what it is standing on. Framed as an error, not as a warning. */
+.fixture-banner-unknown { border-color: var(--error); border-left-color: var(--error); }
+.fixture-banner-unknown strong { color: var(--error); }
+
+/* Where each column's answer came from. One chip per arm, above the columns, on every comparison.
+   The three origins differ in border style as well as in tone — a screenshot in monochrome and a
+   colour-blind reader both have to be able to tell a live number from a recorded one. */
+.origins { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.75rem; }
+.origin {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.3rem 0.55rem;
+  background: var(--panel);
+  font-size: 0.84rem;
+}
+.origin-strategy {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+/* Solid and accented: measured for this visitor, just now. */
+.origin-live { border-left: 4px solid var(--ok); }
+/* Dashed: a copy of a previous response. The dash is the channel that survives print. */
+.origin-cache { border-left: 4px dashed var(--accent); }
+/* Dotted and warm: measured on another day, on another machine, and committed to a file. */
+.origin-precomputed { border-left: 4px dotted var(--warn); }
+/* The quota refused the call. Not an error tone — nothing failed, and the retrieval below is real. */
+.origin-live_degraded { border-left: 4px solid var(--warn); }
+
+/* The re-run panel. Deliberately *not* stamped "PRÉ-COMPUTADO": it is the one thing on the showcase
+   screen that is measured for the visitor. */
+.rerun { border-left: 4px solid var(--accent); }
+.rerun-button { margin: 0.4rem 0; }
+.rerun-results { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.5rem; }
+.rerun-order-match strong { color: var(--ok); }
+/* A finding, shown as a finding. Warm rather than red: floating-point divergence between
+   architectures is a fact about arithmetic, not a fault (ADR-0008). */
+.rerun-order-differs {
+  border: 1px solid var(--warn);
+  border-left: 4px solid var(--warn);
+  border-radius: 3px;
+  padding: 0.45rem 0.6rem;
+}
+.rerun-order-differs strong { color: var(--warn); }
+.rerun-lists { display: flex; gap: 1rem; flex-wrap: wrap; }
+.rerun-lists ol { margin: 0.2rem 0 0; padding-left: 1.4rem; }
+.rerun-lists h5 { margin: 0; font-size: 0.78rem; color: var(--muted); text-transform: uppercase; }
+.rerun-refused strong { color: var(--warn); }
+/* The visitor's own draw, distinguished by height, width, fill *and* tone — four channels, because
+   this is the one mark on the plot they are looking for. */
+.strip-mark.strip-live {
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  opacity: 1;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--bg);
+}
+/* The permanent caveat under every re-run. Never collapsed, never abbreviated. */
+.footnote { border-top: 1px dashed var(--line); padding-top: 0.4rem; margin-top: 0.6rem; }
+.rerun-latency { font-style: italic; }

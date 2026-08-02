@@ -866,6 +866,120 @@ def verify_showcase_records(corpus_hash: str, directory: Path | None = None) -> 
 
 
 # ------------------------------------------------------------------------------------------------
+# Serving a committed record as an answer to a live question (issue #11, criteria two and four).
+# ------------------------------------------------------------------------------------------------
+#
+# The showcase *screen* already renders curated questions with no model call, and it does that by
+# reading the record directly. What follows is the other half: when somebody types a curated question
+# into the ordinary comparison form, `POST /query` should recognise it and hand back the recorded
+# answer rather than paying for a new one.
+#
+# That is not a nicety. It is what makes acceptance criterion four true. "Quota exhaustion degrades
+# to the pre-computed path" can only mean something if the pre-computed path is reachable from the
+# same request the quota would have refused — and it has to be reachable *before* the budget is
+# consulted, because a curated question costs nothing and a limiter that refused one would be
+# rationing a free resource.
+#
+# The honest limit, stated here and in `docs/deploy.md` rather than left for a reader to discover:
+# **this only helps for questions that are actually in the curated set.** For a free-form question
+# there is no precomputed answer to fall back to and the real cascade is live → cache →
+# retrieval-only degraded. Promising more than that would be a lie about what the site does when the
+# quota runs out.
+
+
+@dataclass(frozen=True)
+class Precomputed:
+    """A committed arm that answers exactly this request, and the record it came from.
+
+    All three are kept rather than just the arm. The endpoint needs the arm for the answer, the item
+    for `why` and `question_id`, and the record for the provenance a visitor has to see before
+    believing a number that was measured on another day by another machine.
+    """
+
+    record: ShowcaseRecord
+    item: ShowcaseItem
+    arm: ShowcaseArm
+
+
+def precomputed_key(
+    *, question: str, strategy: str, k: int, tiers: Sequence[str], contract: str
+) -> tuple[str, str, int, tuple[str, ...], str]:
+    """The identity of a configured question, for the index below.
+
+    Every runtime axis is in it, for exactly the reason `cache.cache_key` gives at length: serving a
+    `cited` record to a `free` request would erase the axis ADR-0005 exists to expose. This key is
+    deliberately the same *shape* as the cache key minus the build-time fields, which the boot gate
+    has already pinned — a record only reaches this index after `verify_showcase_records` has agreed
+    it stands on this artifact.
+
+    The question is normalised by `cache.normalize_question` and by nothing else, so "the same
+    question" means the same thing to the cache and to the showcase. Two definitions would mean a
+    question that hits one and misses the other, which is a bug nobody would think to look for.
+    """
+    from garage.cache import normalize_question
+
+    return (normalize_question(question), strategy, k, tuple(sorted(tiers)), contract)
+
+
+def precomputed_index(directory: Path | None = None) -> dict[tuple[str, str, int, tuple[str, ...], str], Precomputed]:
+    """Every committed arm, indexed by the request that would reach it.
+
+    Built once at boot, from the same directory the boot gate just verified, and never rebuilt per
+    request: reading and validating every record on every `POST /query` would put file I/O and
+    Pydantic on the hot path of the one endpoint that has to stay fast.
+
+    Records are walked **oldest first** so the newest wins a collision. `showcase_ids` returns newest
+    first, hence the `reversed`. Two records holding the same question under the same configuration
+    is a legitimate state — a proving run and a later curated build — and the later one is the one a
+    visitor should see.
+    """
+    identifiers = showcase_ids(directory)
+    base = Path(directory) if directory is not None else SHOWCASE_DIR
+    index: dict[tuple[str, str, int, tuple[str, ...], str], Precomputed] = {}
+    for showcase_id in reversed(identifiers):
+        record = load_showcase_record(base / f"{showcase_id}.json")
+        for item in record.items:
+            for arm in item.arms:
+                key = precomputed_key(
+                    question=item.question,
+                    strategy=arm.strategy,
+                    k=arm.k,
+                    tiers=arm.tiers,
+                    contract=arm.contract,
+                )
+                index[key] = Precomputed(record=record, item=item, arm=arm)
+    return index
+
+
+def find_precomputed(
+    index: dict[tuple[str, str, int, tuple[str, ...], str], Precomputed],
+    *,
+    question: str,
+    strategy: str,
+    k: int,
+    tiers: Sequence[str],
+    contract: str,
+    corpus_hash: str,
+) -> Precomputed | None:
+    """The recorded answer for this exact request, or nothing.
+
+    `corpus_hash` is re-checked here even though `verify_showcase_records` already refused to boot on
+    a mismatch. The boot gate reads the directory once; this reads the object that is about to be
+    published. A record dropped into the directory of a running service would be listed by
+    `GET /showcase` and — without this line — served as a live-looking answer over material the
+    database may not hold. Cheap, and it closes the window.
+    """
+    found = index.get(
+        precomputed_key(question=question, strategy=strategy, k=k, tiers=tiers, contract=contract)
+    )
+    if found is None:
+        return None
+    if found.record.provenance.corpus_hash != corpus_hash:
+        return None
+    return found
+
+
+# ------------------------------------------------------------------------------------------------
 # The build.
 # ------------------------------------------------------------------------------------------------
 
