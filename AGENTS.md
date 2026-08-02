@@ -32,7 +32,13 @@ never depend on copyrighted material or on which PDFs happen to be on a given ma
 `python -m garage ingest` rebuilds the whole database from a verified Corpus — always a full
 rebuild, always safe to re-run, and nothing writes to the ingested tables at runtime (ADR-0002; the
 schema enforces it). Structure-aware chunking, the Jargon vocabulary and the stored `corpus_hash`
-are documented in `docs/ingestion.md`.
+are documented in `docs/ingestion.md`. Ingestion also writes the dense index: one `embeddings` row
+per chunk per `model_key`, so two embedders coexist in one table and Phase 4 is a `WHERE` clause
+rather than a migration (ADR-0005). Both Postgres extensions — `pg_trgm` and `vector` — are created
+here and nowhere else, because `initdb` runs only on an empty data directory while ingestion always
+runs. `python -m garage embedder fetch` downloads the sha256-pinned baseline weights once; they are
+never committed. `GARAGE_EMBEDDER=none` builds a lexical-only artifact deliberately, and a *missing*
+model is a loud refusal rather than a quiet lexical fall back.
 
 ## Evaluation
 
@@ -57,9 +63,16 @@ documented in `docs/evaluation.md`.
 `python -m garage serve` answers `POST /query` with ranked chunks and the span tree behind them —
 no language model anywhere, so retrieval stays measurable on its own (ADR-0004). `Retriever` is the
 interface everything else drops in behind; the endpoint must never learn which implementation it
-holds. The lexical strategy, the rank fusion, the trace format and the boot gate are documented in
-`docs/retrieval.md`. The service refuses to start against a database that is not this commit's
-artifact, so `ingest` runs before `serve`.
+holds. Two strategies exist, `lexical` and `dense`, and choosing between them is a field on the
+request — a runtime axis, in one process, over one artifact (ADR-0005). The lexical rank fusion, the
+dense cosine, the trace format and the boot gate are documented in `docs/retrieval.md`. Two things
+about `dense` are worth knowing before reading anything else: it **does not abstain** (nearest
+neighbours always come back, so the zero-cost abstention is reachable under `lexical` only), and
+ingestion and query are held to the same embedder by a `fingerprint` the boot gate compares —
+nothing about a stored vector says which model produced it, so a mismatch would be invisible without
+it. The baseline embedder is local, ONNX, 384 dimensions and never torch (ADR-0008). The service
+refuses to start against a database that is not this commit's artifact, so `ingest` runs before
+`serve`.
 
 ## Generation
 

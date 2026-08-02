@@ -28,9 +28,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # GitHub service containers cannot mount docker/initdb, so the same statement runs here.
-      - run: psql "$GARAGE_DATABASE_URL" -f docker/initdb/001-extensions.sql
       - run: pip install -e ".[dev]"
+      # The baseline embedder's weights: 470 MB, pinned by sha256 in `garage/embedding.py`, verified
+      # by the same code that later loads them. Cached on that digest, so it is one download for the
+      # life of the pin and a cache hit on every run after — and a changed pin is a changed key,
+      # which is a fresh download rather than a stale model nobody notices.
+      #
+      # This is the only network access the pipeline has beyond installing packages. `pytest`,
+      # `ingest` and `eval gate` are offline after it: no API key, no provider, no inference service.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/garage/embedders
+          key: embedder-ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665
+      - run: python -m garage embedder fetch
+      # Note that no step creates a Postgres extension. `pg_trgm` and `vector` are both created by
+      # `ingest`, so the hand-copied `psql` line that used to live here — a duplicate of
+      # `docker/initdb/001-extensions.sql`, which GitHub service containers cannot mount — is gone
+      # along with the file. One statement, in the step that always runs.
       - run: pytest
       # The corpus hash must be a property of the Corpus, not of the machine that computed it. The
       # digest is pinned in tests/test_corpus.py, so `pytest` above already made the cross-machine

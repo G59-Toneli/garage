@@ -28,9 +28,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import asdict
-from typing import Any, AsyncIterator, Literal
+from typing import Any, AsyncIterator, Literal, Sequence
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field
 
 from garage import __version__
@@ -52,8 +53,8 @@ from garage.retrieval import (
     TIERS,
     Candidate,
     Filters,
-    LexicalRetriever,
     Retriever,
+    available_retrievers,
 )
 from garage.tracing import Tracer
 
@@ -66,6 +67,18 @@ class QueryRequest(BaseModel):
 
     question: str = Field(min_length=1, max_length=1000)
     k: int = Field(default=DEFAULT_K, ge=1, le=MAX_K)
+    # The retrieval strategy, a runtime axis (ADR-0005, design §9) — and the field that makes that
+    # sentence true rather than aspirational. Both strategies are built at boot and both stand on
+    # the same artifact, so choosing between them is a dictionary lookup: no rebuild, no redeploy,
+    # no second container. Null means whichever this build lists first, which keeps every request
+    # written before `dense` existed meaning exactly what it meant then.
+    #
+    # A plain `str` and not a `Literal`, unlike `contract` above, and the asymmetry is deliberate:
+    # `contract` has two values this code will always know, while the set of strategies is decided
+    # by `available_retrievers` and changes with the build. A `Literal` here would have to be
+    # rewritten every time a strategy is added and would still be wrong for a lexical-only build.
+    # The endpoint validates against what it actually holds and says so, which is a better error.
+    strategy: str | None = None
     # The tier filter is a runtime axis (design §9). The default is both, because a Tier B forum
     # thread holds knowledge that exists nowhere else; narrowing to A is what makes the contrast
     # between the two visible.
@@ -184,13 +197,21 @@ def create_app(
     settings: Settings | None = None,
     retriever: Retriever | None = None,
     generator: Generator | None = None,
+    retrievers: Sequence[Retriever] | None = None,
 ) -> FastAPI:
     # Reading settings here is the boot gate: a container with no GARAGE_DATABASE_URL dies at
     # startup rather than serving requests against a database it never had.
     settings = settings or Settings()
-    # Constructing a retriever opens nothing. `retriever` is injectable so the endpoint's own
-    # behaviour — shape, trace, filters — can be tested without a database standing behind it.
-    retriever = retriever or LexicalRetriever(settings.database_url)
+    # Two injection points and they are not redundant. `retriever` is the single-strategy one every
+    # test that cares about the endpoint's own behaviour uses — one object, and it is the only thing
+    # this app can retrieve with. `retrievers` is the several-strategy one, for asserting that
+    # choosing between them is a runtime axis. Pass neither and the strategies are built in the
+    # lifespan below from `available_retrievers`, which is what a real deployment does.
+    if retriever is not None and retrievers is not None:
+        raise ValueError("pass retriever or retrievers, not both")
+    injected = tuple(retrievers) if retrievers is not None else (
+        None if retriever is None else (retriever,)
+    )
     # No key, no generator, and no failure: generation is the optional layer and the service is
     # complete without it. The construction is guarded rather than attempted-and-caught because
     # `GeminiGenerator` imports an optional dependency, and a machine with neither the package nor a
@@ -202,14 +223,27 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Retrievers are built here rather than above, and the reason is `dense`: it holds an
+        # `Embedder`, and an `Embedder` is 470 MB of weights read off disk and hashed. Constructing
+        # a retriever must stay free — `--help` and `/health` do not deserve a model load — so the
+        # cost moves to boot, which is where the artifact is verified anyway and where an operator
+        # already expects to wait.
+        strategies = injected if injected is not None else available_retrievers(settings.database_url)
         # Raising here is the refusal: uvicorn aborts the boot and the operator reads why. Building
         # the app is deliberately not enough to touch the database, so `--help` never needs one.
-        app.state.artifact = verify_artifact(settings.database_url, settings.corpus_dir)
+        #
+        # The embedder is taken off the retriever that is actually going to answer queries, never
+        # resolved a second time here. A second resolution is exactly the divergence
+        # `embedding.embedder_for` exists to make unwriteable, and reintroducing it inside the check
+        # designed to catch it would be the funniest possible bug to ship.
+        embedder = next((held for held in (getattr(s, "embedder", None) for s in strategies) if held), None)
+        app.state.artifact = verify_artifact(settings.database_url, settings.corpus_dir, embedder)
+        app.state.retrievers = {strategy.name: strategy for strategy in strategies}
+        app.state.default_strategy = strategies[0].name
         yield
 
     app = FastAPI(title="Garage", version=__version__, lifespan=lifespan)
     app.state.settings = settings
-    app.state.retriever = retriever
     app.state.generator = generator
 
     @app.get("/health")
@@ -221,6 +255,23 @@ def create_app(
         # From `app.state`, not from a closure: it is written by the lifespan, so reading it here is
         # what makes it impossible to serve a query the boot gate never ran for.
         corpus_hash: str = http.app.state.artifact.corpus_hash
+        strategies: dict[str, Retriever] = http.app.state.retrievers
+        name = query_request.strategy or http.app.state.default_strategy
+        if name not in strategies:
+            # 422 and the list, not a silent fall back to the default. A visitor comparing two
+            # strategies who typos one and is quietly served the other reads a difference that is
+            # not there, which in a benchmark is worse than an error.
+            raise RequestValidationError(
+                [
+                    {
+                        "type": "enum",
+                        "loc": ("body", "strategy"),
+                        "msg": f"this build serves {', '.join(sorted(strategies))}",
+                        "input": query_request.strategy,
+                    }
+                ]
+            )
+        retriever = strategies[name]
 
         tracer = Tracer()
         with tracer.span(

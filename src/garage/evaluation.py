@@ -782,7 +782,17 @@ def _measure(retriever: Retriever, facts: Sequence[Fact], *, k: int, tiers: tupl
         )
 
     return Arm(
-        configuration=Configuration(strategy=retriever.name, k=k, tiers=tiers),
+        # `embedder` is read off the retriever rather than derived here, because only the
+        # implementation knows whether it stands on a stored index and which one (ADR-0005). Null
+        # for `lexical` and written down anyway: a field that appeared only when set would make two
+        # Configurations measured under different build-time axes look equal, which is exactly the
+        # comparison the baseline must refuse to make.
+        configuration=Configuration(
+            strategy=retriever.name,
+            k=k,
+            tiers=tiers,
+            embedder=getattr(retriever, "embedder_id", None),
+        ),
         metrics=_aggregate(facts, items, k),
         per_item=tuple(items),
     )

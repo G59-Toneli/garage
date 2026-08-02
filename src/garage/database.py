@@ -18,24 +18,40 @@ writing) rather than one that does not (an attacker who already owns the databas
 
 from __future__ import annotations
 
+# The width of the `vector` column, from the module that owns the commitment rather than as a
+# literal in the DDL. ADR-0008 makes 384 a build-time promise the Phase 4 fine-tuned embedder has to
+# keep, and a promise spelled in two places is a promise that gets broken in one of them.
+from garage.embedding import EMBEDDING_DIMENSION
+
 # Set for the duration of the ingestion transaction. `SET LOCAL` means it dies with the transaction,
 # so the guard cannot be left switched off.
 INGESTING_FLAG = "garage.ingesting"
 
-# The tables ingestion owns: dropped, recreated and guarded as a set. A new ingested table — the
-# `embeddings` table the dense retriever brings — belongs here, or the rebuild stops being total.
-INGESTED_TABLES = ("documents", "chunks", "jargon", "corpus_meta")
+# The tables ingestion owns: dropped, recreated and guarded as a set. Membership is what puts a
+# table into `DROP_SCHEMA` and gives it the four triggers of `CREATE_WRITE_GUARD`, so a new ingested
+# table listed anywhere but here is a table the rebuild is not total over.
+INGESTED_TABLES = ("documents", "chunks", "jargon", "corpus_meta", "embeddings", "embeddings_meta")
 
 # Dropped and recreated on every ingestion: the build is a rebuild, never a migration. `CASCADE`
 # takes the dependent triggers and indexes with them.
 DROP_SCHEMA = "\n".join(f"DROP TABLE IF EXISTS {table} CASCADE;" for table in INGESTED_TABLES)
 
-# `pg_trgm` backs the trigram half of lexical retrieval. It is created here rather than in
-# `docker/initdb/` — where `vector` lives — because initdb runs once, when the data directory is
-# empty: a developer whose volume predates this line would get a database the server cannot query.
-# Ingestion is the one step that already owns DDL and is always re-run, so requiring it here is what
-# makes every built artifact complete.
-CREATE_EXTENSIONS = "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+# `pg_trgm` backs the trigram half of lexical retrieval and `vector` backs the dense half. Both are
+# created here rather than in `docker/initdb/`, because initdb runs once, when the data directory is
+# empty: a developer whose volume predates a line added there would get a database the server cannot
+# query. Ingestion is the one step that already owns DDL and is always re-run, so requiring it here
+# is what makes every built artifact complete.
+#
+# `vector` moved up from `docker/initdb/001-extensions.sql` with the dense retriever, and the file
+# and the hand-copied `psql` line in `ci.yml` went with it. Up to now the extension was optional —
+# the schema did not reference it — and creating it in two places that could drift was survivable.
+# It is not optional any more: `embeddings.embedding` is a `vector(384)` column, so a database
+# without the extension is not a database this code can build at all, and the one statement that
+# creates it belongs in the one step that always runs.
+CREATE_EXTENSIONS = """
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS vector;
+"""
 
 # The one text search configuration this project uses, named once. Both halves of full text have to
 # agree on it — the stored `tsvector` below and the `plainto_tsquery` in `retrieval` — and if they
@@ -100,6 +116,73 @@ CREATE TABLE corpus_meta (
     ingest_version integer NOT NULL,
     built_at       timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE embeddings (
+    chunk_id  text NOT NULL REFERENCES chunks (chunk_id) ON DELETE CASCADE,
+    -- The whole of ADR-0005 in one column. Embedder is a build-time axis, so a second embedder
+    -- means a second set of vectors — but *in this table*, under a second `model_key`, never in a
+    -- second table and never in a second column. That is what makes "switching embedder is a WHERE
+    -- clause, not a redeploy" true, and it is why the Phase 4 fine-tuned embedder costs zero lines
+    -- of schema and zero lines of SQL.
+    model_key text NOT NULL,
+    -- `vector`, not `halfvec`. Half precision would save half the storage and lose numeric fidelity
+    -- on the ranking path of a benchmark whose entire claim is that its numbers are trustworthy.
+    -- That is not a trade to make without a measurement saying the storage mattered, and at
+    -- fifty-three chunks it demonstrably does not.
+    embedding vector({EMBEDDING_DIMENSION}) NOT NULL,
+    -- Composite, so one chunk carries one vector per embedder and a rebuild cannot half-write a
+    -- model_key's set without the primary key noticing.
+    PRIMARY KEY (chunk_id, model_key)
+);
+
+CREATE TABLE embeddings_meta (
+    -- `corpus_meta` for the embedder axis, and deliberately **not** a singleton. The difference is
+    -- the argument: `corpus_meta.singleton` exists because the database describes exactly one
+    -- Corpus, while here `model_key` is the primary key because the database is meant to describe
+    -- more than one embedder at once (ADR-0005). A singleton table here would have made the second
+    -- embedder a schema change, which is the thing ADR-0005 exists to prevent.
+    model_key   text PRIMARY KEY,
+    -- Recorded even though the column already declares it, because the two are different claims:
+    -- the column says what this build can store, this says what the embedder that wrote these rows
+    -- produced. The Phase 4 embedder must preserve 384 (ADR-0008) and this is the row that would
+    -- prove it did rather than assert it.
+    dimension   integer NOT NULL,
+    -- The digest of everything that changes a vector, read off the embedder object that actually
+    -- ran rather than off the configuration that was supposed to produce it. `verify_artifact`
+    -- refuses to boot a `dense` build when this disagrees with the live embedder — the one check
+    -- that catches ingesting with one embedder and querying with another, which no dimension check
+    -- and no shape check can see.
+    fingerprint text NOT NULL,
+    normalized  boolean NOT NULL,
+    built_at    timestamptz NOT NULL DEFAULT now()
+);
+"""
+
+# Created *after* the rows are inserted, never inside `CREATE_SCHEMA`, and the ordering is load
+# bearing enough to keep the statement in its own constant where it cannot be pasted back in.
+#
+# HNSW rather than IVFFlat for exactly that reason: IVFFlat trains its centroids during
+# `CREATE INDEX`, so an IVFFlat index built over an empty table is structurally useless until
+# somebody remembers to `REINDEX` — a trap waiting for whoever reorders the statements in `build()`.
+# HNSW has no training step, so the worst an ordering mistake costs here is a slower build.
+#
+# **The contracted semantics are exact search; this index is an optimisation.** HNSW is approximate,
+# and the ADR-0004 gate is built on total determinism, so that sentence has to be true rather than
+# hoped for. At fifty-three chunks the planner sequentially scans and the search *is* exact; the
+# index earns its place the day the corpus is a shelf of scanned manuals. Same reasoning, and same
+# honesty, as `chunks_text_trgm_idx` above.
+#
+# Partial on `model_key`, and not merely for size. pgvector applies the `WHERE` clause *after*
+# walking the index, so a shared index over two embedders with `ef_search = 40` returns about twenty
+# candidates for a predicate matching half the rows, not forty. One index per `model_key` is what
+# keeps a second embedder from silently halving the recall of the first.
+#
+# `m` and `ef_construction` are pgvector's defaults, written out rather than omitted so that a
+# future change to them is visible in a diff. Nobody should move them without a number.
+CREATE_EMBEDDING_INDEX = """
+CREATE INDEX embeddings_{model_key}_hnsw ON embeddings
+    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)
+    WHERE model_key = '{model_key}';
 """
 
 CREATE_WRITE_GUARD = f"""
