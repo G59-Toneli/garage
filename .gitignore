@@ -6,4 +6,12 @@ venv/
 *.egg-info/
 dist/
 build/
+# Every local variant, not just `.env` — a secret keeps its value whatever the suffix is, and
+# `.env.local` is the file people reach for second (ADR-0001: no secrets in VCS). The example
+# file is the deliberate exception, and it holds no secret.
 .env
+.env.*
+!.env.example
+
+# Worktrees the agent teams run in. They are checkouts, not source.
+.claude/worktrees/
