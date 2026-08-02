@@ -18,8 +18,8 @@ is scarce is money (zero) and what is *different* about it is the instruction se
 That second point is the one with consequences, and it is not about performance. Production runs on
 **aarch64 while every number this project publishes is measured on x86-64**, and ONNX Runtime is not
 bit-reproducible between the two (ADR-0008). Anything whose output a visitor could compare against a
-published figure has to be made architecture-independent by construction rather than by hoping the
-difference is small.
+published figure has to be held to that difference deliberately — measured, mitigated where a
+mitigation exists, and stated where one does not.
 
 ## Consequences
 

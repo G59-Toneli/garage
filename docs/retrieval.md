@@ -109,15 +109,22 @@ adjacent gap between two top-ten cosines in the real fact suite is 1.4e-06, *ins
 Raw ordering was never stable across architectures, and [ADR-0001](adr/0001-architecture-characteristics.md)
 names an ARM VM as the deployment target.
 
-Rounding collapses the noise into ties, and the `chunk_id` tie-break settles them identically on
+Rounding collapses that noise into ties, and the `chunk_id` tie-break settles them identically on
 every machine. The cost is stated rather than hidden: a pair genuinely separated by less than 1e-5
 is now ordered alphabetically instead of by similarity. In a project whose thesis is
 reproducibility that is the right trade — a similarity difference smaller than the platform's own
-floating-point error is not signal, it is noise shaped like signal. Five decimals sits five times
-above the error envelope and twenty-six times below the median smallest-gap of 2.6e-04, and adding
-it changed neither a single metric nor a single per-item order on x86-64. See
+floating-point error is not signal, it is noise shaped like signal. Adding it changed neither a
+single metric nor a single per-item order on x86-64, so it is free.
+
+It is a **mitigation, not a guarantee**, and the difference is documented rather than glossed:
+rounding has boundaries too, and a value landing within the error envelope of one still rounds to
+different sides on the two architectures. Over the 760 adjacent top-10 pairs the fact suite
+produces, raw ordering leaves one pair able to swap and five decimals leaves two; a sweep across
+precisions wanders between 0 and 2 with no trend, because a coarser grid pulls in more pairs at the
+same rate it makes each one safer. What survives sits at rank 8 or 9 of a single question, where a
+swap moves no metric at all. See
 [ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)
-for the measurements and for the residual risk it narrows without deleting.
+for the full table and for why run records are still produced on x86-64.
 
 There is nothing to fuse — one signal, and
 reciprocal-rank fusion would only compress a readable 0..1 number into a rank reciprocal nobody can

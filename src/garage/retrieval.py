@@ -218,18 +218,26 @@ scored AS (
 # is not stable across architectures, and ADR-0001 names an ARM VM as the deployment target: a
 # reproducibility claim that holds only where the project does not run is not a claim worth making.
 #
-# Rounding collapses that. Two cosines closer together than the grid become equal, and the
+# Rounding mostly collapses that. Two cosines closer together than the grid become equal, and the
 # `chunk_id` tie-break below — already there, already deterministic — settles them the same way on
 # every machine. The cost is real and worth naming: a pair genuinely separated by less than 1e-5 is
 # now ordered alphabetically rather than by similarity. In a project whose thesis is
 # reproducibility that is the right trade, because a similarity difference smaller than the
 # platform's own floating-point error is not signal, it is noise wearing the shape of signal.
 #
-# Five decimals rather than four: 1e-5 sits five times above the 1.9e-06 error envelope and
-# twenty-six times *below* the median smallest-gap of 2.6e-04, so it swallows the noise without
-# swallowing distinctions the suite actually makes. Rounding narrows the exposure rather than
-# deleting it — any grid has boundaries, and a value landing within the error of one can still cross
-# it — so the residual is measured rather than asserted; see ADR-0008 for the number.
+# **Mostly**, and the word is load bearing: this is a mitigation with a measured residual, not a
+# guarantee, and the difference should not be smoothed over by whoever edits this next. Every grid
+# has boundaries, and a value landing within the envelope of one still rounds to different sides on
+# the two architectures. Counted over the 760 adjacent top-10 pairs the fact suite produces, raw
+# ordering has one pair that can swap and rounding to five decimals has two — the precision sweep in
+# ADR-0008 wanders between 0 and 2 with no trend, because coarsening the grid pulls in more pairs at
+# the same rate it makes each one safer. No precision makes this zero by construction.
+#
+# Five decimals is kept anyway on three grounds: it turns the one genuinely sub-envelope pair into a
+# deterministic tie about seven times in eight, it sits far below the 2.2e-04 median smallest-gap so
+# it swallows nothing the suite distinguishes, and it demonstrably costs nothing — every metric and
+# every per-item order is identical to the unrounded run. What residual remains lands at rank 8 or 9
+# of a single question, where a swap moves no metric at all.
 _DENSE_SCORED = """
 scored AS (
     SELECT
@@ -298,7 +306,9 @@ FROM ranked
 -- The single signal is the score, so there is no fusion to do and RRF would only compress a
 -- readable 0..1 cosine into a rank reciprocal nobody can interpret. `chunk_id` breaks ties for the
 -- same reason it does under `lexical`, and after rounding it is doing real work rather than
--- guarding a theoretical case: it is what makes the order identical on x86-64 and arm64.
+-- guarding a theoretical case: it is what settles the ties rounding deliberately creates, and it is
+-- what makes the order agree between x86-64 and arm64 in every case but the residual ADR-0008
+-- measures.
 ORDER BY score DESC, chunk_id
 LIMIT %(k)s
 """

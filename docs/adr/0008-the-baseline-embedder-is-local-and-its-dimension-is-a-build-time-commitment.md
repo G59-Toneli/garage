@@ -60,20 +60,43 @@ architecture is the constraint, not the capacity — see the determinism consequ
     (ADR-0001) while every published number is measured on x86-64, so a visitor re-running a query
     live against the deployed service is comparing an ARM-computed result with an x86-measured
     figure.
-  - **The fix is a construction, not a caveat.** `retrieval._DENSE_SCORED` rounds the cosine to five
-    decimals before anything orders by it, and the `chunk_id` tie-break — already present, already
-    deterministic — settles the ties rounding creates. Five decimals is five times above the
-    1.9e-06 envelope and twenty-six times below the 2.6e-04 median gap. It changed **no metric and
-    no per-item order** on x86-64, so it costs nothing measurable and buys ordering that is the same
-    on both architectures.
-  - The residual, stated because rounding narrows exposure rather than deleting it: every grid has
-    boundaries, and a cosine landing within 1.9e-06 of one can still round to different sides on the
-    two architectures. What that requires is a pair whose gap is also within about 1e-5 of each
-    other — after which `chunk_id` decides, identically, on both. The exposure is roughly
-    `‖Δq‖₂ / grid` ≈ 20% *of the pairs that are already within a grid step*, against 100% of pairs
-    within 1.9e-06 before. Measured end to end below.
-  - Run records are still generated and re-measured on x86-64, but that is now a convention rather
-    than a load-bearing assumption.
+  - **The mitigation, and an honest account of what it does not do.**
+    `retrieval._DENSE_SCORED` rounds the cosine to five decimals before anything orders by it, and
+    the `chunk_id` tie-break — already present, already deterministic — settles the ties rounding
+    creates. It changed **no metric and no per-item order** on x86-64, so it is free.
+
+    It is *not* a construction that makes ordering architecture-independent, and this ADR is not
+    going to claim it is. Rounding has boundaries, and a value landing within the perturbation
+    envelope of one rounds to different sides on the two architectures. Counting the 760 adjacent
+    top-10 pairs the fact suite actually produces:
+
+    | ordering | pairs that can swap under a 1.9e-06 perturbation |
+    | --- | --- |
+    | raw cosine | 1 |
+    | round to 7 or 6 decimals | 0 |
+    | round to 5 decimals *(shipped)* | 2 |
+    | round to 4 decimals | 0 |
+    | round to 3 decimals | 1 |
+    | round to 2 decimals | 2 |
+
+    That column is a lottery, not a trend, and the reason is structural: coarsening the grid pulls
+    in more pairs at the same rate that it lowers each pair's chance of straddling a boundary, so
+    the product barely moves. The 0s are where this corpus's values happen to fall, not a property
+    any grid has. **No rounding precision guarantees stable order across architectures**, and
+    picking 4 decimals because it scores 0 here would be fitting a constant to 76 questions.
+
+    Five decimals is kept because it is the value that collapses the one genuinely sub-envelope pair
+    into a `chunk_id` tie about seven times in eight, costs nothing measurable, and stays far below
+    the 2.2e-04 median gap so it swallows no distinction the suite makes. It is a mitigation with a
+    known residual, which is a different and more defensible thing than a guarantee.
+  - **What the residual actually costs, which is close to nothing.** The at-risk pairs sit at
+    positions 8 and 9 of one question. A swap there changes `retrieved_chunk_ids` and changes
+    `recall@k`, `mrr@10` and `nDCG@10` by exactly zero unless a *relevant* chunk is one of the two.
+    So the exposure is confined to `measurement()`'s exact per-item comparison, not to any published
+    number — which is why the operational rule below is cheap to keep.
+  - **Run records are generated and re-measured on x86-64.** Still a convention, and still the right
+    one. If the ARM VM ever has to produce a record, the fix is to compare metrics rather than
+    `retrieved_chunk_ids` for the dense arm, decided then, with the failure in hand.
 - The 384-dimension promise constrains Phase 4 and is worth restating: a fine-tuned embedder that
   changes the width is not a second `model_key`, it is a schema migration and a new baseline.
 - **Resource cost, measured, for #11 to plan with.** RSS inside a Linux container, which is the
