@@ -47,11 +47,13 @@ multi-arch image build; ingestion — one command rebuilds the whole database fr
 with structure-aware chunking ([docs/ingestion.md](docs/ingestion.md)); and the first end-to-end
 path — `POST /query` returns ranked chunks with score, tier, document and page, plus the span tree
 behind them, served by lexical retrieval with no language model anywhere
-([docs/retrieval.md](docs/retrieval.md)).
+([docs/retrieval.md](docs/retrieval.md)); and the deterministic evaluation gate — 76 committed fact
+questions scored on every push, with a baseline the build fails against
+([docs/evaluation.md](docs/evaluation.md)).
 
-**Not built yet:** dense and hybrid retrieval, the evaluation gate, the comparison UI, and the public
-deployment. There are no benchmark numbers in this README, because there is no run record
-to derive them from. When there are, each will link to the run that produced it.
+**Not built yet:** dense and hybrid retrieval, the judge layer, the comparison UI, and the public
+deployment. The only numbers in this README come from a run record in `eval/runs/`; nothing here is
+typed by hand.
 
 ## How it works
 
@@ -169,12 +171,29 @@ Evaluation is a first-class citizen here, not a loose script. It runs in two lay
 | **Generation evaluation** | groundedness, citation accuracy, correct abstention | yes, a judge | on demand, locally; output committed |
 
 The gate breaks the build on a retrieval regression. It is where the fine-tuning argument lives, and
-it needs no API call to run.
+it needs no API call to run. `python -m garage eval gate` is that gate, and it runs in CI after
+`ingest`; the fact format, the run record format and the promotion procedure are documented in
+[docs/evaluation.md](docs/evaluation.md).
+
+The `lexical` baseline over the fixture corpus, from
+[`eval/runs/20260802T013309Z-fba1dad4ff09.json`](eval/runs/20260802T013309Z-fba1dad4ff09.json):
+
+| `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
+|---|---|---|---|---|
+| 0.427632 | 0.447368 | 0.447368 | 0.440789 | 0.442512 |
+
+Over 76 hand-written questions, and the average hides the finding. Split by how the question is
+phrased, `recall@10` is **0.912** for keyword queries and **0.071** for whole sentences: the lexical
+strategy answers a bag of words almost perfectly and answers a question almost never. That is the
+honest state of the baseline, and it is why the number is low rather than flattering — an earlier
+version of the fact set was all keyword queries, scored 0.91, and would have frozen that bug in place
+as a floor. See [docs/evaluation.md](docs/evaluation.md).
 
 Three evaluation sets:
 
 - `eval/facts.jsonl` — question → exact value plus the correct `chunk_id`. Scored by numeric match
-  within a declared tolerance, plus `recall@k`.
+  within a declared tolerance, plus `recall@k`. **Built** — see
+  [docs/evaluation.md](docs/evaluation.md).
 - `eval/recipes.jsonl` — open question → rubric. Scored on groundedness, citation accuracy, and
   correct abstention.
 - `eval/abstention.jsonl` — questions deliberately *outside* the corpus. Success is refusing to
@@ -209,7 +228,8 @@ Postgres with pgvector installed, the fixture corpus ingested, and the service a
 <http://localhost:8000/health> and <http://localhost:8000/query>
 ([docs/retrieval.md](docs/retrieval.md)). The ingest step is not optional: the service verifies
 `corpus_hash` at boot and refuses to start against a database that is not this commit's artifact.
-Run the suite with `docker compose exec serve pytest`.
+Run the suite with `docker compose exec serve pytest`, and the evaluation gate with
+`docker compose exec serve python -m garage eval gate` — it needs no API key and no network.
 Every setting is read from the environment and every one has a working default; copy `.env.example`
 to `.env` only when you want to change one. Nothing secret is committed.
 
@@ -229,6 +249,9 @@ tests/                  pytest suite, run in CI against a real Postgres
 docker/initdb/          extensions installed on first database boot
 corpus/                 manifest, extracted facts, excerpts — never source documents
 corpus/jargon.yaml      the curated workshop vocabulary, term → canonical
+eval/facts.jsonl        the committed fact questions the CI gate scores
+eval/baseline.json      the numbers to beat and the thresholds, both reviewable in a diff
+eval/runs/              run records, one file per run, generated and never hand-written
 docs/adr/               architectural decisions and what forced them
 docs/superpowers/specs/ the full design document
 CONTEXT.md              the domain vocabulary

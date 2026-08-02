@@ -1,0 +1,76 @@
+{"fact_id": "kw-torque-cabecote-estagio-2", "question": "cylinder head bolt stage 2 torque", "phrasing": "keyword", "expected_value": "77", "chunk_ids": ["svc-kadett-1993#0002"], "tolerance": 0.5}
+{"fact_id": "kw-torque-cabecote-rosca", "question": "cylinder head bolt thread", "phrasing": "keyword", "expected_value": "M11", "chunk_ids": ["svc-kadett-1993#0001", "svc-kadett-1993#0002"]}
+{"fact_id": "kw-torque-mancal-comando", "question": "camshaft bearing cap nut torque", "phrasing": "keyword", "expected_value": "23", "chunk_ids": ["svc-kadett-1993#0003"], "tolerance": 0.5}
+{"fact_id": "kw-torque-coletor-admissao", "question": "intake manifold nut torque", "phrasing": "keyword", "expected_value": "19", "chunk_ids": ["svc-kadett-1993#0004"], "tolerance": 0.5}
+{"fact_id": "kw-torque-coletor-escape", "question": "exhaust manifold nut torque", "phrasing": "keyword", "expected_value": "26", "chunk_ids": ["svc-kadett-1993#0005"], "tolerance": 0.5}
+{"fact_id": "kw-torque-volante-motor", "question": "flywheel bolt torque", "phrasing": "keyword", "expected_value": "63", "chunk_ids": ["svc-kadett-1993#0006"], "tolerance": 0.5}
+{"fact_id": "kw-folga-valvula-admissao", "question": "valve clearance intake", "phrasing": "keyword", "expected_value": "0.18", "chunk_ids": ["svc-kadett-1993#0007"], "tolerance": 0.005}
+{"fact_id": "kw-folga-valvula-escape", "question": "valve clearance exhaust", "phrasing": "keyword", "expected_value": "0.31", "chunk_ids": ["svc-kadett-1993#0008"], "tolerance": 0.005}
+{"fact_id": "kw-capacidade-oleo-motor", "question": "engine oil capacity filter", "phrasing": "keyword", "expected_value": "3.9", "chunk_ids": ["svc-kadett-1993#0015"], "tolerance": 0.05}
+{"fact_id": "kw-capacidade-arrefecimento", "question": "cooling system capacity", "phrasing": "keyword", "expected_value": "6.4", "chunk_ids": ["svc-kadett-1993#0016"], "tolerance": 0.05}
+{"fact_id": "kw-capacidade-cambio", "question": "gearbox capacity", "phrasing": "keyword", "expected_value": "1.7", "chunk_ids": ["svc-kadett-1993#0017"], "tolerance": 0.05}
+{"fact_id": "kw-capacidade-tanque", "question": "fuel tank capacity", "phrasing": "keyword", "expected_value": "52", "chunk_ids": ["svc-kadett-1993#0018"], "tolerance": 0.5}
+{"fact_id": "kw-procedimento-bateria", "question": "battery negative lead camshaft", "phrasing": "keyword", "expected_value": "ten minutes", "chunk_ids": ["svc-kadett-1993#0009"]}
+{"fact_id": "kw-procedimento-pms", "question": "crankshaft top dead centre", "phrasing": "keyword", "expected_value": "cylinder one", "chunk_ids": ["svc-kadett-1993#0010"]}
+{"fact_id": "kw-procedimento-tensionador", "question": "timing belt tensioner slacken", "phrasing": "keyword", "expected_value": "camshaft sprocket", "chunk_ids": ["svc-kadett-1993#0011"]}
+{"fact_id": "kw-procedimento-ordem-mancais", "question": "camshaft bearing cap nuts quarter turn", "phrasing": "keyword", "expected_value": "cap 5 to cap 1", "chunk_ids": ["svc-kadett-1993#0012"]}
+{"fact_id": "kw-pressao-pneu", "question": "tyre pressure front rear", "phrasing": "keyword", "expected_value": "28", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "kw-correia-dentada-km", "question": "timing belt 60 000 km", "phrasing": "keyword", "expected_value": "destroys valves", "chunk_ids": ["owner-kadett-1993#0002"]}
+{"fact_id": "kw-luz-pressao-oleo", "question": "oil pressure lamp red", "phrasing": "keyword", "expected_value": "stop immediately", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "kw-luz-injecao", "question": "engine management lamp", "phrasing": "keyword", "expected_value": "amber", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "kw-peca-vela-ignicao", "question": "spark plug gap", "phrasing": "keyword", "expected_value": "90 511 402", "chunk_ids": ["parts-gsi-1994#0001"]}
+{"fact_id": "kw-peca-bobina", "question": "ignition coil twin output", "phrasing": "keyword", "expected_value": "90 511 418", "chunk_ids": ["parts-gsi-1994#0002"]}
+{"fact_id": "kw-peca-sensor-comando", "question": "camshaft position sensor", "phrasing": "keyword", "expected_value": "90 512 007", "chunk_ids": ["parts-gsi-1994#0003"]}
+{"fact_id": "kw-peca-correia-dentada", "question": "timing belt teeth", "phrasing": "keyword", "expected_value": "90 512 113", "chunk_ids": ["parts-gsi-1994#0004"]}
+{"fact_id": "kw-peca-tensionador", "question": "tensioner bearing part", "phrasing": "keyword", "expected_value": "90 512 114", "chunk_ids": ["parts-gsi-1994#0005"]}
+{"fact_id": "kw-peca-bomba-combustivel", "question": "fuel pump in-tank", "phrasing": "keyword", "expected_value": "90 484 220", "chunk_ids": ["parts-gsi-1994#0006"]}
+{"fact_id": "kw-peca-filtro-combustivel", "question": "fuel filter inline", "phrasing": "keyword", "expected_value": "90 484 231", "chunk_ids": ["parts-gsi-1994#0007"]}
+{"fact_id": "kw-peca-bico-injetor", "question": "injector GSi", "phrasing": "keyword", "expected_value": "190", "chunk_ids": ["parts-gsi-1994#0008"], "tolerance": 0.5}
+{"fact_id": "kw-cabecote-trabalhado", "question": "cabeçote trabalhado comando", "phrasing": "keyword", "expected_value": "150 cv", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "kw-coroa-curta", "question": "coroa GSi motor bravo", "phrasing": "keyword", "expected_value": "curta demais", "chunk_ids": ["forum-swap-250s#0011"]}
+{"fact_id": "kw-taxa-alta", "question": "pistao detonar taxa", "phrasing": "keyword", "expected_value": "gasolina comum", "chunk_ids": ["forum-swap-250s#0009"]}
+{"fact_id": "kw-barulho-tensionador", "question": "barulho tensionador correia dentada", "phrasing": "keyword", "expected_value": "biela", "chunk_ids": ["blog-projetinho-de-rua#0001"]}
+{"fact_id": "kw-suspensao", "question": "suspensao mola amortecedor coxim", "phrasing": "keyword", "expected_value": "ordem certa", "chunk_ids": ["blog-projetinho-de-rua#0002"]}
+{"fact_id": "kw-escape-travessa", "question": "escape 4x2x1 travessa", "phrasing": "keyword", "expected_value": "sob medida", "chunk_ids": ["blog-projetinho-de-rua#0003"]}
+{"fact_id": "torque-cabecote-estagio-1", "question": "What torque should the cylinder head bolts be tightened to in stage 1?", "phrasing": "natural", "expected_value": "41", "chunk_ids": ["svc-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "torque-cabecote-estagio-2", "question": "Qual o torque do parafuso do cabeçote no segundo estágio?", "phrasing": "natural", "expected_value": "77", "chunk_ids": ["svc-kadett-1993#0002"], "tolerance": 0.5}
+{"fact_id": "torque-mancal-comando", "question": "How tight should the camshaft bearing cap nuts be?", "phrasing": "natural", "expected_value": "23", "chunk_ids": ["svc-kadett-1993#0003"], "tolerance": 0.5}
+{"fact_id": "torque-coletor-escape", "question": "Qual o torque das porcas do coletor de escape?", "phrasing": "natural", "expected_value": "26", "chunk_ids": ["svc-kadett-1993#0005"], "tolerance": 0.5}
+{"fact_id": "torque-volante-motor", "question": "What torque do the flywheel bolts need?", "phrasing": "natural", "expected_value": "63", "chunk_ids": ["svc-kadett-1993#0006"], "tolerance": 0.5}
+{"fact_id": "folga-valvula-admissao", "question": "What should the intake valve clearance be with the engine cold?", "phrasing": "natural", "expected_value": "0.18", "chunk_ids": ["svc-kadett-1993#0007"], "tolerance": 0.005}
+{"fact_id": "folga-valvula-escape", "question": "Qual a folga das válvulas de escape com o motor frio?", "phrasing": "natural", "expected_value": "0.31", "chunk_ids": ["svc-kadett-1993#0008"], "tolerance": 0.005}
+{"fact_id": "capacidade-oleo-motor", "question": "How much oil does the engine take with a new filter?", "phrasing": "natural", "expected_value": "3.9", "chunk_ids": ["svc-kadett-1993#0015"], "tolerance": 0.05}
+{"fact_id": "especificacao-oleo-motor", "question": "Which oil grade should I use in the engine?", "phrasing": "natural", "expected_value": "SAE 20W-50", "chunk_ids": ["svc-kadett-1993#0015"]}
+{"fact_id": "capacidade-cambio-manual", "question": "Quantos litros de óleo leva o câmbio manual?", "phrasing": "natural", "expected_value": "1.7", "chunk_ids": ["svc-kadett-1993#0017"], "tolerance": 0.05}
+{"fact_id": "capacidade-tanque", "question": "How big is the fuel tank?", "phrasing": "natural", "expected_value": "52", "chunk_ids": ["svc-kadett-1993#0018"], "tolerance": 0.5}
+{"fact_id": "procedimento-bateria", "question": "What should I do first before removing the camshaft?", "phrasing": "natural", "expected_value": "battery negative lead", "chunk_ids": ["svc-kadett-1993#0009"]}
+{"fact_id": "procedimento-pms", "question": "Where should the crankshaft be before I take the camshaft out?", "phrasing": "natural", "expected_value": "top dead centre", "chunk_ids": ["svc-kadett-1993#0010"]}
+{"fact_id": "procedimento-tensionador", "question": "How do I get the timing belt off the camshaft sprocket?", "phrasing": "natural", "expected_value": "Slacken the timing belt tensioner", "chunk_ids": ["svc-kadett-1993#0011"]}
+{"fact_id": "procedimento-ordem-mancais", "question": "In what order should the camshaft bearing caps be undone?", "phrasing": "natural", "expected_value": "cap 5 to cap 1", "chunk_ids": ["svc-kadett-1993#0012"]}
+{"fact_id": "procedimento-levantar-comando", "question": "Como tirar o comando de válvulas sem danificar os mancais?", "phrasing": "natural", "expected_value": "Lift the camshaft out squarely", "chunk_ids": ["svc-kadett-1993#0013"]}
+{"fact_id": "pressao-pneu-dianteiro", "question": "What pressure should the front tyres be at when cold?", "phrasing": "natural", "expected_value": "28", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "pressao-pneu-carregado", "question": "Preciso calibrar mais atrás com o carro cheio?", "phrasing": "natural", "expected_value": "32", "chunk_ids": ["owner-kadett-1993#0001"], "tolerance": 0.5}
+{"fact_id": "medida-do-pneu", "question": "Which tyre size did the GSi come with from new?", "phrasing": "natural", "expected_value": "185/60 R14", "chunk_ids": ["owner-kadett-1993#0001"]}
+{"fact_id": "intervalo-de-revisao", "question": "How often does this car need servicing?", "phrasing": "natural", "expected_value": "10 000 km", "chunk_ids": ["owner-kadett-1993#0002"]}
+{"fact_id": "troca-correia-dentada", "question": "De quanto em quanto tempo troca a correia dentada?", "phrasing": "natural", "expected_value": "60 000 km", "chunk_ids": ["owner-kadett-1993#0002"]}
+{"fact_id": "luz-pressao-oleo", "question": "What should I do if the red oil pressure light comes on?", "phrasing": "natural", "expected_value": "stop immediately", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "luz-injecao", "question": "A luz de injeção acendeu, posso continuar dirigindo?", "phrasing": "natural", "expected_value": "reduced load", "chunk_ids": ["owner-kadett-1993#0003"]}
+{"fact_id": "combustivel-recomendado", "question": "Which fuel does this car take?", "phrasing": "natural", "expected_value": "gasolina comum", "chunk_ids": ["owner-kadett-1993#0004"]}
+{"fact_id": "tolerancia-alcool", "question": "Can I run álcool in it?", "phrasing": "natural", "expected_value": "25", "chunk_ids": ["owner-kadett-1993#0004"], "tolerance": 0.5}
+{"fact_id": "peca-bomba-combustivel", "question": "What is the part number for the fuel pump?", "phrasing": "natural", "expected_value": "90 484 220", "chunk_ids": ["parts-gsi-1994#0006"]}
+{"fact_id": "peca-correia-dentada", "question": "Qual o código da correia dentada?", "phrasing": "natural", "expected_value": "90 512 113", "chunk_ids": ["parts-gsi-1994#0004"]}
+{"fact_id": "peca-vela-ignicao", "question": "What spark plug does the 2.0 MPFI use, and what gap?", "phrasing": "natural", "expected_value": "0.8 mm", "chunk_ids": ["parts-gsi-1994#0001"]}
+{"fact_id": "peca-bico-injetor", "question": "How much do the GSi injectors flow?", "phrasing": "natural", "expected_value": "190", "chunk_ids": ["parts-gsi-1994#0008"], "tolerance": 0.5}
+{"fact_id": "peca-bomba-substituida", "question": "Which older pump does the current fuel pump replace?", "phrasing": "natural", "expected_value": "90 484 209", "chunk_ids": ["parts-gsi-1994#0010"]}
+{"fact_id": "peca-bobina", "question": "Qual a peça da bobina de ignição?", "phrasing": "natural", "expected_value": "90 511 418", "chunk_ids": ["parts-gsi-1994#0002"]}
+{"fact_id": "swap-250s-cabe-no-cofre", "question": "Será que cabe o swap 250-S no cofre do Kadett?", "phrasing": "natural", "expected_value": "não cabe bonito", "chunk_ids": ["forum-swap-250s#0004"]}
+{"fact_id": "swap-250s-vale-a-pena", "question": "Vale a pena fazer o swap 250-S num Kadett?", "phrasing": "natural", "expected_value": "não é pra Kadett", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "swap-250s-o-que-reforcar", "question": "O que precisa reforçar pra colocar um motor em linha?", "phrasing": "natural", "expected_value": "longarina reforçada", "chunk_ids": ["forum-swap-250s#0004"]}
+{"fact_id": "cabecote-plainado", "question": "cabecote plainado demais estraga o pistao?", "phrasing": "natural", "expected_value": "comendo pistão", "chunk_ids": ["forum-swap-250s#0009"]}
+{"fact_id": "potencia-cabecote-trabalhado", "question": "Quanto de potência dá pra tirar de um 2.0 MPFI com cabeçote trabalhado?", "phrasing": "natural", "expected_value": "150 cv", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "coroa-curta", "question": "A coroa original do GSi serve pra motor bravo?", "phrasing": "natural", "expected_value": "curta demais", "chunk_ids": ["forum-swap-250s#0011"]}
+{"fact_id": "barulho-de-corrente", "question": "Barulho de corrente no 2.0 MPFI, o que pode ser?", "phrasing": "natural", "expected_value": "tensionador", "chunk_ids": ["blog-projetinho-de-rua#0001"]}
+{"fact_id": "ordem-suspensao-motor", "question": "Mexo na suspensão ou no motor primeiro?", "phrasing": "natural", "expected_value": "ordem certa", "chunk_ids": ["blog-projetinho-de-rua#0002"]}
+{"fact_id": "escape-de-catalogo", "question": "Escape 4x2x1 de catálogo encaixa direto?", "phrasing": "natural", "expected_value": "sob medida", "chunk_ids": ["blog-projetinho-de-rua#0003"]}
+{"fact_id": "arrependimento-swap", "question": "Do que o autor se arrependeu no projeto?", "phrasing": "natural", "expected_value": "mesa que virou sucata", "chunk_ids": ["blog-projetinho-de-rua#0004"]}
+{"fact_id": "estado-atual-do-projeto", "question": "Como o carro está hoje?", "phrasing": "natural", "expected_value": "gerenciamento programável", "chunk_ids": ["blog-projetinho-de-rua#0005"]}

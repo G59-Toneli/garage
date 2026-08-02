@@ -37,6 +37,13 @@ DROP_SCHEMA = "\n".join(f"DROP TABLE IF EXISTS {table} CASCADE;" for table in IN
 # makes every built artifact complete.
 CREATE_EXTENSIONS = "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
+# The one text search configuration this project uses, named once. Both halves of full text have to
+# agree on it — the stored `tsvector` below and the `plainto_tsquery` in `retrieval` — and if they
+# ever disagreed, queries would silently stop matching stems the index holds. It is also what a run
+# record cites, because the stemmer behind this name is part of what produced the ranking, so a
+# constant is the only way the record cannot drift from the SQL it claims to describe.
+TEXT_SEARCH_CONFIG = "portuguese"
+
 CREATE_SCHEMA = f"""
 CREATE TABLE documents (
     doc_id      text PRIMARY KEY,
@@ -67,7 +74,7 @@ CREATE TABLE chunks (
     -- Generated, not populated: lexical retrieval (#5) must search exactly what ingestion stored.
     -- 'portuguese' because the material is overwhelmingly Brazilian Portuguese; the stemmer being
     -- wrong for the English headings costs far less than no stemming for the workshop text.
-    tsv          tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', text)) STORED,
+    tsv          tsvector GENERATED ALWAYS AS (to_tsvector('{TEXT_SEARCH_CONFIG}', text)) STORED,
     UNIQUE (doc_id, ordinal)
 );
 

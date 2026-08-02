@@ -1,0 +1,41 @@
+{
+  "arms": [
+    {
+      "configuration": {
+        "embedder": null,
+        "k": 10,
+        "reranker": null,
+        "strategy": "lexical",
+        "tiers": [
+          "A",
+          "B"
+        ]
+      },
+      "gated_metrics": [
+        "mrr@10",
+        "ndcg@10",
+        "recall@1",
+        "recall@10",
+        "recall@10:keyword",
+        "recall@10:natural",
+        "recall@5"
+      ],
+      "metrics": {
+        "mrr@10": 0.440789,
+        "ndcg@10": 0.442512,
+        "recall@1": 0.427632,
+        "recall@10": 0.447368,
+        "recall@10:keyword": 0.911765,
+        "recall@10:natural": 0.071429,
+        "recall@5": 0.447368,
+        "value_match@1": 0.434211
+      }
+    }
+  ],
+  "baseline_version": 2,
+  "facts_sha256": "3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632",
+  "noise_floor": 0.013,
+  "run_id": "20260802T013309Z-fba1dad4ff09",
+  "sample_count": 76,
+  "tolerance": 0.014
+}
