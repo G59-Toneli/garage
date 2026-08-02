@@ -222,6 +222,13 @@ Read from the published price list on **2026-08-01**, and the date travels into 
 exists to give an order of magnitude to a comparison *between configurations* — "the hybrid run costs
 four times the lexical one" — not to reconcile with an invoice.
 
+A **rejected** answer still records its full cost on the span — tokens, estimate, pricing date. The
+provider answered and charged for it; we refused the result, and nobody refunded the tokens. Leaving
+it out would make a configuration that reliably breaks the citation contract look like the cheap one.
+A **degraded** call records no cost at all, and the asymmetry between those two is the correct
+behaviour rather than an inconsistency to tidy away: there, nothing came back and nothing was billed,
+so a zero would invent a charge exactly as an omission above would hide one.
+
 A model with no price on record yields `cost_usd: null` and `cost_estimated: false`, **never zero**.
 A free-looking row in a cost comparison is a lie, and the trace is the product. The attribute name
 says `usd_estimated` for the same reason.

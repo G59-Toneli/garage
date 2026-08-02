@@ -342,6 +342,12 @@ def _answer(
             # single adapter's diligence.
             verify_citations(answer, context=candidates, contract=contract)
         except ContractViolation as violation:
+            # The full cost record, and the asymmetry with the degradation block above is
+            # deliberate — do not "tidy" the two into agreement. There, the provider never answered,
+            # so there is nothing to bill and nothing to record. Here it answered, on time, and
+            # charged for it; the answer is refused by us, not unbilled by them. A span that dropped
+            # the cost would let a configuration which reliably breaks the citation contract show up
+            # as the cheap one in the comparison the demo puts on screen.
             span.set(
                 error=True,
                 **{
@@ -350,8 +356,13 @@ def _answer(
                     "generation.contract.violated": True,
                     "generation.abstained": False,
                     "generation.degraded": False,
+                    "generation.support": "rejected",
                     "generation.tokens.input": answer.tokens_in,
                     "generation.tokens.output": answer.tokens_out,
+                    "generation.tokens.total": answer.tokens_total,
+                    "generation.cost.usd_estimated": answer.cost_usd,
+                    "generation.cost.estimated": answer.cost_estimated,
+                    "generation.pricing.as_of": answer.pricing_as_of,
                 },
             )
             return reject_unverifiable(

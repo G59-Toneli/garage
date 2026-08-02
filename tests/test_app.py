@@ -72,6 +72,22 @@ def answered(chunk_id="svc-kadett-1993#0001") -> Answer:
     )
 
 
+def invented() -> Answer:
+    """An answer citing a chunk that was never retrieved — and billed for, like any other."""
+    return Answer(
+        text="inventado",
+        claims=(Claim(text="inventado", citations=(Citation(1, "NAO-RECUPERADO#7"),)),),
+        support="supported",
+        provider="fake",
+        model="fake-1",
+        tokens_in=812,
+        tokens_out=96,
+        cost_usd=0.0005,
+        cost_estimated=True,
+        pricing_as_of="2026-08-01",
+    )
+
+
 def abstention() -> Answer:
     return Answer(
         abstained=True,
@@ -360,15 +376,7 @@ def test_an_internal_bug_is_not_reported_as_the_provider_failing(booted):
 def test_a_generator_that_invents_a_citation_is_caught_by_the_endpoint(booted):
     # `Generator` is a runtime axis, so the implementation that forgets to validate is the next one.
     # "Every citation resolves" has to hold for the system, not for one adapter's diligence.
-    invented = Answer(
-        text="inventado",
-        claims=(Claim(text="inventado", citations=(Citation(1, "NAO-RECUPERADO#7"),)),),
-        support="supported",
-        provider="fake",
-        model="fake-1",
-    )
-
-    with booted(FakeRetriever([candidate()]), FakeGenerator(invented)) as client:
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented())) as client:
         response = client.post("/query", json={"question": "torque"})
 
     body = response.json()
@@ -383,6 +391,37 @@ def test_a_generator_that_invents_a_citation_is_caught_by_the_endpoint(booted):
     generate = body["trace"]["children"][1]
     assert generate["attributes"]["generation.contract.violated"] is True
     assert generate["attributes"]["error"] is True
+
+
+def test_a_rejected_answer_still_records_what_the_call_cost(booted):
+    # The provider answered and charged for it. We refused the answer; nobody refunded the tokens.
+    # A span that dropped the cost here would make a configuration that reliably breaks the citation
+    # contract look like the cheap one in the comparison the demo puts on screen.
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented())) as client:
+        body = client.post("/query", json={"question": "torque"}).json()
+
+    assert body["answer"]["support"] == "rejected"
+    attributes = body["trace"]["children"][1]["attributes"]
+    assert attributes["generation.tokens.input"] == 812
+    assert attributes["generation.tokens.output"] == 96
+    assert attributes["generation.tokens.total"] == 908
+    assert attributes["generation.cost.usd_estimated"] == 0.0005
+    assert attributes["generation.cost.estimated"] is True
+    assert attributes["generation.pricing.as_of"] == "2026-08-01"
+    assert attributes["generation.support"] == "rejected"
+
+
+def test_a_degraded_call_records_no_cost_because_none_was_incurred(booted):
+    # The mirror image, and the asymmetry with the test above is the correct behaviour rather than
+    # an inconsistency: no answer came back, so there is nothing to bill and nothing to record.
+    # Writing a zero here would invent a charge, exactly as writing none above would hide one.
+    with booted(FakeRetriever([candidate()]), FakeGenerator(fails=RuntimeError("quota"))) as client:
+        body = client.post("/query", json={"question": "torque"}).json()
+
+    attributes = body["trace"]["children"][1]["attributes"]
+    assert attributes["generation.degraded"] is True
+    assert "generation.cost.usd_estimated" not in attributes
+    assert "generation.tokens.total" not in attributes
 
 
 def test_the_contract_that_ran_is_the_contract_the_answer_reports(booted):
