@@ -79,6 +79,123 @@ returns the same order. A benchmark whose ranking wobbled between runs would rep
 difference. `k` is capped at 50; the endpoint is public and a huge `k` is a way to make the service
 read the whole corpus rather than a question anyone is asking.
 
+## Dense: the second strategy
+
+```sh
+curl -s localhost:8000/query -H 'content-type: application/json' \
+  -d '{"question": "qual o torque do parafuso do volante do motor?", "strategy": "dense", "k": 5}'
+```
+
+`strategy` is a runtime axis ([ADR-0005](adr/0005-build-time-vs-runtime-axes.md)): both retrievers
+are built at boot, both stand on the same artifact, and choosing between them is a dictionary lookup
+in the same process — no rebuild, no redeploy, no second container. Omit the field and you get
+`lexical`, so every request written before `dense` existed still means what it meant. A strategy this
+build does not serve is a 422 naming the ones it does, never a silent fall back: a visitor comparing
+two strategies who typos one and is quietly served the other reads a difference that is not there.
+
+No existing field changes shape. `components` differs, because it is `dict[str, float | None]`
+rather than four named fields, and one field is **added**:
+
+```jsonc
+{
+  "strategy": "dense",
+  "embedder": "baseline@6f852da7deb1",
+  "chunks": [
+    {"chunk_id": "svc-kadett-1993#0006", "score": 0.8376,
+     "components": {"cosine": 0.8376, "dense_rank": 1}}
+  ]
+}
+```
+
+`embedder` is `<model_key>@<fingerprint prefix>`, null under `lexical`, and it also rides the
+`retrieve` span as `retrieval.embedder`. It exists because `strategy` alone stops being an identity
+the moment ADR-0005's second embedder does: Phase 4 puts `baseline` and `finetuned` in one
+`embeddings` table under two `model_key`s, and two arms both labelled `dense` would be a comparison
+a reader cannot name. An interface can then show which embedder answered without hard-coding it —
+the same thing `Configuration.embedder` has done for run records all along.
+
+`score` **is** the cosine, `1 - (embedding <=> :q)`, **rounded to five decimals before anything
+orders by it**. That rounding is insurance on a thin margin rather than cosmetics. ONNX Runtime is
+not bit-reproducible across instruction sets, and production runs on aarch64
+([ADR-0001](adr/0001-architecture-characteristics.md)) while every published number is measured on
+x86-64. Embedding the whole corpus and all 76 fact questions on both: most components differ, the
+worst observed cosine delta is 2.384e-07, and the smallest adjacent top-ten gap in the suite is
+1.311e-06 — so the order does hold, on a margin of 5.5×, and **0 of 76 top-ten orders differ**.
+
+Rounding collapses sub-grid differences into ties that the `chunk_id` tie-break settles identically
+everywhere. It is **cheap insurance against one class of perturbation, not a construction that makes
+order architecture-independent** — `round` is monotone, so all it can add are ties, and at five
+decimals this suite gets none: even the tightest pair straddles a grid boundary and stays strictly
+ordered. On this corpus the x86-64/arm64 agreement is bought by the gap distribution, not by the
+rounding. It is kept because it is measurably free (no metric and no per-item order moved) and sits
+200× below the median gap, so it swallows no distinction the suite makes, while covering a denser
+corpus later. Four decimals was measured and rejected: it creates ties that `chunk_id` resolves
+against cosine order, trading real ranking for a guarantee that still would not be one.
+
+The margin against the analytic bound is 1.13×. That is why the cross-architecture measurement stays
+part of the procedure as the corpus grows. See
+[ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)
+for the full measurement and the precision sweep.
+
+There is nothing to fuse — one signal, and reciprocal-rank fusion would only compress a readable
+0..1 number into a rank reciprocal nobody can interpret. The `<=>` operator rather than the marginally faster `<#>`, even though the vectors are
+unit length and the two order identically, because pgvector *negates* the inner product (Postgres
+only scans an index ascending) and `components["cosine"]` would arrive negative needing a `* -1`
+before a reader could believe it. In a demo whose product is the trace, a score that must be
+sign-corrected before it can be read is a permanent trap.
+
+### Dense does not abstain
+
+This is the one behavioural difference between the arms that matters, and it is not a bug:
+
+| | Question the corpus does not cover |
+| --- | --- |
+| `lexical` | returns **nothing** — `word_similarity` below 0.6 is dropped |
+| `dense` | returns its **k least-distant vectors**, however distant |
+
+Nearest-neighbour search has no notion of "no match". The zero-cost abstention — the model is never
+called, there is no `generate` span — is therefore reachable under `lexical` and unreachable under
+`dense`. **No floor is invented here**, because there is no measurement to set one from, and a
+threshold picked to look right is a number the gate would then be defending. The evaluation gate is
+what will show what this costs; deciding it is a later commit with a number behind it.
+
+### The embedder
+
+Vectors are stored in `embeddings(chunk_id, model_key, embedding vector(384))` — one row per chunk
+per embedder, so a second embedder is a second `model_key` and not a second table
+([ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)).
+`model_key` is a query parameter, so Phase 4's fine-tuned embedder costs zero lines of SQL.
+
+The HNSW index is partial on `model_key`, because pgvector applies the `WHERE` *after* walking the
+index: a shared index with `ef_search = 40` and a predicate matching half the rows returns about
+twenty candidates, not forty. It is created **after** the rows are inserted, and it is HNSW rather
+than IVFFlat because IVFFlat trains centroids during `CREATE INDEX` and is structurally useless when
+built over an empty table. **The contracted semantics are exact search; the index is an
+optimisation** — at fifty-three chunks the planner scans and the search really is exact, which is
+what lets the deterministic gate rest on it.
+
+Ingestion and query provably use the same embedder, and this is the failure the whole design is
+arranged around. Nothing about a 384-float vector says which model produced it: a database embedded
+by one model and queried by another boots, serves, ranks, and is merely *quietly worse*. Two
+mechanisms make it unwriteable rather than unlikely — a single factory, `embedding.embedder_for`,
+that both `ingest.build` and `available_retrievers` call, and a `fingerprint` (sha256 over model id,
+weights digest, tokenizer digest, dimension, sequence length, pooling, normalisation, both prefixes
+and `EMBED_VERSION`) which ingestion stores in `embeddings_meta` and the boot gate compares:
+
+```
+the database was embedded by a different embedder than this code would query with.
+  database: fingerprint 37211055… (model_key baseline, 384 dimensions)
+  code:     fingerprint 9c2ab410… (model_key baseline, 384 dimensions)
+Run `python -m garage ingest` to rebuild it.
+```
+
+A dimension check would not catch that, and the most likely divergence of all is the reason why: an
+embedder that applies e5's `"passage: "` prefix on the query side has the same model, the same
+weights and the same 384 dimensions, and simply retrieves worse. That is why `Embedder` has
+`embed_query` and `embed_passages` and no generic `embed(texts)` — the design (§7.1) writes one
+method, and with one method calling the wrong side is the *default* mistake rather than a discouraged
+one.
+
 ## The interface, not the implementation
 
 `Retriever` is `retrieve(query, k, filters) -> tuple[Candidate, ...]` and nothing else. Strategy is a
@@ -164,11 +281,20 @@ willing to run against the wrong artifact as long as nobody asked it anything.
 intended behaviour. Ingest first:
 
 ```sh
+python -m garage embedder fetch     # once: 470 MB, sha256-verified, never committed
 docker compose up -d postgres
 docker compose run --rm serve python -m garage ingest
 docker compose up --wait
 ```
 
-`pg_trgm` is created by ingestion rather than by `docker/initdb/`, where `vector` lives, because
-initdb only runs when the data directory is empty: a developer whose volume predates that line would
-otherwise get a database the server cannot query. Ingestion already owns DDL and is always re-run.
+`pg_trgm` **and** `vector` are created by ingestion rather than by `docker/initdb/`, because initdb
+only runs when the data directory is empty: a developer whose volume predates a line added there
+would get a database the server cannot query. Ingestion already owns DDL and is always re-run.
+`vector` moved out of `docker/initdb/001-extensions.sql` — and out of the hand-copied duplicate in
+`ci.yml` — when it stopped being optional, which is the commit that added `embeddings`.
+
+Without the weights, `ingest` and `serve` refuse and name the command that fixes it. To build a
+lexical-only artifact deliberately, set `GARAGE_EMBEDDER=none`: there are then no vectors, no dense
+strategy on the endpoint and no dense arm in the run record, and `ingest` says so in its output. A
+missing model is never silently degraded to lexical — that would report a configuration mistake as
+a strategy that scores nothing.

@@ -175,19 +175,29 @@ it needs no API call to run. `python -m garage eval gate` is that gate, and it r
 `ingest`; the fact format, the run record format and the promotion procedure are documented in
 [docs/evaluation.md](docs/evaluation.md).
 
-The `lexical` baseline over the fixture corpus, from
-[`eval/runs/20260802T013309Z-fba1dad4ff09.json`](eval/runs/20260802T013309Z-fba1dad4ff09.json):
+Both strategies over the fixture corpus, measured against the same 76 questions, the same artifact
+and the same engine in one run record —
+[`eval/runs/20260802T020612Z-69ecf7d0bb69.json`](eval/runs/20260802T020612Z-69ecf7d0bb69.json):
 
-| `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
-|---|---|---|---|---|
-| 0.427632 | 0.447368 | 0.447368 | 0.440789 | 0.442512 |
+| strategy | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` | `recall@10` keyword | `recall@10` natural |
+|---|---|---|---|---|---|---|---|
+| `lexical` | 0.427632 | 0.447368 | 0.447368 | 0.440789 | 0.442512 | **0.911765** | **0.071429** |
+| `dense`   | 0.671053 | 0.855263 | 0.894737 | 0.755738 | 0.790693 | **1.000000** | **0.809524** |
 
-Over 76 hand-written questions, and the average hides the finding. Split by how the question is
-phrased, `recall@10` is **0.912** for keyword queries and **0.071** for whole sentences: the lexical
-strategy answers a bag of words almost perfectly and answers a question almost never. That is the
-honest state of the baseline, and it is why the number is low rather than flattering — an earlier
-version of the fact set was all keyword queries, scored 0.91, and would have frozen that bug in place
-as a floor. See [docs/evaluation.md](docs/evaluation.md).
+The last two columns are the whole story, and the average hides it. Split by how the question is
+phrased, the lexical strategy answers a bag of words almost perfectly and answers a whole sentence
+almost never — 0.071 — because the questions are Portuguese and the headings are English, and no
+stemmer will ever relate `volante do motor` to `flywheel`. That is what the multilingual embedder was
+added to pay off, and it is the number to watch: **0.071 → 0.810**.
+
+It is not free. `dense` has no similarity floor, so it cannot return nothing for a question the
+corpus does not cover, which is the mechanism the zero-cost abstention rests on — see
+[docs/retrieval.md](docs/retrieval.md). The `dense` arm is in the baseline **ungated**: a strategy is
+watched before it is allowed to break anyone's build.
+
+The honest low baseline is deliberate. An earlier version of the fact set was all keyword queries,
+scored 0.91, and would have frozen that bug in place as a floor. See
+[docs/evaluation.md](docs/evaluation.md).
 
 Three evaluation sets:
 
@@ -246,7 +256,6 @@ compose.yaml            Postgres + the service, the only supported way to run it
 Dockerfile              multi-arch image, Python pinned to 3.12
 src/garage/             the service: config, ASGI app, pipeline modules
 tests/                  pytest suite, run in CI against a real Postgres
-docker/initdb/          extensions installed on first database boot
 corpus/                 manifest, extracted facts, excerpts — never source documents
 corpus/jargon.yaml      the curated workshop vocabulary, term → canonical
 eval/facts.jsonl        the committed fact questions the CI gate scores

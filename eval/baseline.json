@@ -30,12 +30,43 @@
         "recall@5": 0.447368,
         "value_match@1": 0.434211
       }
+    },
+    {
+      "configuration": {
+        "embedder": "baseline@6f852da7deb1",
+        "k": 10,
+        "reranker": null,
+        "strategy": "dense",
+        "tiers": [
+          "A",
+          "B"
+        ]
+      },
+      "gated_metrics": [
+        "mrr@10",
+        "ndcg@10",
+        "recall@1",
+        "recall@10",
+        "recall@10:keyword",
+        "recall@10:natural",
+        "recall@5"
+      ],
+      "metrics": {
+        "mrr@10": 0.755738,
+        "ndcg@10": 0.790693,
+        "recall@1": 0.671053,
+        "recall@10": 0.894737,
+        "recall@10:keyword": 1.0,
+        "recall@10:natural": 0.809524,
+        "recall@5": 0.855263,
+        "value_match@1": 0.710526
+      }
     }
   ],
   "baseline_version": 2,
   "facts_sha256": "3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632",
   "noise_floor": 0.013,
-  "run_id": "20260802T013309Z-fba1dad4ff09",
+  "run_id": "20260802T024452Z-604c0f58a210",
   "sample_count": 76,
   "tolerance": 0.014
 }

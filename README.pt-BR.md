@@ -180,19 +180,29 @@ precisa de nenhuma chamada de API para rodar. `python -m garage eval gate` é es
 depois do `ingest`; o formato dos facts, o do registro de corrida e o procedimento de promoção estão
 em [docs/evaluation.md](docs/evaluation.md).
 
-O baseline `lexical` sobre o Corpus fixture, tirado de
-[`eval/runs/20260802T013309Z-fba1dad4ff09.json`](eval/runs/20260802T013309Z-fba1dad4ff09.json):
+As duas estratégias sobre o Corpus fixture, medidas contra as mesmas 76 perguntas, o mesmo artefato e
+o mesmo engine num único Run Record —
+[`eval/runs/20260802T020612Z-69ecf7d0bb69.json`](eval/runs/20260802T020612Z-69ecf7d0bb69.json):
 
-| `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
-|---|---|---|---|---|
-| 0,427632 | 0,447368 | 0,447368 | 0,440789 | 0,442512 |
+| estratégia | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` | `recall@10` telegráfica | `recall@10` frase |
+|---|---|---|---|---|---|---|---|
+| `lexical` | 0,427632 | 0,447368 | 0,447368 | 0,440789 | 0,442512 | **0,911765** | **0,071429** |
+| `dense`   | 0,671053 | 0,855263 | 0,894737 | 0,755738 | 0,790693 | **1,000000** | **0,809524** |
 
-São 76 perguntas escritas à mão, e a média esconde o achado. Separando por como a pergunta é
-formulada, o `recall@10` é **0,912** para consultas de caixa-de-busca e **0,071** para frases
-interrogativas: a estratégia lexical responde quase perfeitamente a um saco de palavras e quase nunca
-a uma pergunta. Esse é o estado honesto do baseline, e é por isso que o número é baixo em vez de
-lisonjeiro — uma versão anterior do conjunto era só consulta telegráfica, marcava 0,91, e teria
-congelado esse bug como piso. Ver [docs/evaluation.md](docs/evaluation.md).
+As duas últimas colunas são a história inteira, e a média a esconde. Separando por como a pergunta é
+formulada, a estratégia lexical responde quase perfeitamente a um saco de palavras e quase nunca a
+uma frase interrogativa — 0,071 — porque as perguntas são em português e os cabeçalhos em inglês, e
+nenhum stemmer vai relacionar `volante do motor` a `flywheel`. É essa a dívida que o embedder
+multilíngue existe para pagar, e é o número a acompanhar: **0,071 → 0,810**.
+
+Não sai de graça. O `dense` não tem piso de similaridade, então não consegue devolver nada para uma
+pergunta que o Corpus não cobre — que é justamente o mecanismo em que a abstenção de custo zero se
+apoia; ver [docs/retrieval.md](docs/retrieval.md). O braço `dense` entra no baseline **sem gate**:
+uma estratégia é observada antes de poder quebrar o build de alguém.
+
+O baseline baixo é honesto de propósito — uma versão anterior do conjunto era só consulta
+telegráfica, marcava 0,91, e teria congelado esse bug como piso. Ver
+[docs/evaluation.md](docs/evaluation.md).
 
 Três conjuntos de avaliação:
 
@@ -252,7 +262,6 @@ compose.yaml            Postgres + o serviço; a única forma suportada de rodar
 Dockerfile              imagem multi-arch, Python fixado em 3.12
 src/garage/             o serviço: configuração, app ASGI, módulos do pipeline
 tests/                  suíte pytest, rodada no CI contra um Postgres de verdade
-docker/initdb/          extensões instaladas no primeiro boot do banco
 corpus/                 manifest, fatos extraídos, excertos — nunca documentos-fonte
 corpus/jargon.yaml      o vocabulário de oficina curado, termo → canônico
 eval/facts.jsonl        as perguntas Fact commitadas que o gate do CI mede

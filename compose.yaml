@@ -8,9 +8,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-garage}
     ports:
       - "5432:5432"
+    # No `docker-entrypoint-initdb.d` mount any more. It ran `CREATE EXTENSION vector` exactly once,
+    # when the data directory was empty, which meant a developer with an older volume had a database
+    # the server could not query and no way to notice until a query failed. Both extensions are now
+    # created by `python -m garage ingest`, the one step that already owns DDL and is always re-run
+    # (see `database.CREATE_EXTENSIONS`).
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garage} -d ${POSTGRES_DB:-garage}"]
       interval: 5s

@@ -11,6 +11,15 @@ dependencies = [
     "pydantic-settings>=2.6",
     "psycopg[binary]>=3.2",
     "pyyaml>=6.0",
+    # The baseline embedder, and deliberately *not* torch or sentence-transformers (ADR-0008).
+    # These two are the whole inference stack: `onnxruntime` runs the graph, `tokenizers` is the
+    # Rust SentencePiece implementation the e5 family needs, and both ship prebuilt arm64 wheels
+    # for the Oracle Ampere target (ADR-0001) where the torch stack narrows sharply. `numpy` is
+    # already a hard dependency of `onnxruntime` and is named here because `embedding.py` imports
+    # it directly — an inherited dependency used on purpose is a declared one.
+    "onnxruntime>=1.20",
+    "tokenizers>=0.20",
+    "numpy>=2.0",
 ]
 
 [project.optional-dependencies]

@@ -1,5 +1,7 @@
-# Python is pinned to 3.12 (ADR-0006): torch and sentence-transformers wheels do not yet
-# follow the author's local 3.14, and the arm64 target narrows availability further.
+# Python is pinned to 3.12 (ADR-0006): wheels for the inference stack do not yet follow the
+# author's local 3.14, and the arm64 target narrows availability further. That pin is also why the
+# baseline embedder runs under ONNX Runtime and never torch (ADR-0008) — the torch and
+# sentence-transformers wheels narrow the arm64 target this image has to hit (ADR-0001).
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -21,6 +23,16 @@ COPY corpus ./corpus
 # the container can measure its own retrieval. Without this, `ingest` and `corpus validate` work in
 # the image and `eval gate` is the one command that does not.
 COPY eval ./eval
+
+# The baseline embedder's weights, vendored into the image and sha256-verified as they land — the
+# same rigour the manifest applies to `documents.sha256`, and the reason the fetch is a subcommand
+# rather than a `curl` here: the digests live in `garage/embedding.py` and are checked by the same
+# code that later loads the files, so there is no second copy to drift (ADR-0008).
+#
+# Not committed to git, and never will be: 470 MB of weights is not repository content. The layer is
+# last among the heavy steps and its inputs do not change, so it caches across every source edit.
+ENV GARAGE_EMBEDDER_DIR=/opt/garage/embedder
+RUN python -m garage embedder fetch
 
 EXPOSE 8000
 # Entry through the package, not through `uvicorn` directly: the bind address is configuration

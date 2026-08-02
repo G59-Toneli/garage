@@ -18,6 +18,7 @@ ingest_version: 1
 documents:      5
 chunks:         53 (procedure 6, prose 26, spec 21)
 jargon terms:   12
+embeddings:     53 × baseline (fingerprint 37211055ebcf…)
 ```
 
 The whole thing runs in one transaction. A Corpus that fails verification, a source file that
@@ -71,11 +72,46 @@ documents(doc_id pk, title, publisher, year, tier, provenance, filename, sha256,
 chunks(chunk_id pk, doc_id fk, ordinal, tier, page, section, kind, text, jargon_terms[], tsv)
 jargon(term pk, canonical, notes)
 corpus_meta(corpus_id, corpus_hash, ingest_version, built_at)   -- exactly one row
+embeddings(chunk_id fk, model_key, embedding vector(384))       -- pk (chunk_id, model_key)
+embeddings_meta(model_key pk, dimension, fingerprint, normalized, built_at)
 ```
 
 `tsv` is a generated column (`to_tsvector('portuguese', text)`) with a GIN index, so lexical
 retrieval searches exactly what ingestion stored. `tier` is denormalised onto `chunks` on purpose:
 the tier filter is a runtime axis applied to every query and must not cost a join.
+
+## Embeddings
+
+The embedder is a **build-time** axis (ADR-0005): its output is stored, so changing it is a rebuild
+rather than a flag. `python -m garage ingest` embeds every chunk as a *passage* and writes one row
+per chunk per `model_key`, then creates a partial HNSW index over that `model_key` — after the rows
+exist, never before. Two embedders coexist in the one table under two keys, which is what makes the
+Phase 4 fine-tuned embedder cost zero lines of schema and zero lines of SQL.
+
+`embeddings_meta` is `corpus_meta` for this axis, and is deliberately **not** a singleton:
+`corpus_meta.singleton` exists because a database describes exactly one Corpus, while `model_key`
+is a primary key here because a database is meant to describe more than one embedder at once.
+
+```bash
+python -m garage embedder fetch    # once: 470 MB, pinned by sha256, never committed to git
+python -m garage embedder show     # what this code would query with, beside what the database holds
+```
+
+`GARAGE_EMBEDDER=none` builds a lexical-only artifact — no vectors, no `embeddings_meta` row, no
+dense arm — and `ingest` prints that it did. That is a declaration, not an absence: a *missing or
+altered* weights file makes `ingest` refuse before the transaction opens, leaving the previous
+database intact, because silently degrading to lexical would report a configuration mistake as a
+retrieval quality result.
+
+`fingerprint` is a sha256 over everything that changes a vector — model id, weights digest,
+tokenizer digest, dimension, sequence length, pooling, normalisation, both e5 prefixes, and
+`EMBED_VERSION`. It is written from the embedder object that actually ran, and the boot gate refuses
+to serve when it disagrees with the live one. It is a **fourth** identity number and is deliberately
+not folded into `corpus_hash` or `INGEST_VERSION`
+([ADR-0007](adr/0007-corpus-hash-and-ingest-version-are-separate.md)): numbers that fail for
+different reasons are separate numbers, and a pooling change must not re-issue the identity of a
+Corpus nobody touched. Changing the embedder does **not** bump `INGEST_VERSION`, because the chunks
+are the same chunks.
 
 ## Nothing writes to these tables at runtime
 

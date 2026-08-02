@@ -84,6 +84,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="the run_id of a record in eval/runs/ (its filename without .json)",
     )
 
+    # A subcommand rather than a `curl` line in the Dockerfile and another in `ci.yml`. The sha256
+    # digests are the load-bearing part of vendoring model weights, and a digest maintained in three
+    # places is a digest that is wrong in two of them — the same argument that moved `pg_trgm` and
+    # `vector` into `database.py`.
+    embedder = commands.add_parser("embedder", help="the build-time embedder axis").add_subparsers(
+        dest="embedder_command", required=True
+    )
+    embedder_fetch = embedder.add_parser(
+        "fetch", help="download and sha256-verify the baseline embedder weights"
+    )
+    embedder_show = embedder.add_parser(
+        "show", help="report the configured embedder's fingerprint and what the database holds"
+    )
+    _add_database_argument(embedder_show)
+
     # Every leaf names its own handler. Dispatching by falling through `if command == ...` would mean
     # a future subcommand silently inheriting whatever the last branch happened to do.
     validate.set_defaults(handler=_validate)
@@ -91,6 +106,8 @@ def _build_parser() -> argparse.ArgumentParser:
     eval_run.set_defaults(handler=_eval_run)
     eval_gate.set_defaults(handler=_eval_gate)
     eval_promote.set_defaults(handler=_eval_promote)
+    embedder_fetch.set_defaults(handler=_embedder_fetch)
+    embedder_show.set_defaults(handler=_embedder_show)
     commands.add_parser("serve", help="run the read-only HTTP server").set_defaults(handler=_serve)
     return parser
 
@@ -143,6 +160,7 @@ def _validate(arguments: argparse.Namespace) -> int:
 def _ingest(arguments: argparse.Namespace) -> int:
     # Imported here so `corpus validate` keeps working with no database driver configured and no
     # database in sight — the gate must never depend on the thing it gates.
+    from garage.embedding import EmbedderError
     from garage.ingest import build
 
     database_url = _resolve_database_url(arguments)
@@ -156,6 +174,12 @@ def _ingest(arguments: argparse.Namespace) -> int:
         # seen one failure should recognise the other.
         print(f"corpus validation failed\n{failure}", file=sys.stderr)
         return 1
+    except EmbedderError as failure:
+        # Distinct from the corpus failure and distinct from a database one, because the fix is
+        # neither: nothing was written, the previous artifact is intact, and the message already
+        # names the command that repairs it.
+        print(f"ingestion failed\n{failure}", file=sys.stderr)
+        return 1
 
     kinds = ", ".join(f"{kind} {count}" for kind, count in sorted(report.chunks_by_kind.items()))
     print(f"corpus_id:      {report.corpus_id}")
@@ -164,6 +188,16 @@ def _ingest(arguments: argparse.Namespace) -> int:
     print(f"documents:      {report.document_count}")
     print(f"chunks:         {report.chunk_count} ({kinds})")
     print(f"jargon terms:   {report.jargon_term_count}")
+    if report.embedder_model_key is None:
+        # Said out loud rather than left to silence. A lexical-only artifact is a supported build,
+        # but it is also what an operator who forgot `embedder fetch` would produce, and the two
+        # must not look the same in a terminal.
+        print("embeddings:     none (GARAGE_EMBEDDER=none; this artifact has no dense arm)")
+    else:
+        print(
+            f"embeddings:     {report.embedding_count} × {report.embedder_model_key} "
+            f"(fingerprint {report.embedder_fingerprint[:12]}…)"
+        )
     return 0
 
 
@@ -300,6 +334,57 @@ def _eval_promote(arguments: argparse.Namespace) -> int:
         print(
             f"note: the {strategy} arm gates nothing. Add its metric names to gated_metrics in "
             f"{path} when you are ready to hold them."
+        )
+    return 0
+
+
+def _embedder_fetch(_: argparse.Namespace) -> int:
+    from garage.embedding import EmbedderError, cache_dir, fetch
+
+    try:
+        directory = fetch()
+    except (EmbedderError, OSError) as failure:
+        print(f"embedder fetch failed\n{failure}", file=sys.stderr)
+        return 1
+    print(f"embedder: {directory}")
+    print(f"set GARAGE_EMBEDDER_DIR to override this location (default {cache_dir()})")
+    return 0
+
+
+def _embedder_show(arguments: argparse.Namespace) -> int:
+    """What this build would query with, beside what the database was actually built with.
+
+    The two lines exist to be read together. When dense retrieval is quietly bad, the first question
+    is whether these two fingerprints are the same string, and an operator should be able to answer
+    it without writing SQL.
+    """
+    from garage.embedding import EmbedderError, configured_embedder, embedder_name
+
+    try:
+        embedder = configured_embedder()
+    except EmbedderError as failure:
+        print(f"embedder unavailable\n{failure}", file=sys.stderr)
+        return 1
+
+    print(f"configured:  {embedder_name()}")
+    if embedder is None:
+        print("code:        no embedder; this build is lexical-only")
+    else:
+        print(f"code:        {embedder.model_key} {embedder.dimension}d fingerprint {embedder.fingerprint}")
+
+    database_url = _resolve_database_url(arguments)
+    if database_url is None:
+        return 1
+
+    from garage.ingest import stored_embedders
+
+    held = stored_embedders(database_url)
+    if not held:
+        print("database:    no embeddings")
+    for stored in held:
+        print(
+            f"database:    {stored.model_key} {stored.dimension}d fingerprint {stored.fingerprint}"
+            + ("" if stored.normalized else " (not normalized)")
         )
     return 0
 
