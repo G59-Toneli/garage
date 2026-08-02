@@ -40,64 +40,62 @@ architecture is the constraint, not the capacity — see the determinism consequ
   inside a padded batch. Ingestion embeds in bulk and the server embeds one query at a time, which
   is exactly the pair that would diverge, and ADR-0004's `measurement()` compares per-item retrieved
   order across machines. Revisit with a measurement when the corpus is large, not before.
-- Embeddings are **bit-identical across x86-64 and not across architectures**, and every number
-  below is measured rather than argued. An earlier draft of this ADR got the argument wrong by two
-  orders of magnitude and the correction is the reason the code changed; it is left visible here
-  because the mistake is instructive.
-  - Windows x86-64 against Linux x86-64: all 20,352 passage components and all 1,920 query
-    components identical.
-  - Emulated linux/arm64 against x86-64: **1,756 of 1,920 query components differ**, by at most
-    9.7e-08.
-  - The wrong conclusion drawn from that: "the smallest adjacent top-10 cosine gap is ~2e-4, two
-    orders of magnitude above the perturbation, so ranking is safe." Two errors. **2e-4 is the
-    median** of the per-question smallest gaps; the actual minimum over the fact suite is
-    **1.414e-06** (`kw-cabecote-trabalhado`, positions 8 and 9; an independent float32
-    recomputation puts it at 1.311e-06) — 145× smaller. And 9.7e-08 is a *per-component* delta
-    compared directly against a *cosine* gap, where the honest bound is
-    `|Δcos| ≤ ‖Δq‖₂`: **1.90e-06** worst case over 384 components, 1.05e-06 RMS, with the passage
-    side drifting too. The real gap sits **inside** the envelope. Order was never safe across
-    architectures.
-  - This is not a hypothetical about a machine nobody uses. **Production runs on aarch64**
-    (ADR-0001) while every published number is measured on x86-64, so a visitor re-running a query
-    live against the deployed service is comparing an ARM-computed result with an x86-measured
-    figure.
-  - **The mitigation, and an honest account of what it does not do.**
-    `retrieval._DENSE_SCORED` rounds the cosine to five decimals before anything orders by it, and
-    the `chunk_id` tie-break — already present, already deterministic — settles the ties rounding
-    creates. It changed **no metric and no per-item order** on x86-64, so it is free.
+- **Cross-architecture reproducibility, measured end to end.** Every number here comes from
+  embedding the whole fixture corpus and all 76 fact questions twice: once on x86-64, once in an
+  emulated `linux/arm64` container, same weights, same digests.
 
-    It is *not* a construction that makes ordering architecture-independent, and this ADR is not
-    going to claim it is. Rounding has boundaries, and a value landing within the perturbation
-    envelope of one rounds to different sides on the two architectures. Counting the 760 adjacent
-    top-10 pairs the fact suite actually produces:
+  | | result |
+  | --- | --- |
+  | Windows x86-64 vs Linux x86-64 | every component identical, passages and queries alike |
+  | Linux x86-64 vs emulated arm64, components | 18,679/20,352 passage and 26,917/29,184 query components differ |
+  | largest single component delta | 1.155e-07 |
+  | `‖Δq‖₂` max / `‖Δp‖₂` max | 6.081e-07 / 5.540e-07 → cosine bound **1.162e-06** |
+  | largest cosine delta actually observed | **2.384e-07** |
+  | smallest adjacent top-10 cosine gap in the suite | **1.311e-06** |
+  | **top-10 order differences over 76 questions** | **0, raw and rounded** |
 
-    | ordering | pairs that can swap under a 1.9e-06 perturbation |
-    | --- | --- |
-    | raw cosine | 1 |
-    | round to 7 or 6 decimals | 0 |
-    | round to 5 decimals *(shipped)* | 2 |
-    | round to 4 decimals | 0 |
-    | round to 3 decimals | 1 |
-    | round to 2 decimals | 2 |
+  So the ordering does hold across architectures on this corpus — but the margin is 1.13× against
+  the analytic bound and 5.5× against the worst delta actually seen, not the two orders of magnitude
+  an earlier draft of this ADR claimed. That draft was wrong twice over and the corrections are
+  worth keeping visible: **2e-4 was the median** of the per-question smallest gaps rather than the
+  minimum (the minimum is 145× smaller), and a *per-component* delta was being compared directly
+  against a *cosine* gap when the honest bound is `|Δcos| ≤ ‖Δq‖₂ + ‖Δp‖₂`.
 
-    That column is a lottery, not a trend, and the reason is structural: coarsening the grid pulls
-    in more pairs at the same rate that it lowers each pair's chance of straddling a boundary, so
-    the product barely moves. The 0s are where this corpus's values happen to fall, not a property
-    any grid has. **No rounding precision guarantees stable order across architectures**, and
-    picking 4 decimals because it scores 0 here would be fitting a constant to 76 questions.
+  This is not a hypothetical about a machine nobody uses. **Production runs on aarch64** (ADR-0001)
+  while every published number is measured on x86-64, so a visitor re-running a query live against
+  the deployed service compares an ARM-computed result with an x86-measured figure.
 
-    Five decimals is kept because it is the value that collapses the one genuinely sub-envelope pair
-    into a `chunk_id` tie about seven times in eight, costs nothing measurable, and stays far below
-    the 2.2e-04 median gap so it swallows no distinction the suite makes. It is a mitigation with a
-    known residual, which is a different and more defensible thing than a guarantee.
-  - **What the residual actually costs, which is close to nothing.** The at-risk pairs sit at
-    positions 8 and 9 of one question. A swap there changes `retrieved_chunk_ids` and changes
-    `recall@k`, `mrr@10` and `nDCG@10` by exactly zero unless a *relevant* chunk is one of the two.
-    So the exposure is confined to `measurement()`'s exact per-item comparison, not to any published
-    number — which is why the operational rule below is cheap to keep.
-  - **Run records are generated and re-measured on x86-64.** Still a convention, and still the right
-    one. If the ARM VM ever has to produce a record, the fix is to compare metrics rather than
-    `retrieved_chunk_ids` for the dense arm, decided then, with the failure in hand.
+- **Rounding: what it does and what it does not.** `retrieval._DENSE_SCORED` rounds the cosine to
+  five decimals before anything orders by it, and the `chunk_id` tie-break — already present, already
+  deterministic — settles the ties that creates. It changed no metric and no per-item order, so it
+  is free.
+
+  It is a mitigation with a measured residual, **not** a construction that guarantees
+  architecture-independent ordering, and this ADR will not claim otherwise. Rounding has boundaries,
+  and a value landing within the perturbation envelope of one rounds to different sides on the two
+  machines. Counting the 760 adjacent top-10 pairs the suite produces, against the analytic
+  1.162e-06 bound: raw ordering has **0** pairs that could swap and five-decimal rounding has **2**.
+  A sweep across precisions wanders between 0 and 2 with no trend, because a coarser grid pulls in
+  more pairs at the same rate it makes each one less likely to straddle. Against the *observed*
+  2.384e-07 delta both are 0, which is why the empirical run shows no difference.
+
+  Read plainly: on this corpus rounding is not what is buying the agreement — the gap distribution
+  is. Five decimals is kept because it costs nothing measurable, because it stays 200× below the
+  2.6e-04 median gap so it swallows no distinction the suite makes, and because it turns the tightest
+  pair into a deterministic tie under most perturbations rather than leaving it to luck. It is
+  insurance against a corpus with a denser gap distribution than this one, bought at zero premium.
+  It is not a proof, and the day the corpus grows is the day to re-run this measurement.
+
+- **What a residual would cost, which is close to nothing.** The tightest pairs sit at positions 8
+  and 9 of one question (`kw-cabecote-trabalhado`). A swap there changes `retrieved_chunk_ids` and
+  changes `recall@k`, `mrr@10` and `nDCG@10` by exactly zero unless a *relevant* chunk is one of the
+  two. The exposure is confined to `measurement()`'s exact per-item comparison and touches no
+  published number.
+
+- **Run records are generated and re-measured on x86-64.** A convention now rather than a
+  load-bearing assumption, and cheap to keep. If the ARM VM ever has to produce a record, compare
+  metrics rather than `retrieved_chunk_ids` for the dense arm — decided then, with a failure in hand.
+
 - The 384-dimension promise constrains Phase 4 and is worth restating: a fine-tuned embedder that
   changes the width is not a second `model_key`, it is a schema migration and a new baseline.
 - **Resource cost, measured, for #11 to plan with.** RSS inside a Linux container, which is the

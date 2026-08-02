@@ -115,33 +115,25 @@ a reader cannot name. An interface can then show which embedder answered without
 the same thing `Configuration.embedder` has done for run records all along.
 
 `score` **is** the cosine, `1 - (embedding <=> :q)`, **rounded to five decimals before anything
-orders by it**. That rounding is not cosmetic. ONNX Runtime is not bit-reproducible across
-instruction sets: the same weights and the same text give components differing by up to 9.7e-08
-between x86-64 and arm64, which bounds the cosine difference at about 1.9e-06 — and the smallest
-adjacent gap between two top-ten cosines in the real fact suite is 1.4e-06, *inside* that envelope.
-Raw ordering was never stable across architectures, and [ADR-0001](adr/0001-architecture-characteristics.md)
-names an ARM VM as the deployment target.
+orders by it**. That rounding is insurance on a thin margin rather than cosmetics. ONNX Runtime is
+not bit-reproducible across instruction sets, and production runs on aarch64
+([ADR-0001](adr/0001-architecture-characteristics.md)) while every published number is measured on
+x86-64. Embedding the whole corpus and all 76 fact questions on both: most components differ, the
+worst observed cosine delta is 2.384e-07, and the smallest adjacent top-ten gap in the suite is
+1.311e-06 — so the order does hold, on a margin of 5.5×, and **0 of 76 top-ten orders differ**.
 
-Rounding collapses that noise into ties, and the `chunk_id` tie-break settles them identically on
-every machine. The cost is stated rather than hidden: a pair genuinely separated by less than 1e-5
-is now ordered alphabetically instead of by similarity. In a project whose thesis is
-reproducibility that is the right trade — a similarity difference smaller than the platform's own
-floating-point error is not signal, it is noise shaped like signal. Adding it changed neither a
-single metric nor a single per-item order on x86-64, so it is free.
-
-It is a **mitigation, not a guarantee**, and the difference is documented rather than glossed:
-rounding has boundaries too, and a value landing within the error envelope of one still rounds to
-different sides on the two architectures. Over the 760 adjacent top-10 pairs the fact suite
-produces, raw ordering leaves one pair able to swap and five decimals leaves two; a sweep across
-precisions wanders between 0 and 2 with no trend, because a coarser grid pulls in more pairs at the
-same rate it makes each one safer. What survives sits at rank 8 or 9 of a single question, where a
-swap moves no metric at all. See
+Rounding collapses sub-grid differences into ties that the `chunk_id` tie-break settles identically
+everywhere. It is a mitigation, not a guarantee — grids have boundaries too — and on this corpus it
+is the gap distribution rather than the rounding that buys the agreement. It is kept because it is
+measurably free (no metric and no per-item order moved), sits 200× below the median gap so it
+swallows no distinction the suite makes, and costs a pair separated by less than 1e-5 nothing worse
+than alphabetical order. A similarity difference smaller than the platform's own floating-point
+error is not signal. See
 [ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)
-for the full table and for why run records are still produced on x86-64.
+for the full measurement and the precision sweep.
 
-There is nothing to fuse — one signal, and
-reciprocal-rank fusion would only compress a readable 0..1 number into a rank reciprocal nobody can
-interpret. The `<=>` operator rather than the marginally faster `<#>`, even though the vectors are
+There is nothing to fuse — one signal, and reciprocal-rank fusion would only compress a readable
+0..1 number into a rank reciprocal nobody can interpret. The `<=>` operator rather than the marginally faster `<#>`, even though the vectors are
 unit length and the two order identically, because pgvector *negates* the inner product (Postgres
 only scans an index ascending) and `components["cosine"]` would arrive negative needing a `* -1`
 before a reader could believe it. In a demo whose product is the trace, a score that must be

@@ -209,37 +209,38 @@ scored AS (
 # out: the Phase 4 fine-tuned embedder is a different value bound here and not one line of new SQL
 # (ADR-0005).
 #
-# The score is **rounded before anything orders by it**, and the paragraphs below are long because
-# the reasoning is easy to get wrong — an earlier version of this comment did, by two orders of
-# magnitude. ONNX Runtime is not bit-reproducible across instruction sets: the same weights
-# and the same text give query vectors whose components differ by up to 9.7e-08 between x86-64 and
-# arm64 (measured, ADR-0008), which bounds the cosine difference by ‖Δq‖₂ — about 1.9e-06 worst case
-# over 384 components, and the passage side drifts too. The smallest adjacent gap between two
-# top-ten cosines in the real fact suite is 1.3–1.4e-06 (two independent measurements). That is
-# *inside* the envelope, so raw ordering
-# is not stable across architectures, and ADR-0001 names an ARM VM as the deployment target: a
-# reproducibility claim that holds only where the project does not run is not a claim worth making.
+# The score is **rounded before anything orders by it**, and the reasoning is spelled out because an
+# earlier version of this comment got it wrong by two orders of magnitude. ONNX Runtime is not
+# bit-reproducible across instruction sets. Embedding the whole fixture corpus and all 76 fact
+# questions on x86-64 and again on emulated arm64: 18,679 of 20,352 passage components and 26,917 of
+# 29,184 query components differ. The honest cosine bound is `|Dcos| <= ||Dq|| + ||Dp||`, measured at
+# 1.162e-06; the largest cosine delta actually observed is 2.384e-07; the smallest adjacent gap
+# between two top-ten cosines in the suite is 1.311e-06. Margin: 1.13x against the bound, 5.5x
+# against reality. Measured end to end, **0 of 76 top-ten orders differ** — rounded or raw.
 #
-# Rounding mostly collapses that. Two cosines closer together than the grid become equal, and the
-# `chunk_id` tie-break below — already there, already deterministic — settles them the same way on
-# every machine. The cost is real and worth naming: a pair genuinely separated by less than 1e-5 is
-# now ordered alphabetically rather than by similarity. In a project whose thesis is
-# reproducibility that is the right trade, because a similarity difference smaller than the
-# platform's own floating-point error is not signal, it is noise wearing the shape of signal.
+# So ordering does survive the trip today, and it survives it on a margin thin enough to write down
+# rather than to trust. ADR-0001 puts production on aarch64 while every published number is measured
+# on x86-64, so this is the live path, not a hypothetical.
 #
-# **Mostly**, and the word is load bearing: this is a mitigation with a measured residual, not a
-# guarantee, and the difference should not be smoothed over by whoever edits this next. Every grid
-# has boundaries, and a value landing within the envelope of one still rounds to different sides on
-# the two architectures. Counted over the 760 adjacent top-10 pairs the fact suite produces, raw
-# ordering has one pair that can swap and rounding to five decimals has two — the precision sweep in
-# ADR-0008 wanders between 0 and 2 with no trend, because coarsening the grid pulls in more pairs at
-# the same rate it makes each one safer. No precision makes this zero by construction.
+# Rounding is insurance on that margin. Two cosines closer together than the grid become equal and
+# the `chunk_id` tie-break below settles them identically on every machine. The cost is real and
+# worth naming: a pair genuinely separated by less than 1e-5 is now ordered alphabetically rather
+# than by similarity. In a project whose thesis is reproducibility that is the right trade, because
+# a similarity difference smaller than the platform's own floating-point error is not signal, it is
+# noise wearing the shape of signal.
 #
-# Five decimals is kept anyway on three grounds: it turns the one genuinely sub-envelope pair into a
-# deterministic tie about seven times in eight, it sits far below the 2.2e-04 median smallest-gap so
-# it swallows nothing the suite distinguishes, and it demonstrably costs nothing — every metric and
-# every per-item order is identical to the unrounded run. What residual remains lands at rank 8 or 9
-# of a single question, where a swap moves no metric at all.
+# What rounding is **not** is a guarantee, and nobody should upgrade this comment into one. Every
+# grid has boundaries, and a value landing within the envelope of one still rounds to different
+# sides. Against the analytic bound, raw ordering leaves 0 of the 760 adjacent top-ten pairs able to
+# swap and five-decimal rounding leaves 2; a precision sweep wanders between 0 and 2 with no trend,
+# because a coarser grid pulls in more pairs at the same rate it makes each one safer (ADR-0008 has
+# the table). On this corpus the agreement is bought by the gap distribution, not by this line.
+#
+# Five decimals is kept because it is free — every metric and every per-item order is identical to
+# the unrounded run — because it sits 200x below the 2.6e-04 median gap so it swallows nothing the
+# suite distinguishes, and because it makes the tightest pair a deterministic tie under most
+# perturbations instead of leaving it to a margin of 1.13x. Insurance at zero premium against a
+# denser corpus. The day the corpus grows is the day to re-run the measurement.
 _DENSE_SCORED = """
 scored AS (
     SELECT
