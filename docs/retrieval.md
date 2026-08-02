@@ -4,38 +4,225 @@ One endpoint, and no language model behind it:
 
 ```sh
 curl -s localhost:8000/query -H 'content-type: application/json' \
-  -d '{"question": "torque do parafuso do cabeçote", "k": 5, "tiers": ["A", "B"]}'
+  -d '{"question": "What torque should the cylinder head bolts be tightened to in stage 1?", "k": 5}'
 ```
 
-```jsonc
+Everything in the block below is **captured, not composed**. `python -m garage docs capture` runs the
+real `LexicalRetriever` against the real artifact and rewrites it; `tests/test_capture.py` extracts
+it back out of this file and compares it byte for byte with `docs/examples/retrieval-lexical.json`,
+with no database and no network — so the block cannot be edited by hand and cannot be left behind by
+a change to the ranking. The version of this section that stood here until issue #12 was written
+while the response shape was being designed and was never true of any running system: it showed a
+chunk at `trigram: 0.73` for a query that in fact returned nothing at all.
+
+The captured chunks carry no `text` and no `section`, which is the only difference between them and
+what the endpoint returns. Committing the source document's own words to git is what
+[ADR-0003](adr/0003-corpus-is-metadata-not-payload.md) forbids, and the showcase record omits them
+for the same reason; `GET /chunks?ids=...` is where the words come from.
+
+<!-- captured: docs/examples/retrieval-lexical.json -->
+```json
 {
-  "question": "torque do parafuso do cabeçote",
-  "corpus_hash": "21c4e571…",
-  "strategy": "lexical",
+  "capture_version": 1,
   "k": 5,
-  "tiers": ["A", "B"],
-  "chunks": [
+  "queries": [
     {
-      "chunk_id": "svc-kadett-1993#0001",
-      "doc_id": "svc-kadett-1993",
-      "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
-      "tier": "A",
-      "page": null,
-      "section": "Section 3.2 — Cylinder head, tightening specifications",
-      "kind": "spec",
-      "text": "Section 3.2 — … — Fastener: Cylinder head bolt, stage 1; Thread: M11; Torque (N·m): 41",
-      "score": 0.0164,
-      "components": {"lexical": 0.02, "lexical_rank": 1, "trigram": 0.73, "trigram_rank": 1}
+      "chunk_count": 5,
+      "chunks": [
+        {
+          "chunk_id": "svc-kadett-1993#0001",
+          "components": {
+            "lexical": 0.7,
+            "lexical_rank": 1.0,
+            "trigram": 0.49315068,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.011475409836065573,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0002",
+          "components": {
+            "lexical": 0.6,
+            "lexical_rank": 2.0,
+            "trigram": 0.45333335,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0003",
+          "components": {
+            "lexical": 0.4,
+            "lexical_rank": 3.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.011111111111111112,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0004",
+          "components": {
+            "lexical": 0.3,
+            "lexical_rank": 4.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.0109375,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0005",
+          "components": {
+            "lexical": 0.3,
+            "lexical_rank": 4.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.0109375,
+          "tier": "A"
+        }
+      ],
+      "question": "What torque should the cylinder head bolts be tightened to in stage 1?"
+    },
+    {
+      "chunk_count": 5,
+      "chunks": [
+        {
+          "chunk_id": "forum-swap-250s#0006",
+          "components": {
+            "lexical": 0.2,
+            "lexical_rank": 1.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.011475409836065573,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "blog-projetinho-de-rua#0005",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "blog-projetinho-de-rua",
+          "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0002",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.25641027,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0007",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.32142857,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0008",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        }
+      ],
+      "question": "torque do parafuso do cabeçote"
     }
   ],
-  "trace": { /* below */ }
+  "strategy": "lexical",
+  "tiers": [
+    "A",
+    "B"
+  ]
 }
 ```
+<!-- end captured -->
 
-There is no generated answer, and that is the ticket rather than a gap in it. Retrieval decides
-whether an answer *can* be right; a generator only decides how it reads. Serving retrieval on its own
-keeps it measurable on its own ([ADR-0004](adr/0004-two-layer-evaluation.md)), and the deterministic
-CI gate scores exactly this response.
+## Two questions, and the second one is the point
+
+The first captured question is English, and it puts the stage-1 torque row at rank one. The second
+is `torque do parafuso do cabeçote`, the question this document used to claim returned that same
+row, and it returns Tier B forum material instead.
+
+That is the correct answer, and it is captured rather than hidden. `parafuso` and `cabeçote` appear
+nowhere in the service manual, because the service manual is written in English. No text search
+configuration, no query parser and no stop word list makes `cabeçote` match `cylinder head`; what
+would is knowing that the two name the same part, which is
+[ADR-0010](adr/0010-lexical-search-tries-strict-and-before-loose-or.md)'s explicit non-goal and issue
+#13's subject. The forum thread this question does find is genuinely about a cylinder head, in
+Portuguese, and is a real answer to a real question - just not the one in the manual.
+
+Split by the language the *target document* is written in, the corrected lexical arm finds 9 of the
+11 Portuguese-source facts that a Portuguese natural-language question points at, and 3 of 10
+English-source ones. The three are cognates (`torque`, `motor`), not translation. That is the whole
+of the residual gap, and it is what `dense` is for: measured over the same facts the two arms fail on
+different questions, which is an argument for the `hybrid` strategy rather than a defeat for this
+one.
+
+There is no generated answer in the response, and that is the ticket rather than a gap in it.
+Retrieval decides whether an answer *can* be right; a generator only decides how it reads. Serving
+retrieval on its own keeps it measurable on its own ([ADR-0004](adr/0004-two-layer-evaluation.md)),
+and the deterministic CI gate scores exactly this response.
 
 `tier` and `page` travel with every chunk because a citation is worth very little without them, and
 because a manual and a forum post must never look alike on screen. `page` is `null` where the source
@@ -48,11 +235,21 @@ text. Both are needed, and for different failures:
 
 | Signal | Finds | Misses |
 | ------ | ----- | ------ |
-| Full text (`to_tsvector('portuguese')`) | `torques` from `torque`, stop words handled | `cabecote` written without its cedilla, `kadet` with one `t` |
-| Trigram (`word_similarity`) | misspellings, dropped accents, partial terms | nothing about stemming or word boundaries; matches noise if left unbounded |
+| Full text (`to_tsvector('garage_bi')`) | `torques` from `torque`; `cabecote` without its cedilla, through `unaccent`; stop words removed in **both** languages | `kadet` with one `t`, and any word the corpus states only in the other language |
+| Trigram (`word_similarity`) | misspellings, partial terms | nothing about stemming or word boundaries; matches noise if left unbounded |
 
-Brazilian workshop writing drops accents constantly, so the second column is not hypothetical — it is
-most of the Tier B material.
+That first row used to put `cabecote` in the *Misses* column and credit trigram with rescuing it.
+The first half was true — `plainto_tsquery('portuguese', 'cabecote')` matched 0 chunks — and the
+second was true only by luck. Whether trigram reaches an unaccented word depends on how much of the
+rest of the sentence matches, not on the word: `cabecote plainado` peaks at `word_similarity` 0.714
+and clears the 0.6 floor, the bare word `cabecote` peaks at 0.500 and is dropped, and
+`torque do parafuso do cabeçote` peaks at 0.357 across all 53 chunks. One word, three outcomes,
+decided by sentence length.
+
+`unaccent` inside `garage_bi` makes all three a full-text hit — the same query now matches 6 chunks —
+with a rank behind it instead of a threshold. Trigram keeps genuine misspelling, which it is good at
+and which no dictionary folds; it clears the floor on 31 of the 76 fact questions, so it is a live
+signal, just not the one that was covering for the accents.
 
 The two are combined by **reciprocal rank fusion**, not by adding their scores. They are not on the
 same scale and never will be: a good `ts_rank_cd` hit lands around 0.01, a good `word_similarity` hit
@@ -70,9 +267,41 @@ chunks the other signal found. `components` carries both raw scores and both ran
 a signal was silent: a chunk that ranked on trigram alone is a different kind of hit from one full
 text agreed with, and the interface shows which.
 
-Trigram matches below `word_similarity` 0.6 are dropped. That floor is what lets a question the
-corpus does not cover retrieve **nothing** — and abstention depends on it, because a retriever that
-always returns its ten least-bad chunks gives a generator nothing to abstain on.
+## Strict first, loose only if strict found nothing
+
+Full text asks the question twice, in one statement. `plainto_tsquery` requires **every** content
+word; if that conjunction matches zero rows, the same lexemes are re-joined with `|` and the question
+is asked again as a disjunction. Both readings are produced under `garage_bi`, and the loose one is
+built by unnesting `to_tsvector` rather than by a second parser, so the two cannot disagree about
+stemming, accents or stop words.
+
+The fallback fires on **zero matching rows**, not on an empty tsquery, and that distinction is the
+fix rather than a detail of it. `what torque for the cylinder head bolts in stage 1` parses into a
+perfectly well-formed conjunction; it simply matches nothing, because the spec row it wants reads
+`| Cylinder head bolt, stage 1 | M11 | 41 |` and contains no `for`. Under the old query, 42 of the 76
+fact questions returned an empty page for that reason.
+
+Always OR-ing would have been one CTE shorter and is measurably worse where it matters: `recall@10`
+0.842 against 0.868, `recall@1` 0.612 against 0.704, and 7.0 candidates returned per question against
+4.2. Trying the precise reading first keeps the 34 keyword questions exactly as surgical as they
+were, and spends the loose reading only where the alternative was nothing at all.
+[ADR-0010](adr/0010-lexical-search-tries-strict-and-before-loose-or.md) has the full table, including
+the two candidates from the issue that were measured and rejected.
+
+A question retrieves **nothing** when no lexeme of it is in any chunk and no trigram match clears the
+0.6 floor. That is the abstention `lexical` has and `dense` structurally does not, and it is weaker
+than it was: 42 empty results over the fact set became 3. The 39 that were lost were not abstentions,
+they were the bug. What remains is genuine — nothing in this corpus mentions a turbocharger wastegate
+actuator, so asking about one still returns nothing — but the bar moved from "some term did not
+match" to "no term matched", and that is a real loss of margin rather than a free win.
+
+The 0.6 floor itself is **unchanged, deliberately**. Not because the signal is inert — 31 of the 76
+fact questions have a chunk above it — but because the number has no measurement behind it and the
+distribution it sits in is strange: the questions that clear it clear it enormously, five of them at
+1.000, while the ones that would most benefit sit between 0.36 and 0.50. It is doing real work and
+nobody knows whether it is the right work, which is an argument for measuring it rather than nudging
+it, and issue #13 moves the distribution underneath it in any case. It changes when there is a
+number, not before.
 
 Ranking is deterministic: ties break on `chunk_id`, so the same query against the same artifact
 returns the same order. A benchmark whose ranking wobbled between runs would report noise as a
