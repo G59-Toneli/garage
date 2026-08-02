@@ -222,12 +222,28 @@ Read from the published price list on **2026-08-01**, and the date travels into 
 exists to give an order of magnitude to a comparison *between configurations* — "the hybrid run costs
 four times the lexical one" — not to reconcile with an invoice.
 
-A **rejected** answer still records its full cost on the span — tokens, estimate, pricing date. The
-provider answered and charged for it; we refused the result, and nobody refunded the tokens. Leaving
-it out would make a configuration that reliably breaks the citation contract look like the cheap one.
-A **degraded** call records no cost at all, and the asymmetry between those two is the correct
-behaviour rather than an inconsistency to tidy away: there, nothing came back and nothing was billed,
-so a zero would invent a charge exactly as an omission above would hide one.
+A **rejected** answer records its full cost — tokens, estimate, pricing date, and the count of
+invalid citations — on the span **and on the wire**. The provider answered and charged for it; we
+refused the result, and nobody refunded the tokens. Leaving it out would make a configuration that
+reliably breaks the citation contract look like the cheap one. A **degraded** call records no cost at
+all in either place, and the asymmetry between those two is the correct behaviour rather than an
+inconsistency to tidy away: there, nothing came back and nothing was billed, so a zero would invent a
+charge exactly as an omission above would hide one.
+
+"And on the wire" is load-bearing and was missing for a while. `reject_unverifiable` set five fields
+and let the billing fall to its defaults, so the span reported the tokens and the cost while the HTTP
+response reported `cost_usd: null`, `0 / 0` and `invalid_citations: 0` for the same call — the
+rejected state described as free, with zero invalid citations, in the one state whose cause is an
+invalid citation. It survived because nothing read the `Answer` in that state until an interface did
+(`docs/ui.md`), and because the test that guards the asymmetry only ever looked at the span.
+
+Two changes make the drift structurally impossible rather than merely fixed. `app._answer` builds the
+rejected `Answer` **first** and writes the span *from it*, so the two are one object read twice
+instead of two assemblies of the same facts. And `verify_citations` collects every violation before
+raising rather than raising on the first, because the served `invalid_citations` is a number a reader
+sees: taken from a loop that exits on its first hit it would always be 1, whatever the truth. A
+violation with no unresolvable citation in it — a claim marked supported with none at all — counts
+zero, which is not a contradiction but the honest report of a different violation.
 
 A model with no price on record yields `cost_usd: null` and `cost_estimated: false`, **never zero**.
 A free-looking row in a cost comparison is a lie, and the trace is the product. The attribute name

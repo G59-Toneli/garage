@@ -1,0 +1,70 @@
+<!doctype html>
+<!--
+  Hand-written HTML, CSS and ES modules. No Node, no bundler, no package.json — the browser loads
+  the modules directly and the container serves the directory (ADR-0006: one language, one image).
+  The styling is deliberately plain: the visual language of this project has not been decided yet,
+  and a strong one committed here would only have to be undone.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Garage — comparação lado a lado</title>
+    <!-- An empty icon, declared so the browser stops requesting `/favicon.ico` and logging a 404
+         against a page that is working. The console of this demo is part of the demo: a visitor who
+         opens the developer tools to check that nothing is being hidden should find it quiet. -->
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Garage</h1>
+      <nav><a href="./index.html" aria-current="page">comparação</a> · <a href="./eval.html">avaliação</a></nav>
+    </header>
+
+    <form id="ask" class="ask">
+      <label class="field grow">
+        <span>Pergunta</span>
+        <input id="question" name="question" type="text" required maxlength="1000"
+               placeholder="torque do cabeçote no estágio 2" />
+      </label>
+      <label class="field">
+        <span>k</span>
+        <input id="k" type="number" min="1" max="50" value="10" />
+      </label>
+      <fieldset class="field">
+        <legend>tiers</legend>
+        <label><input type="checkbox" name="tier" value="A" checked /> A</label>
+        <label><input type="checkbox" name="tier" value="B" checked /> B</label>
+      </fieldset>
+      <label class="field">
+        <span>contrato</span>
+        <select id="contract">
+          <option value="cited" selected>cited</option>
+          <option value="free">free</option>
+        </select>
+      </label>
+      <!--
+        Both selects start empty and disabled, and no strategy name is written here. They used to
+        hold `lexical` and `dense` as placeholders, which meant a lexical-only build showed a
+        visitor a `dense` option until `GET /strategies` came back — a strategy this build cannot
+        serve, offered by the interface, for one round trip. Empty is honest: the list is a property
+        of the running build and this file does not know it.
+      -->
+      <label class="field">
+        <span>coluna esquerda</span>
+        <select id="left" disabled></select>
+      </label>
+      <label class="field">
+        <span>coluna direita</span>
+        <select id="right" disabled></select>
+      </label>
+      <button type="submit" disabled>Comparar</button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <main id="output"></main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

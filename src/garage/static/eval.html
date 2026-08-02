@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Garage — avaliação determinística</title>
+    <!-- An empty icon, declared so the browser stops requesting `/favicon.ico` and logging a 404
+         against a page that is working. The console of this demo is part of the demo: a visitor who
+         opens the developer tools to check that nothing is being hidden should find it quiet. -->
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Garage</h1>
+      <nav><a href="./index.html">comparação</a> · <a href="./eval.html" aria-current="page">avaliação</a></nav>
+    </header>
+    <p id="status" class="status" role="status" aria-live="polite">lendo eval/baseline.json…</p>
+    <main id="output"></main>
+    <script type="module" src="./evalscreen.js"></script>
+  </body>
+</html>

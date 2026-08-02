@@ -79,9 +79,36 @@ refuses to start against a database that is not this commit's artifact, so `inge
 `POST /query` also returns an `answer` when a `Generator` is configured — prose assembled from
 claims, every one of them citing chunks by number, every citation validated against the chunks that
 were actually retrieved before it reaches the wire. Abstention is a first-class result served with
-200, degradation is a separate flag from it, and neither is ever an error page. The citation
+200, degradation is a separate flag from it, and neither is ever an error page. A third state — the
+generator published a citation that resolves to nothing and we refused the answer — carries the full
+cost and the real count of invalid citations on the span **and** on the wire, while a degradation
+carries neither in either place; that asymmetry is the point and is guarded by a pair of tests at
+each layer. The citation
 contract, the validation rules, the dated price table and what is deliberately **not** covered by
 tests are documented in `docs/generation.md`. Generation is optional at every level: `google-genai`
 is an optional extra imported late, no key means no generator and no `generate` span, and no test in
 `tests/` may import the SDK or touch the network. Anything that does is marked `live` and excluded
 from the default run by `addopts`; `pytest -m live` is the deliberate opt-in, and it costs money.
+
+## Interface
+
+The two-column comparison lives in `src/garage/static/` — hand-written HTML, CSS and ES modules, no
+Node and no bundler, served by `StaticFiles` from the same process and the same image that answers
+`/query` (ADR-0006). It is a client of the public API like any other: two ordinary parallel `POST
+/query` calls, one per strategy, and deliberately no `/compare` endpoint, because "two columns" is a
+decision the interface makes and an endpoint shaped around it would be that decision leaking into
+the API. The two calls go out under `Promise.allSettled`, so an arm that fails reports its own
+failure in its own column and never erases the other one. The mount is the **last** statement in
+`create_app`; earlier it would swallow `/health`, `/query`, `/strategies` and `/eval/*`.
+`GET /strategies` publishes what this build serves, in `available_retrievers`' order and never
+sorted — that order decides which arm a comparison opens with, and the invalid-strategy 422 carries
+the same list in `ctx.strategies` as a backstop. Three read-only `GET /eval/*` endpoints hand back `eval/baseline.json` and
+`eval/runs/*.json` unmodelled, so the metrics screen reads the committed numbers from the files
+rather than from a constant. Everything is documented in `docs/ui.md`: the single adaptation
+boundary every component consumes (`adapt.toView`, the thing that makes issue #11 an adapter branch
+and the React port a rewrite of one file), the five answer states and why abstention, degradation
+and rejection are never merged, the four redundant channels the tier is carried on, why the two
+score scales are never drawn on one axis, and why a stage that did not run is absent rather than
+zero. Two rules are enforced by `tests/test_ui_contract.py` rather than by review: the exact key set
+of every response model the interface reads by name, and the total absence of `innerHTML` from
+`static/*.js` — corpus text and model output are rendered on that page.

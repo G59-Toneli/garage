@@ -22,16 +22,25 @@ provider must drop in with no change here), and whether the database is the righ
 answered once, at boot: the service checks
 `corpus_hash` and refuses to start on a mismatch (ADR-0002), because a per-request check would be a
 service willing to run against the wrong artifact as long as nobody asks it anything.
+
+The interface is served from here too, as a static build out of `garage/static/` (ADR-0006), and it
+is a *client* of this endpoint like any other — it holds no privileged route. The two-column
+comparison is two ordinary `POST /query` calls, one per strategy, which is why no `/compare`
+endpoint exists: "two columns" is a decision the interface makes, and an endpoint shaped around it
+would be that decision leaking into the API. `docs/ui.md` argues the whole of it.
 """
 
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, AsyncIterator, Literal, Sequence
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from garage import __version__
@@ -60,6 +69,11 @@ from garage.tracing import Tracer
 
 Tier = Literal["A", "B"]
 PromptContract = Literal["cited", "free"]
+
+# The interface ships inside the package and is served by this same process (ADR-0006): one
+# language, one container, one artifact. Resolved from `__file__` rather than from the working
+# directory so that `pip install -e .`, a wheel and the image all find the same files.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 class QueryRequest(BaseModel):
@@ -175,6 +189,27 @@ class GeneratedAnswer(BaseModel):
         return cls(**asdict(answer))
 
 
+class Strategy(BaseModel):
+    """One strategy this build can answer with, and which stored vectors it stands on."""
+
+    name: str
+    embedder: str | None
+
+
+class StrategiesResponse(BaseModel):
+    """What `GET /strategies` publishes: the runtime axis, enumerable rather than guessable.
+
+    In the order `available_retrievers` returns them — the pipeline's order, never alphabetical —
+    because the client that asks this question is choosing which arm to show first.
+    """
+
+    strategies: tuple[Strategy, ...]
+    # Which one an omitted `strategy` field resolves to. Published rather than left implicit: a
+    # request written before `dense` existed still means what it meant then, and a reader should be
+    # able to see what that is instead of inferring it from the ordering.
+    default: str
+
+
 class QueryResponse(BaseModel):
     question: str
     # Echoed on every response, not only checked at boot: an answer kept without the identity of the
@@ -266,6 +301,34 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
 
+    @app.get("/strategies")
+    def strategies(http: Request) -> StrategiesResponse:
+        """What this build serves, in the order the pipeline lists it.
+
+        It exists because the interface needs the list and the only place it was published was the
+        `msg` of a validation error — so the interface was provoking a deliberate 422 at load and
+        reading a human sentence out of it with a regular expression. Two defects buying one: prose
+        parsing, and an error in every visitor's console on a page that is working correctly.
+
+        The order is `available_retrievers`' order and is deliberately **not** sorted. That tuple is
+        "every strategy this build can measure, in the order a report should show them", so it is
+        the pipeline's own ordering and it is what decides which arm a comparison opens with.
+        Alphabetising it here would be a presentation decision taken in the wrong layer — and it was:
+        the sorted list in the 422 below is what forced the interface to re-order it back.
+
+        `embedder` travels with each one, null under `lexical`, for the same reason `QueryResponse`
+        carries it: `strategy` alone stops being an identity the moment ADR-0005's second embedder
+        exists.
+        """
+        available: dict[str, Retriever] = http.app.state.retrievers
+        return StrategiesResponse(
+            strategies=tuple(
+                Strategy(name=name, embedder=retriever.embedder_id)
+                for name, retriever in available.items()
+            ),
+            default=http.app.state.default_strategy,
+        )
+
     @app.post("/query")
     def query(query_request: QueryRequest, http: Request) -> QueryResponse:
         # From `app.state`, not from a closure: it is written by the lifespan, so reading it here is
@@ -284,6 +347,16 @@ def create_app(
                         "loc": ("body", "strategy"),
                         "msg": f"this build serves {', '.join(sorted(strategies))}",
                         "input": query_request.strategy,
+                        # The same list again, structurally, in the place Pydantic puts an enum's
+                        # permitted values. Added beside the sentence and never in place of it: the
+                        # sentence is what a human reads in a terminal, and changing its wording
+                        # would break whoever is already reading it.
+                        #
+                        # Pipeline order here, unlike the message above, which is sorted for
+                        # readability. A client picking column order out of an alphabetised list
+                        # gets `dense` on the left, which is a presentation decision made by a
+                        # `sorted()` call in an error handler.
+                        "ctx": {"strategies": list(strategies)},
                     }
                 ]
             )
@@ -336,7 +409,73 @@ def create_app(
             trace=tracer.tree(),
         )
 
+    # The evaluation surface, read-only and deliberately unmodelled. Three endpoints that do nothing
+    # but hand back the bytes on disk, because the interface's job is to *show the committed
+    # numbers* and re-serialising them through a Pydantic model here would be a second place for the
+    # record format to be described — and therefore a place for it to drift from `evaluation.py`
+    # without any test noticing. `0.911765` must reach the screen from `eval/baseline.json` or not
+    # at all: nothing the interface displays may be typed by hand (acceptance criterion six).
+    #
+    # They are GETs on the serving app rather than files under `static/` because the records are
+    # written by `eval run` into `eval/runs/` and promoted by a human commit; copying them into the
+    # package would make the interface show a stale copy of a number that has a canonical location.
+
+    @app.get("/eval/baseline")
+    def eval_baseline() -> dict[str, Any]:
+        return _read_json(_baseline_path())
+
+    @app.get("/eval/runs")
+    def eval_runs() -> dict[str, list[str]]:
+        # Newest first: `run_id` starts with a UTC timestamp, so lexicographic order is chronological
+        # order, which is a property of the id format and not an accident worth re-deriving here.
+        return {"run_ids": sorted(_run_ids(), reverse=True)}
+
+    @app.get("/eval/runs/{run_id}")
+    def eval_run(run_id: str) -> dict[str, Any]:
+        # Checked against the listing rather than sanitised. A denylist of `..` and separators is a
+        # thing to get wrong; membership in the set of records that actually exist cannot be.
+        if run_id not in _run_ids():
+            raise HTTPException(status_code=404, detail=f"no run record {run_id!r}")
+        return _read_json(_runs_dir() / f"{run_id}.json")
+
+    # Mounted **last**, after every route above. `StaticFiles` at the root is a catch-all: mounted
+    # earlier it would swallow `/health`, `/query` and `/eval/*` and the service would answer every
+    # one of them with a 404 page. Absent directory means no mount rather than a boot failure — the
+    # API is the product's contract and a missing interface must never keep it from serving.
+    if STATIC_DIR.is_dir():
+        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
     return app
+
+
+def _baseline_path() -> Path:
+    from garage.evaluation import BASELINE_PATH
+
+    return BASELINE_PATH
+
+
+def _runs_dir() -> Path:
+    from garage.evaluation import RUNS_DIR
+
+    return RUNS_DIR
+
+
+def _run_ids() -> set[str]:
+    directory = _runs_dir()
+    return {path.stem for path in directory.glob("*.json")} if directory.is_dir() else set()
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    """The file, parsed and nothing else.
+
+    404 rather than 500 when it is missing, and the distinction is not pedantry: a build with no
+    promoted baseline is a legitimate state (`eval promote` is a deliberate human act, never
+    automatic), so the interface must be able to tell "not measured yet" from "the service is
+    broken" and say the right one on screen.
+    """
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"{path.name} has not been written yet")
+    return json.loads(path.read_bytes())
 
 
 def _answer(
@@ -355,9 +494,11 @@ def _answer(
     inventing a zero-millisecond `generate` here would claim a model call that never occurred. **A
     provider failure**: the span exists, carrying its duration and its error, because the attempt is
     a real thing that happened and a trace which goes quiet exactly when something broke is worth
-    little. **A citation that does not resolve**: the answer is refused, marked as this codebase's
-    own contract violation rather than as anything the model or the network did. **A good answer**:
-    served with its tokens and its cost on the span.
+    little — and it carries no cost and no tokens, because nothing was answered and nothing was
+    billed. **A citation that does not resolve**: the answer is refused, marked as this codebase's
+    own contract violation rather than as anything the model or the network did, and it carries the
+    *full* cost on both the span and the wire, because that call was answered and charged for.
+    **A good answer**: served with its tokens and its cost on the span.
 
     Our own bugs are the one thing that is *not* handled here. The `try` covers the provider call
     alone, so a `TypeError` in this function is a 500 rather than a polite note blaming a provider
@@ -419,12 +560,48 @@ def _answer(
             # single adapter's diligence.
             verify_citations(answer, context=candidates, contract=contract)
         except ContractViolation as violation:
-            # The full cost record, and the asymmetry with the degradation block above is
-            # deliberate — do not "tidy" the two into agreement. There, the provider never answered,
-            # so there is nothing to bill and nothing to record. Here it answered, on time, and
-            # charged for it; the answer is refused by us, not unbilled by them. A span that dropped
-            # the cost would let a configuration which reliably breaks the citation contract show up
-            # as the cheap one in the comparison the demo puts on screen.
+            # The rejected answer is built *first*, and the span is then written from it. That
+            # ordering is the fix for a real defect rather than a stylistic preference: the span and
+            # the response used to be assembled independently from the same facts, and they drifted.
+            # The span carried the cost from the day this state was introduced; the response carried
+            # the defaults, so the same rejection was billed in the trace and free on the wire. Two
+            # copies of one fact is one copy too many, so there is now a single object and the span
+            # reads it.
+            #
+            # The asymmetry with the degradation block above is deliberate — do not "tidy" the two
+            # into agreement. There the provider never answered, so there is nothing to bill and
+            # nothing to record. Here it answered, on time, and charged for it; the answer is refused
+            # by us, not unbilled by them. Dropping the cost would let a configuration that reliably
+            # breaks the citation contract show up as the cheap one in the comparison the demo puts
+            # on screen.
+            # The wire carries a short sentence in the page's language, and the clause list stays
+            # on the span beside every other raw detail — the same split degradation already uses,
+            # where `degradation_reason` names the exception type and `exception.message` holds what
+            # the provider actually said.
+            #
+            # Two sentences, chosen by the count, because one of them was a contradiction. A claim
+            # marked supported with no citations at all produced "o gerador produziu citações que
+            # não resolvem" followed by a clause stating there was no citation to resolve. The
+            # docstring on `ContractViolation` already called that a different violation; the
+            # sentence on screen did not.
+            rejected = reject_unverifiable(
+                "o gerador citou trechos que não foram recuperados"
+                if violation.invalid_citations
+                else "o gerador marcou uma afirmação como sustentada sem nenhuma citação",
+                provider=generator.name,
+                model=model,
+                contract=contract,
+                tokens_in=answer.tokens_in,
+                tokens_out=answer.tokens_out,
+                cost_usd=answer.cost_usd,
+                cost_estimated=answer.cost_estimated,
+                pricing_as_of=answer.pricing_as_of,
+                # The adapter's own discarded citations plus the ones this re-assertion caught. Both
+                # halves are needed and neither is the whole: the adapter counts what it dropped on
+                # its way out, and this check exists precisely because an adapter can miss some.
+                invalid_citations=answer.invalid_citations + violation.invalid_citations,
+                unsupported_claims=answer.unsupported_claims,
+            )
             span.set(
                 error=True,
                 **{
@@ -433,21 +610,18 @@ def _answer(
                     "generation.contract.violated": True,
                     "generation.abstained": False,
                     "generation.degraded": False,
-                    "generation.support": "rejected",
-                    "generation.tokens.input": answer.tokens_in,
-                    "generation.tokens.output": answer.tokens_out,
-                    "generation.tokens.total": answer.tokens_total,
-                    "generation.cost.usd_estimated": answer.cost_usd,
-                    "generation.cost.estimated": answer.cost_estimated,
-                    "generation.pricing.as_of": answer.pricing_as_of,
+                    "generation.support": rejected.support,
+                    "generation.tokens.input": rejected.tokens_in,
+                    "generation.tokens.output": rejected.tokens_out,
+                    "generation.tokens.total": rejected.tokens_total,
+                    "generation.cost.usd_estimated": rejected.cost_usd,
+                    "generation.cost.estimated": rejected.cost_estimated,
+                    "generation.pricing.as_of": rejected.pricing_as_of,
+                    "generation.citations.invalid": rejected.invalid_citations,
+                    "generation.claims.unsupported": rejected.unsupported_claims,
                 },
             )
-            return reject_unverifiable(
-                f"o gerador produziu citações que não resolvem: {violation}",
-                provider=generator.name,
-                model=model,
-                contract=contract,
-            )
+            return rejected
 
         span.set(
             **{

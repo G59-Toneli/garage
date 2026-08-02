@@ -164,7 +164,19 @@ class ContractViolation(RuntimeError):
     implementation of this module's interface, and the two must not be treated alike. Degradation
     means "the model could not be asked"; this means "the model was asked, answered, and the object
     standing between us and it published something unverifiable."
+
+    It carries a *count* as well as a message, and that count is why `verify_citations` now gathers
+    every violation instead of raising on the first. The served rejection reports how many citations
+    were invalid, and a number taken from a loop that exits on its first hit is always 1 — which on
+    a screen whose whole claim is that it invents no numbers would be this codebase inventing one.
     """
+
+    def __init__(self, message: str, *, invalid_citations: int = 1) -> None:
+        super().__init__(message)
+        #: How many citations failed to resolve. Zero is legitimate and is not a contradiction: a
+        #: claim marked supported with no citations at all is a contract violation containing no
+        #: invalid citation, and reporting 1 there would be as wrong as reporting 0 for two.
+        self.invalid_citations = invalid_citations
 
 
 @dataclass(frozen=True)
@@ -458,23 +470,34 @@ def verify_citations(
     """
     retrieved = {candidate.chunk_id for candidate in context}
     known = index_map(context)
+    # Every violation, not the first one. Raising early was cheaper and was enough while the only
+    # question asked of this function was "did it pass". It stopped being enough the moment the
+    # rejected answer began reporting *how many* citations were invalid.
+    unresolved: list[str] = []
+    uncited: list[str] = []
     for claim in answer.claims:
         for citation in claim.citations:
             if citation.chunk_id not in retrieved:
-                raise ContractViolation(
+                unresolved.append(
                     f"citation [{citation.index}] names {citation.chunk_id!r}, "
                     "which is not among the retrieved chunks"
                 )
-            if known.get(citation.index) is None or known[citation.index].chunk_id != citation.chunk_id:
+            elif known.get(citation.index) is None or known[citation.index].chunk_id != citation.chunk_id:
                 # The id exists but under a different number: the answer's prose would point the
                 # reader at the wrong paragraph, which is worse than pointing at nothing.
-                raise ContractViolation(
+                unresolved.append(
                     f"citation [{citation.index}] does not resolve to {citation.chunk_id!r}"
                 )
         # Under `free` there is no contract to violate and an uncited claim is expected; under
-        # `cited`, calling one supported is the same lie by a different route.
+        # `cited`, calling one supported is the same lie by a different route. Counted apart from
+        # the unresolvable citations because it is not one: this claim offered nothing to resolve.
         if contract.enforced and claim.supported and not claim.citations:
-            raise ContractViolation("a claim was marked supported with no citations at all")
+            uncited.append("a claim was marked supported with no citations at all")
+
+    if unresolved or uncited:
+        raise ContractViolation(
+            "; ".join(unresolved + uncited), invalid_citations=len(unresolved)
+        )
 
 
 def estimate_cost_usd(model: str, *, tokens_in: int, tokens_out: int) -> float | None:
@@ -592,6 +615,13 @@ def reject_unverifiable(
     provider: str | None = None,
     model: str | None = None,
     contract: Contract = Contract(),
+    tokens_in: int = 0,
+    tokens_out: int = 0,
+    cost_usd: float | None = None,
+    cost_estimated: bool = False,
+    pricing_as_of: str | None = None,
+    invalid_citations: int = 0,
+    unsupported_claims: int = 0,
 ) -> Answer:
     """A `Generator` produced an answer whose citations do not resolve, so none of it is served.
 
@@ -604,6 +634,22 @@ def reject_unverifiable(
     The prose is dropped rather than trimmed: an answer whose provenance is unverifiable is not
     salvaged by removing the citation that gave it away. The chunks are still returned — those are
     the retriever's work and remain trustworthy — and the trace says what happened.
+
+    **The billing travels with it**, which is the whole reason the parameters below exist. The span
+    has carried the cost of a rejection since the state was introduced; the `Answer` did not, so
+    every one of these fields fell to its default and the HTTP response described a call that was
+    answered and charged for as `cost_usd: null`, `0 / 0` tokens and `invalid_citations: 0`. Nothing
+    read the `Answer` in this state until an interface did, and it then published a cost panel byte
+    for byte identical to a degradation's underneath a sentence saying the opposite — and a count of
+    zero invalid citations in the one state whose cause is an invalid citation.
+
+    The asymmetry with `degrade` is deliberate and must survive: there the provider never answered,
+    so there is nothing to bill and the defaults *are* the truth. Here it answered, on time, and
+    charged for it. A configuration that reliably breaks the citation contract must never be able to
+    appear as the cheap one in the comparison this project puts on screen.
+
+    Everything defaults, so a caller with no billing to report — a unit test, or a `Generator` that
+    cannot say what it spent — writes exactly what it wrote before.
     """
     return Answer(
         support="rejected",
@@ -611,6 +657,13 @@ def reject_unverifiable(
         provider=provider,
         model=model,
         contract=contract.mode,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        cost_usd=cost_usd,
+        cost_estimated=cost_estimated,
+        pricing_as_of=pricing_as_of,
+        invalid_citations=invalid_citations,
+        unsupported_claims=unsupported_claims,
     )
 
 
