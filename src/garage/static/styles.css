@@ -84,6 +84,10 @@ input, select, button {
   padding: 0.35rem 0.5rem;
 }
 button { background: var(--accent); color: var(--bg); border-color: var(--accent); cursor: pointer; }
+/* A disabled control has to look disabled. The selects and the submit button start that way and are
+   enabled only once `GET /strategies` answers, so without this a page that cannot be used renders
+   identically to one that can — which is the same dishonesty as a zero-millisecond bar. */
+button:disabled, select:disabled, input:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (prefers-color-scheme: dark) { button { color: #14161a; } }
 
 .status { color: var(--muted); font-size: 0.88rem; min-height: 1.4em; margin: 0 0 0.75rem; }

@@ -24,9 +24,12 @@ form.addEventListener("submit", (event) => {
   ask().catch((failure) => fail(failure.message));
 });
 
-refreshStrategies().catch(() => {
-  /* The defaults stand. A build that cannot be probed is still usable. */
-});
+// Nothing recovers this page if the strategy list cannot be read, so nothing pretends to. The
+// controls are born disabled and are enabled only by a successful `GET /strategies`, which means a
+// silent failure here leaves an interface that is permanently unusable and says nothing — the exact
+// shape of bug this project refuses everywhere else. An absence travels as an absence: the page says
+// what it could not find out, and offers to try again.
+refreshStrategies().catch((failure) => unavailable(failure.message));
 
 async function ask() {
   const question = questionInput.value.trim();
@@ -90,9 +93,10 @@ async function query(body) {
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => null);
-    throw new Error(
-      `${body.strategy}: HTTP ${response.status}${detail ? ` — ${describe(detail)}` : ""}`
-    );
+    // Named, not interpolated blindly: with an empty `strategy` the old template produced a message
+    // beginning with a bare colon.
+    const named = body.strategy || "estratégia não informada";
+    throw new Error(`${named}: HTTP ${response.status}${detail ? ` — ${describe(detail)}` : ""}`);
   }
   return response.json();
 }
@@ -100,6 +104,41 @@ async function query(body) {
 function describe(detail) {
   if (!detail || !Array.isArray(detail.detail)) return JSON.stringify(detail);
   return detail.detail.map((item) => item.msg).join("; ");
+}
+
+function unavailable(reason) {
+  fail(`não foi possível descobrir quais estratégias este build serve — ${reason}`);
+  clear(output);
+  output.append(
+    el("section", { class: "alert" }, [
+      el("h2", { text: "Interface indisponível" }),
+      el("p", {
+        text:
+          "Esta página precisa saber quais estratégias o serviço serve antes de poder compará-las, " +
+          "e não conseguiu ler essa lista. Nada foi consultado e nada abaixo está sendo escondido: " +
+          "não há o que mostrar.",
+      }),
+      el("p", { class: "aside mono", text: reason }),
+      el("button", {
+        text: "Tentar novamente",
+        attrs: { type: "button" },
+        // Deliberately not an automatic retry loop. A service that is down stays down, and a page
+        // quietly polling it looks identical to a page that is working — which is the failure this
+        // whole block exists to avoid.
+        on: {
+          click() {
+            say("relendo /strategies…");
+            refreshStrategies()
+              .then(() => {
+                clear(output);
+                say("pronto");
+              })
+              .catch((failure) => unavailable(failure.message));
+          },
+        },
+      }),
+    ])
+  );
 }
 
 async function refreshStrategies() {
@@ -113,11 +152,14 @@ async function refreshStrategies() {
   // No re-ordering happens here any more either. The endpoint publishes the list in the order
   // `available_retrievers` returns it — the pipeline's order — so which arm opens on the left is
   // decided by the module that owns retrieval, not by an alphabetisation in an error handler.
+  // Every exit below throws. They used to return quietly, which was harmless while the HTML carried
+  // placeholder options and stopped being harmless the moment those were removed: the three silent
+  // exits became three ways to reach a dead page with a blank status line.
   const response = await fetch("/strategies");
-  if (!response.ok) return;
+  if (!response.ok) throw new Error(`GET /strategies respondeu HTTP ${response.status}`);
   const payload = await response.json();
-  const served = payload.strategies.map((strategy) => strategy.name);
-  if (!served.length) return;
+  const served = (payload.strategies || []).map((strategy) => strategy.name);
+  if (!served.length) throw new Error("este build não publicou nenhuma estratégia");
   fillSelect(leftSelect, served, served[0]);
   fillSelect(rightSelect, served, served[served.length - 1]);
   submitButton.disabled = false;

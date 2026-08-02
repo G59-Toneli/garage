@@ -503,6 +503,52 @@ def test_every_unresolvable_citation_is_counted_not_just_the_first(booted):
     assert answer["invalid_citations"] == 2
 
 
+def test_the_rejection_reason_matches_the_violation_it_describes(booted):
+    """Two sentences, chosen by the count, because one of them used to be a contradiction.
+
+    Every rejection said "o gerador produziu citações que não resolvem" — including the one caused by
+    a claim marked supported with *no citations at all*, where the prefix asserted there were
+    citations and the clause behind it said there were none. `ContractViolation` already treated that
+    as a different violation; the sentence on screen did not.
+    """
+    unsourced = Answer(
+        text="sem fonte",
+        claims=(Claim(text="afirmação sem fonte", citations=(), supported=True),),
+        support="supported",
+        provider="fake",
+        model="fake-1",
+    )
+
+    with booted(FakeRetriever([candidate()]), FakeGenerator(unsourced)) as client:
+        answer = client.post("/query", json={"question": "torque"}).json()["answer"]
+
+    assert answer["support"] == "rejected"
+    assert answer["contract_violation"] == "o gerador marcou uma afirmação como sustentada sem nenhuma citação"
+    # No citation was offered, so none could fail to resolve. Zero is the honest count here and the
+    # sentence above is what says which violation it was.
+    assert answer["invalid_citations"] == 0
+
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented())) as client:
+        answer = client.post("/query", json={"question": "torque"}).json()["answer"]
+
+    assert answer["contract_violation"] == "o gerador citou trechos que não foram recuperados"
+
+
+def test_the_clause_by_clause_violation_stays_on_the_span(booted):
+    # Same split degradation already uses: a short sentence in the page's language on the wire, the
+    # raw detail on the span. At k=10 with every citation bad the clause list runs to ten
+    # near-identical English clauses, which belongs behind a `<details>` and not in the one paragraph
+    # a visitor reads to understand what a rejection is.
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented())) as client:
+        body = client.post("/query", json={"question": "torque"}).json()
+
+    reason = body["answer"]["contract_violation"]
+    detail = body["trace"]["children"][1]["attributes"]["exception.message"]
+    assert "NAO-RECUPERADO#7" in detail
+    assert "NAO-RECUPERADO#7" not in reason
+    assert len(reason) < len(detail)
+
+
 def test_the_contract_that_ran_is_the_contract_the_answer_reports(booted):
     # Both no-call paths defaulted this field to `cited`, so a `free` run was filed under the wrong
     # configuration axis — invisible in the response, corrupting in a stored run record.

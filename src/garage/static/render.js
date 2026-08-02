@@ -190,6 +190,12 @@ function rejection(answer) {
       // reliably breaks the citation contract must not appear as the cheap one.
       text: "O provedor respondeu e cobrou. O custo abaixo é real e está sendo mostrado de propósito.",
     }),
+    answer.detail
+      ? el("details", {}, [
+          el("summary", { text: "citações recusadas, uma a uma" }),
+          el("pre", { class: "mono small", text: answer.detail }),
+        ])
+      : null,
   ]);
 }
 

@@ -292,7 +292,16 @@ function answerView(answer, trace) {
     };
   }
   if (answer.contract_violation !== null && answer.contract_violation !== undefined) {
-    return { ...base, state: "rejected", violation: answer.contract_violation };
+    return {
+      ...base,
+      state: "rejected",
+      violation: answer.contract_violation,
+      // The clause-by-clause list, folded away exactly as the provider's raw message is on a
+      // degradation. At k=10 with every citation bad it runs to ten near-identical English clauses
+      // and 800-odd characters, in front of a reader whose useful number — how many were invalid —
+      // is already in the table below. It is evidence, not prose, and it reads like evidence.
+      detail: spanAttribute(trace, "generate", "exception.message"),
+    };
   }
   return {
     ...base,

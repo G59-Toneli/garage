@@ -574,8 +574,20 @@ def _answer(
             # by us, not unbilled by them. Dropping the cost would let a configuration that reliably
             # breaks the citation contract show up as the cheap one in the comparison the demo puts
             # on screen.
+            # The wire carries a short sentence in the page's language, and the clause list stays
+            # on the span beside every other raw detail — the same split degradation already uses,
+            # where `degradation_reason` names the exception type and `exception.message` holds what
+            # the provider actually said.
+            #
+            # Two sentences, chosen by the count, because one of them was a contradiction. A claim
+            # marked supported with no citations at all produced "o gerador produziu citações que
+            # não resolvem" followed by a clause stating there was no citation to resolve. The
+            # docstring on `ContractViolation` already called that a different violation; the
+            # sentence on screen did not.
             rejected = reject_unverifiable(
-                f"o gerador produziu citações que não resolvem: {violation}",
+                "o gerador citou trechos que não foram recuperados"
+                if violation.invalid_citations
+                else "o gerador marcou uma afirmação como sustentada sem nenhuma citação",
                 provider=generator.name,
                 model=model,
                 contract=contract,

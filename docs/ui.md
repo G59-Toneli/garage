@@ -100,6 +100,13 @@ The order is the pipeline's and is deliberately not sorted: it decides which arm
 with, so alphabetising it would be a presentation decision taken in the wrong layer. The interface
 does no re-ordering of its own.
 
+**Every failure path here is visible.** The controls start disabled and are enabled only by a
+successful read, so a silent failure would leave a permanently unusable page with a blank status
+line — which is what the three quiet `return`s in this function produced once the HTML placeholders
+were removed. All three now throw, and the page renders an "Interface indisponível" panel naming the
+HTTP status, with a manual retry. Not an automatic poll: a page quietly retrying a service that is
+down looks exactly like a page that is working, which is the failure the panel exists to prevent.
+
 The invalid-strategy 422 also carries the list structurally now, in `detail[0].ctx.strategies`, again
 in pipeline order. The human sentence in `msg` is unchanged — someone is already reading it in a
 terminal — and the structured field was added beside it.
@@ -121,7 +128,7 @@ only order that collapses nothing:
 | 1 | `answer === null` | no generator configured — nothing ran, nothing failed | neutral, dashed frame, no alert colour |
 | 2 | `answer.abstained` | the corpus does not cover this | quiet, labelled **correct behaviour**; adds "sem chamada ao modelo — custo zero" when `provider === null` |
 | 3 | `answer.degraded` | the provider could not be asked | warning band; `exception.message` from the span folded behind `<details>` |
-| 4 | `answer.contract_violation !== null` | it answered, it was billed, **we** refused it | error frame, and the full cost shown anyway |
+| 4 | `answer.contract_violation !== null` | it answered, it was billed, **we** refused it | error frame, the full cost shown anyway, clause list folded away |
 | 5 | otherwise | prose by claims, with superscript citations | — |
 
 Issue #8 spent its entire argument keeping 2, 3 and 4 apart. Abstention is *"the corpus does not
@@ -152,6 +159,14 @@ and that number is printed.
 
 `answer.text` is `""` and `claims` is `[]` in states 2, 3 and 4 alike, so `if (answer.text)` is never
 the test for anything.
+
+State 4 splits its message the same way state 3 does: a short sentence in the page's language on the
+wire, the raw clause-by-clause detail on the span and folded behind `<details>`. Two sentences are
+possible and the count chooses between them, because one of them was a contradiction — a claim marked
+supported with no citations at all used to be reported as "o gerador produziu citações que não
+resolvem" above a clause saying there was no citation to resolve. At k=10 with every citation bad the
+full list runs past 800 characters of near-identical English clauses, in front of the reader whose
+useful number is already in the table below as `citações inválidas`.
 
 ## Tier: a product requirement, four channels
 
