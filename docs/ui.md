@@ -389,6 +389,103 @@ out of the record.
 Python, iterated generically with the raw key as fallback, so a metric added there shows up
 unlabelled rather than dropped.
 
+## Where an answer came from, and why it is a body field
+
+The public deployment (issue #11) made `POST /query` a cascade: an answer is measured now, copied out
+of a cache, or read off a file somebody committed in April, and those are three different claims
+about how much a number is worth. `QueryResponse` carries `origin` and `origin_detail`; `adapt.js`
+turns them into one flat `arm.origin` shape with nulls where an origin has nothing to say; and
+`render.originBand` draws one chip per arm above the columns.
+
+**Per arm and not per comparison**, because the two columns are two independent `POST /query` calls
+and can genuinely differ — the left one a cache hit, the right one freshly generated. A single band
+claiming one origin for both would be wrong half the time.
+
+**A body field and not an HTTP header.** A header would be cheaper and is the wrong shape: `toView`
+receives payloads, not responses, so a fact the screen must render cannot live somewhere this file
+cannot see. Putting it in a header would punch through the boundary this whole document is about, on
+its first day. The cost is one key on `QueryResponse` and a deliberate failure in
+`tests/test_ui_contract.py`, which is what that test is for.
+
+Each chip differs in **border style** as well as tone — solid, dashed, dotted — so a screenshot in
+monochrome and a colour-blind reader both keep the distinction. The sentences are as specific as the
+payload allows: a cached answer prints the time it was generated, because "resposta em cache" alone
+invites the reader to assume it is minutes old, and a precomputed one prints the `showcase_id` and
+"amostra k de n", because `answer.tokens_out` below it is one draw of n and ADR-0004 forbids a point
+estimate without its distribution.
+
+### Still five states, not six
+
+A spent generation budget reaches the screen as `degraded`, the state issue #8 argued into existence,
+with a different `degradation_reason`. Adding a sixth would undo that work to express a *cause*
+rather than a kind: "I could not ask" already covers "I could not ask because the day's budget is
+gone".
+
+What differs is the heading, and `render.degradation` chooses it from `answer.cause`, which
+`adapt.answerView` derives from `origin` — never from matching the Portuguese in `reason`, which
+would make translating the site a way to break the interface. "O provedor não respondeu" is *false*
+when the provider was never called, and a heading that is false is worse than one that is vague.
+
+## The fixture banner
+
+While `provenance.corpus_id === "fixture"`, every screen carries a permanent, non-dismissible banner
+saying the documents were invented for this project. `banner.js` mounts it from `GET /provenance`,
+and all three entry modules call it.
+
+It is keyed on the **field**, not on a constant, so it disappears by itself the day issue #10
+catalogues real material — impossible to forget to remove, and impossible to remove early. There is
+no dismiss button and there must never be one: it would make the statement true for the first thirty
+seconds of a session, and the reader most likely to dismiss it is the reader most likely to quote a
+number off the page.
+
+A page that *cannot* read `/provenance` says so, in a distinct and more alarming frame. The
+conservative direction: not knowing whether the material is invented must not look like having found
+out that it is not.
+
+## The re-run button
+
+On the showcase screen, one panel per arm, and it is the only thing there that is **not** stamped
+`PRÉ-COMPUTADO` — it is the one measurement taken for the visitor. It sends `rerun: true`, which the
+endpoint honours by skipping both the record and the cache: a re-run answered out of either is a
+re-run of nothing, and the point is that a published number is a claim to falsify (ADR-0004).
+
+`rerun.js` is a set of refusals more than a feature, and a reviewer should treat the disappearance of
+any of them as a defect:
+
+| level | claim it may make | why not more |
+| --- | --- | --- |
+| retrieval order | "identical to the recorded ranking", or the finding, in full | deterministic over a fixed artifact, so it *must* match; ADR-0008 measured zero top-10 differences between x86-64 and aarch64 with a margin of only 1.13× against the analytical bound, which is thin enough to watch |
+| generated quantities | "inside" / "outside the observed range", with n | one draw on aarch64 against n draws on x86-64; provider variance dwarfs any architecture effect, and n=1 against a distribution supports neither "better", "worse", nor a percentage |
+| latency | nothing at all | ARM against x86, cold connection, one sample — and the waterfall on the same page is already labelled "não é uma medição de desempenho" |
+
+`generate_ms` is excluded from `adapt.COMPARABLE_METRICS` by name, and the exclusion is *stated* on
+screen rather than done quietly: leaving latency out silently would let a reader assume it was
+compared and found equal, which is a stronger claim than refusing to compare it.
+
+The plot is the same strip plot, widened to contain the live value so an outlying result is drawn
+outside the recorded range rather than clamped to the edge — clamping would render the single most
+interesting outcome as the least interesting one. No error bar, no mean, no standard deviation. A
+permanent footnote under every re-run names the whole comparison for what it is.
+
+## Geometry goes through the CSSOM, never the `style` attribute
+
+`dom.el` takes `style: {left: 42}` — property names to **numbers**, written with
+`element.style.setProperty` and a percent suffix. The inline `style` attribute is banned, and
+`tests/test_ui_contract.py` fails the build on one, exactly as it does for `innerHTML`.
+
+This is a deployment fact rather than taste. `deploy/Caddyfile` serves `style-src 'self'`, which
+blocks the `style` attribute outright while leaving the CSSOM path alone — a value assigned by this
+code is not a stylesheet the page received from anywhere. The first version of the origin band
+shipped with the attribute, and in production every bar in the waterfall, every tick on a score axis
+and every mark on a strip plot silently failed to position: a column of empty tracks, eighty-five CSP
+violations in a console this project promises will be quiet, and nothing a visitor could see saying
+anything was wrong. It was found in a browser against the real overlay, and it is invisible in
+development because there is no Caddy there and therefore no policy.
+
+Numbers only, enforced in the helper, is the second half. Nothing here ever interpolates a served
+string into CSS, and a non-finite value is dropped rather than written — so a missing measurement
+leaves an element unpositioned instead of parked at the left edge pretending to be zero.
+
 ## Two things a later reader should not have to discover alone
 
 **`REPO_ROOT` is `Path(__file__).parents[2]`.** `evaluation.py` resolves `eval/` relative to the
@@ -424,3 +521,10 @@ silently, in a browser, at runtime.
 
 Exact rather than "contains", on purpose: a field *added* to the response and not shown on screen is
 also a regression, because the claim of this interface is that it displays what the system produced.
+
+Issue #11 is the worked example. Adding `origin` and `origin_detail` broke this test, which is the
+test doing its job — the failure is the moment somebody has to decide whether the new field will be
+rendered. `origin_detail` is a bare dict on the Pydantic model, so its shape is asserted here too,
+as three per-origin key sets rather than one union: the fields genuinely do not overlap, and a flat
+model would publish a null `showcase_id` on every live answer, which is how a screen ends up drawing
+"showcase: —" beside a number that was measured a second ago.
