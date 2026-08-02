@@ -827,6 +827,34 @@ def _aggregate(facts: Sequence[Fact], items: Sequence[ItemResult], k: int) -> di
     # ranking metric and never averaged into the three above: it asks whether the single chunk a
     # reader is shown would let them answer, which recall does not ask and MRR does not either.
     metrics["value_match@1"] = _round(sum(item.value_matched for item in items) / count)
+    # The two numbers that watch the *cost* of recall, added by #12 and deliberately not gated yet.
+    #
+    # Every metric above this line rewards finding the right chunk and none of them notices anything
+    # else that came back with it. That was survivable while the retriever returned 0.7 candidates
+    # per question; the OR fallback takes it to 4.1, and the same change on a corpus of fifty
+    # thousand chunks could take it to fifty while `recall@10` climbs and the gate stays green the
+    # whole way. A benchmark whose thesis is honesty should be able to see its own precision rot.
+    #
+    # Two numbers rather than one because neither is sufficient. `precision@10` is the textbook
+    # quantity — relevant chunks found, over `k` — and on a fact set where most questions have a
+    # single correct chunk it is capped near 0.1 and moves almost exactly like recall. `candidates@10`
+    # is the one with the news in it: the mean size of the returned list, which is what a precision
+    # collapse actually looks like from here and which no other field in the record carries.
+    #
+    # Ungated on purpose. Gating a metric means committing to a direction, and the honest direction
+    # for `candidates@10` is not "lower" — an abstaining retriever scores a perfect zero. It belongs
+    # in the record now, watched by a human across a few corpus sizes, and in `gated_metrics` when
+    # somebody can say what a bad value is. Putting it in today would mean inventing that threshold.
+    metrics[f"precision@{k}"] = _round(
+        sum(
+            len(set(item.retrieved_chunk_ids[:k]) & set(fact.relevant)) / k
+            for fact, item in zip(facts, items)
+        )
+        / count
+    )
+    metrics[f"candidates@{k}"] = _round(
+        sum(len(item.retrieved_chunk_ids) for item in items) / count
+    )
     # Split by phrasing, and both halves are gated by the committed baseline. The headline
     # `recall@10` is one number over two populations that behave nothing alike, and averaging them
     # hides the only question anyone actually wants answered about a retriever: can it handle a
