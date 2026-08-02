@@ -7,6 +7,20 @@ drivers, in order, are **reproducibility/auditability**, **testability**, **modi
 developer laptop and a free ARM VM) and **cost** (hard ceiling at zero) are constraints, not
 goals.
 
+## The target, stated in numbers
+
+The deployment target is an **Oracle Cloud Ampere A1 instance on the always-free tier: 4 aarch64
+vCPU and 24 GB of RAM**, in Vinhedo/SP. The figures are here because "a free ARM VM" is not a
+resource budget and was twice read as one — two reviewers independently assumed 1 GB and spent real
+time optimising a footprint that was never a constraint. Memory is not scarce on this machine; what
+is scarce is money (zero) and what is *different* about it is the instruction set.
+
+That second point is the one with consequences, and it is not about performance. Production runs on
+**aarch64 while every number this project publishes is measured on x86-64**, and ONNX Runtime is not
+bit-reproducible between the two (ADR-0008). Anything whose output a visitor could compare against a
+published figure has to be made architecture-independent by construction rather than by hoping the
+difference is small.
+
 ## Consequences
 
 Scalability, high availability, elasticity, multi-user security, and latency-as-an-SLO are

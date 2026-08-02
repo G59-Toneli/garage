@@ -101,7 +101,25 @@ The response shape does not change at all. Only `components` differs, because it
  "components": {"cosine": 0.8376, "dense_rank": 1}}
 ```
 
-`score` **is** the cosine, `1 - (embedding <=> :q)`. There is nothing to fuse — one signal, and
+`score` **is** the cosine, `1 - (embedding <=> :q)`, **rounded to five decimals before anything
+orders by it**. That rounding is not cosmetic. ONNX Runtime is not bit-reproducible across
+instruction sets: the same weights and the same text give components differing by up to 9.7e-08
+between x86-64 and arm64, which bounds the cosine difference at about 1.9e-06 — and the smallest
+adjacent gap between two top-ten cosines in the real fact suite is 1.4e-06, *inside* that envelope.
+Raw ordering was never stable across architectures, and [ADR-0001](adr/0001-architecture-characteristics.md)
+names an ARM VM as the deployment target.
+
+Rounding collapses the noise into ties, and the `chunk_id` tie-break settles them identically on
+every machine. The cost is stated rather than hidden: a pair genuinely separated by less than 1e-5
+is now ordered alphabetically instead of by similarity. In a project whose thesis is
+reproducibility that is the right trade — a similarity difference smaller than the platform's own
+floating-point error is not signal, it is noise shaped like signal. Five decimals sits five times
+above the error envelope and twenty-six times below the median smallest-gap of 2.6e-04, and adding
+it changed neither a single metric nor a single per-item order on x86-64. See
+[ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)
+for the measurements and for the residual risk it narrows without deleting.
+
+There is nothing to fuse — one signal, and
 reciprocal-rank fusion would only compress a readable 0..1 number into a rank reciprocal nobody can
 interpret. The `<=>` operator rather than the marginally faster `<#>`, even though the vectors are
 unit length and the two order identically, because pgvector *negates* the inner product (Postgres

@@ -211,13 +211,6 @@ class E5OnnxEmbedder:
         options = onnxruntime.SessionOptions()
         options.intra_op_num_threads = 1
         options.inter_op_num_threads = 1
-        # Off, and the comment is here because the *measurement* is the interesting part. The arena
-        # was the first suspect for this process's memory footprint and it is not the culprit:
-        # toggling it moved steady RSS by a few megabytes against a total near 800 MB. It stays off
-        # anyway, because an arena exists to amortise allocation across many concurrent inferences
-        # and this workload has one query at a time on one thread, so all it can contribute is
-        # retained fragmentation. See ADR-0008 for where the memory actually goes.
-        options.enable_cpu_mem_arena = False
         options.graph_optimization_level = getattr(
             onnxruntime.GraphOptimizationLevel, GRAPH_OPTIMIZATION
         )
@@ -316,8 +309,8 @@ def _verified(directory: Path, name: str) -> Path:
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        # Chunked because `model.onnx` is 470 MB and reading it whole to hash it would be a
-        # half-gigabyte allocation on a 1 GB ARM VM (ADR-0001).
+        # Chunked because `model.onnx` is 470 MB, and a half-gigabyte allocation to compute a
+        # digest is waste rather than necessity whatever the machine has.
         for block in iter(lambda: handle.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
