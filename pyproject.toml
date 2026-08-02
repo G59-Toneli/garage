@@ -15,6 +15,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3", "httpx>=0.28"]
+# Optional on purpose. Generation is the layer the service is complete without, and the whole test
+# suite runs with neither this package nor an API key present — no test may import `google.genai`.
+gemini = ["google-genai>=1.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -26,3 +29,11 @@ packages = ["src/garage"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# `pytest` must never reach a paid API or an optional dependency by accident. Skipping on the
+# absence of a key is not a gate — it makes the default behaviour of the suite depend on whether the
+# developer happened to export the variable this project's own documentation tells them to export.
+# Running a live test is an act: `pytest -m live`.
+addopts = "-m 'not live'"
+markers = [
+    "live: touches a real provider or the optional `gemini` extra; excluded from the default run",
+]
