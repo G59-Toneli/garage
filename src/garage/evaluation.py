@@ -787,11 +787,17 @@ def _measure(retriever: Retriever, facts: Sequence[Fact], *, k: int, tiers: tupl
         # for `lexical` and written down anyway: a field that appeared only when set would make two
         # Configurations measured under different build-time axes look equal, which is exactly the
         # comparison the baseline must refuse to make.
+        #
+        # A plain attribute read and not `getattr(..., None)`. `Retriever` declares `embedder_id`,
+        # so a retriever without one is a broken implementation and must say so here — a default
+        # would turn a misspelled attribute into a silent `null` in a committed record, which is a
+        # run measured under an unrecorded build-time axis and the precise thing this field exists
+        # to prevent.
         configuration=Configuration(
             strategy=retriever.name,
             k=k,
             tiers=tiers,
-            embedder=getattr(retriever, "embedder_id", None),
+            embedder=retriever.embedder_id,
         ),
         metrics=_aggregate(facts, items, k),
         per_item=tuple(items),

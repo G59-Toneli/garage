@@ -130,6 +130,13 @@ class EmbedderSpec:
     normalize: bool
     query_prefix: str
     passage_prefix: str
+    # The runtime's graph rewriting level. Included on the *possibility* rule above rather than on
+    # evidence: operator fusion reorders floating point work, so two sessions differing only in this
+    # can in principle disagree in the last bits. Measured across all four ONNX Runtime levels on
+    # this graph they agree exactly — which is a fact about this model today, not a property, and is
+    # precisely the kind of thing that stops being true after a runtime upgrade nobody reads the
+    # notes for.
+    graph_optimization: str
     embed_version: int
 
     @property
@@ -204,7 +211,16 @@ class E5OnnxEmbedder:
         options = onnxruntime.SessionOptions()
         options.intra_op_num_threads = 1
         options.inter_op_num_threads = 1
-        options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # Off, and the comment is here because the *measurement* is the interesting part. The arena
+        # was the first suspect for this process's memory footprint and it is not the culprit:
+        # toggling it moved steady RSS by a few megabytes against a total near 800 MB. It stays off
+        # anyway, because an arena exists to amortise allocation across many concurrent inferences
+        # and this workload has one query at a time on one thread, so all it can contribute is
+        # retained fragmentation. See ADR-0008 for where the memory actually goes.
+        options.enable_cpu_mem_arena = False
+        options.graph_optimization_level = getattr(
+            onnxruntime.GraphOptimizationLevel, GRAPH_OPTIMIZATION
+        )
         self._session = onnxruntime.InferenceSession(
             str(weights), options, providers=["CPUExecutionProvider"]
         )
@@ -220,6 +236,7 @@ class E5OnnxEmbedder:
             normalize=True,
             query_prefix=QUERY_PREFIX,
             passage_prefix=PASSAGE_PREFIX,
+            graph_optimization=GRAPH_OPTIMIZATION,
             embed_version=EMBED_VERSION,
         )
         self.fingerprint = self.spec.fingerprint
@@ -268,6 +285,11 @@ POOLING = "mean"
 # shape check could see.
 QUERY_PREFIX = "query: "
 PASSAGE_PREFIX = "passage: "
+# Left at ONNX Runtime's fullest rewriting. `ORT_DISABLE_ALL` was measured as a way out of this
+# process's memory footprint and is not one — the difference sits inside the run-to-run variance —
+# while costing about 13% on a 512-token passage. Named as a constant and folded into the
+# fingerprint because it is a knob that could move a vector, not because it currently does.
+GRAPH_OPTIMIZATION = "ORT_ENABLE_ALL"
 
 
 def _verified(directory: Path, name: str) -> Path:

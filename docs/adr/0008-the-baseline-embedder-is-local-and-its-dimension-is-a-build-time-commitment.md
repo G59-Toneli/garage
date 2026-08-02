@@ -54,6 +54,32 @@ motor` to `flywheel`. Small because the deployment target is an Oracle Ampere VM
     `measurement()` for the dense arm — decided then, with the failure in hand.
 - The 384-dimension promise constrains Phase 4 and is worth restating: a fine-tuned embedder that
   changes the width is not a second `model_key`, it is a schema migration and a new baseline.
+- **The serving process does not fit on the 1 GB VM of ADR-0001 alongside Postgres.** Measured as
+  RSS inside a Linux container, which is the number that matters rather than a Windows working set:
+
+  | stage | RSS | peak |
+  | --- | --- | --- |
+  | interpreter, before importing `garage` | 9 MB | — |
+  | after `InferenceSession` is constructed | 510–790 MB | — |
+  | after one short query (18 tokens, 11 ms) | ~790 MB | ~870 MB |
+  | after one 512-token passage (340 ms) | ~820–845 MB | 870–1025 MB |
+
+  The spread is run-to-run variance in how ONNX Runtime materialises initialisers, not measurement
+  error; the floor and the peak are stable enough to decide on. **No configuration fixes it.** The
+  CPU memory arena was the first suspect and moved steady RSS by a few megabytes; the graph
+  optimisation level moved the peak by roughly its own noise while costing ~13% latency; a
+  pre-optimised graph saved at build time landed within noise of `ORT_DISABLE_ALL`. The floor is the
+  model: 470 MB of fp32 weights, of which about 384 MB is the 250,002 × 384 vocabulary embedding
+  matrix, plus what the runtime holds while it loads them.
+
+  Postgres wants 150–250 MB on top. **Plan for 2 GB, or split the processes**, and note that the
+  ingestion path is the more expensive one (512-token passages) while serving is the cheaper one
+  (short questions), so a VM that serves need not be a VM that ingests. Three ways out exist and
+  none is free: `model_O4.onnx` at fp16 halves the weights and changes every number in the baseline;
+  `model_qint8` quarters them and makes the cross-architecture determinism story much worse; pruning
+  the vocabulary to what the Corpus actually uses would save ~300 MB and complicates deriving the
+  Phase 4 fine-tune from the baseline. This is #11's decision to make, with these numbers in hand.
+  It is recorded here rather than discovered on the VM.
 - `fingerprint` (`embedding.EmbedderSpec`) is a **fourth identity number** beside `corpus_hash`,
   `INGEST_VERSION` and the facts digest, and it is deliberately not folded into any of them
   (ADR-0007): numbers that fail for different reasons are separate numbers. `EMBED_VERSION` is its

@@ -242,6 +242,40 @@ def test_the_partial_index_exists_and_names_the_model_key(artifact, embedder):
 # ------------------------------------------------------------------------------------------------
 
 
+def test_the_planner_still_scans_which_is_what_makes_the_search_exact(artifact, embedder):
+    """The premise every other claim about `dense` rests on, asserted instead of assumed.
+
+    `DenseRetriever` contracts *exact* search and treats the HNSW index as an optimisation, and the
+    deterministic gate (ADR-0004) is built on that. It is true only while the planner sequentially
+    scans fifty-three rows. The day the corpus is large enough for it to reach for the index,
+    `ef_search` starts deciding which neighbours come back, approximation becomes visible in the
+    ranking, and the gate would quietly compare two things that are no longer comparable — with
+    nothing anywhere noticing the assumption had expired.
+
+    So the expiry is a red build. When this fails, the fix is not to loosen it: it is to add
+    `ef_search` to the run record's `Configuration` and re-promote the baseline deliberately.
+    """
+    from garage.retrieval import _DENSE_SEARCH, _as_vector, _ef_search
+
+    with psycopg.connect(DATABASE_URL) as connection:
+        connection.execute(f"SET LOCAL hnsw.ef_search = {_ef_search(10)}")
+        plan = "\n".join(
+            row[0]
+            for row in connection.execute(
+                "EXPLAIN " + _DENSE_SEARCH,
+                {
+                    "vector": _as_vector(embedder.embed_query("torque")),
+                    "model_key": embedder.model_key,
+                    "tiers": ["A", "B"],
+                    "k": 10,
+                },
+            ).fetchall()
+        )
+
+    assert "Seq Scan on embeddings" in plan, plan
+    assert "hnsw" not in plan.lower(), plan
+
+
 def test_the_dense_retriever_honours_the_contract_every_strategy_shares(retriever):
     found = retriever.retrieve("torque do parafuso do cabeçote", k=5)
 

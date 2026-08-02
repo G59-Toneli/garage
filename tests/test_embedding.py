@@ -48,6 +48,7 @@ def spec(**overrides) -> EmbedderSpec:
         normalize=True,
         query_prefix=QUERY_PREFIX,
         passage_prefix=PASSAGE_PREFIX,
+        graph_optimization="ORT_ENABLE_ALL",
         embed_version=1,
     )
     return EmbedderSpec(**{**fields, **overrides})

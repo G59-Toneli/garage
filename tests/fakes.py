@@ -22,6 +22,7 @@ from typing import Sequence
 
 from garage.embedding import (
     EMBEDDING_DIMENSION,
+    GRAPH_OPTIMIZATION,
     MAX_SEQ_LEN,
     PASSAGE_PREFIX,
     POOLING,
@@ -66,6 +67,7 @@ class FakeEmbedder:
             normalize=True,
             query_prefix=query_prefix,
             passage_prefix=passage_prefix,
+            graph_optimization=GRAPH_OPTIMIZATION,
             embed_version=embed_version,
         )
         self.fingerprint = self.spec.fingerprint

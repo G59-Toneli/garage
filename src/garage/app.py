@@ -229,15 +229,23 @@ def create_app(
         # cost moves to boot, which is where the artifact is verified anyway and where an operator
         # already expects to wait.
         strategies = injected if injected is not None else available_retrievers(settings.database_url)
+        # **Every** embedder any strategy holds, not the first one found. With one dense retriever
+        # the two are the same; with the Phase 4 fine-tuned embedder alongside the baseline
+        # (ADR-0005) they are not, and stopping at the first would serve a whole set of vectors the
+        # boot gate never looked at — the exact failure this check exists for, reintroduced by the
+        # check. `[None]` when there are none, so a lexical-only build still runs the corpus_hash
+        # half of the gate.
+        #
+        # Each embedder comes off the retriever that will actually answer queries with it, never
+        # resolved a second time here: a second resolution is the divergence
+        # `embedding.embedder_for` exists to make unwriteable.
+        embedders = [held for held in (getattr(s, "embedder", None) for s in strategies) if held]
         # Raising here is the refusal: uvicorn aborts the boot and the operator reads why. Building
         # the app is deliberately not enough to touch the database, so `--help` never needs one.
-        #
-        # The embedder is taken off the retriever that is actually going to answer queries, never
-        # resolved a second time here. A second resolution is exactly the divergence
-        # `embedding.embedder_for` exists to make unwriteable, and reintroducing it inside the check
-        # designed to catch it would be the funniest possible bug to ship.
-        embedder = next((held for held in (getattr(s, "embedder", None) for s in strategies) if held), None)
-        app.state.artifact = verify_artifact(settings.database_url, settings.corpus_dir, embedder)
+        for embedder in embedders or [None]:
+            app.state.artifact = verify_artifact(
+                settings.database_url, settings.corpus_dir, embedder
+            )
         app.state.retrievers = {strategy.name: strategy for strategy in strategies}
         app.state.default_strategy = strategies[0].name
         yield
@@ -345,8 +353,13 @@ def _answer(
     if generator is None:
         return None
     if not candidates:
+        # Says only what actually happened — the retriever returned nothing — and deliberately not
+        # *why*. The old wording named a similarity floor, which is `lexical`'s mechanism and
+        # `lexical`'s alone: `dense` has no floor and cannot reach this branch at all today, and if
+        # it ever gains one the reason will not be the same reason. An abstention reason that
+        # asserts the internals of one strategy is a message that is either unreachable or wrong.
         return abstain_without_asking(
-            "nenhum trecho do Corpus passou o piso de similaridade para esta pergunta",
+            "nenhum trecho do Corpus foi recuperado para esta pergunta",
             contract=contract,
         )
 

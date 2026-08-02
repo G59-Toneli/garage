@@ -208,11 +208,36 @@ scored AS (
 # `model_key` is a *parameter*. This is design §8's "switching embedder is a WHERE clause" written
 # out: the Phase 4 fine-tuned embedder is a different value bound here and not one line of new SQL
 # (ADR-0005).
+#
+# The score is **rounded before anything orders by it**, and this is the single most consequential
+# line in the module. ONNX Runtime is not bit-reproducible across instruction sets: the same weights
+# and the same text give query vectors whose components differ by up to 9.7e-08 between x86-64 and
+# arm64 (measured, ADR-0008), which bounds the cosine difference by ‖Δq‖₂ — about 1.9e-06 worst case
+# over 384 components, and the passage side drifts too. The smallest adjacent gap between two
+# top-ten cosines in the real fact suite is 1.4e-06. That is *inside* the envelope, so raw ordering
+# is not stable across architectures, and ADR-0001 names an ARM VM as the deployment target: a
+# reproducibility claim that holds only where the project does not run is not a claim worth making.
+#
+# Rounding collapses that. Two cosines closer together than the grid become equal, and the
+# `chunk_id` tie-break below — already there, already deterministic — settles them the same way on
+# every machine. The cost is real and worth naming: a pair genuinely separated by less than 1e-5 is
+# now ordered alphabetically rather than by similarity. In a project whose thesis is
+# reproducibility that is the right trade, because a similarity difference smaller than the
+# platform's own floating-point error is not signal, it is noise wearing the shape of signal.
+#
+# Five decimals rather than four: 1e-5 sits five times above the 1.9e-06 error envelope and
+# twenty-six times *below* the median smallest-gap of 2.6e-04, so it swallows the noise without
+# swallowing distinctions the suite actually makes. Rounding narrows the exposure rather than
+# deleting it — any grid has boundaries, and a value landing within the error of one can still cross
+# it — so the residual is measured rather than asserted; see ADR-0008 for the number.
 _DENSE_SCORED = """
 scored AS (
     SELECT
         {columns},
-        1 - (embeddings.embedding <=> %(vector)s::vector) AS cosine
+        round(
+            (1 - (embeddings.embedding <=> %(vector)s::vector))::numeric,
+            {decimals}
+        )::double precision AS cosine
     FROM chunks
     JOIN documents ON documents.doc_id = chunks.doc_id
     JOIN embeddings ON embeddings.chunk_id = chunks.chunk_id
@@ -220,6 +245,11 @@ scored AS (
       AND chunks.tier = ANY(%(tiers)s)
 )
 """
+
+# Where the grid is set, once. `dense_rank` is computed from the *rounded* cosine as well, so the
+# rank a candidate reports and the order it arrives in cannot disagree — a panel showing rank 8 on a
+# row sitting ninth would be the Glass Box lying about its own ranking.
+DENSE_SCORE_DECIMALS = 5
 
 
 _SEARCH = f"""
@@ -251,14 +281,15 @@ LIMIT %(k)s
 
 
 _DENSE_SEARCH = f"""
-WITH {_DENSE_SCORED.format(columns=_CHUNK_COLUMNS)},
+WITH {_DENSE_SCORED.format(columns=_CHUNK_COLUMNS, decimals=DENSE_SCORE_DECIMALS)},
 ranked AS (
     SELECT
         scored.*,
-        -- `rank()`, not `row_number()`, for the same reason as the lexical statement: two chunks at
-        -- an identical cosine must place identically rather than in whatever order the planner read
-        -- them. No `CASE` guard here — every row in `scored` has a cosine, because dense retrieval
-        -- has no notion of a signal that did not fire. That absence *is* the missing floor.
+        -- `rank()`, not `row_number()`, and here it is load bearing rather than merely careful.
+        -- Rounding deliberately *creates* ties, and two chunks at an equal rounded cosine must
+        -- place equally rather than in whatever order the planner happened to read them. No `CASE`
+        -- guard: every row in `scored` has a cosine, because dense retrieval has no notion of a
+        -- signal that did not fire. That absence *is* the missing floor.
         rank() OVER (ORDER BY cosine DESC) AS dense_rank
     FROM scored
 )
@@ -266,8 +297,8 @@ SELECT ranked.*, cosine AS score
 FROM ranked
 -- The single signal is the score, so there is no fusion to do and RRF would only compress a
 -- readable 0..1 cosine into a rank reciprocal nobody can interpret. `chunk_id` breaks ties for the
--- same reason it does under `lexical`: the same query against the same artifact must return the
--- same order, or the gate reports noise as a regression.
+-- same reason it does under `lexical`, and after rounding it is doing real work rather than
+-- guarding a theoretical case: it is what makes the order identical on x86-64 and arm64.
 ORDER BY score DESC, chunk_id
 LIMIT %(k)s
 """
@@ -279,12 +310,19 @@ LIMIT %(k)s
 #
 # It is deliberately absent from the run record's `Configuration`, which is a claim worth defending
 # rather than an omission. It is a pure function of `k`, and `k` is already recorded — a derived
-# field would be a second place for the same fact to be wrong. More decisively: the contracted
-# semantics of this retriever are *exact* search and the HNSW index is an optimisation
-# (`database.CREATE_EMBEDDING_INDEX`), so `ef_search` cannot change the result the record describes.
-# The day it can — the day the corpus is large enough that the planner really uses the index and
-# approximation becomes visible — that is a change to what this retriever promises, and it takes a
-# `Configuration` field and a re-promoted baseline with it.
+# field is a second place for one fact to be wrong. More decisively: the contracted semantics of
+# this retriever are *exact* search and the HNSW index is an optimisation
+# (`database.CREATE_EMBEDDING_INDEX`), so at this scale `ef_search` cannot change the result the
+# record describes.
+#
+# That defence rests entirely on the planner choosing a sequential scan, which is a premise nothing
+# in the running system checks. The day the corpus is large enough for the planner to reach for the
+# index, `ef_search` starts deciding *which* neighbours come back, approximation becomes visible in
+# the ranking, and the gate would compare two things that are no longer comparable — silently, with
+# no line of code anywhere noticing that the assumption underneath it expired. So the premise is
+# asserted rather than assumed: `test_dense_retrieval` reads the plan with `EXPLAIN` and fails when
+# it stops being a scan. That turns a silent expiry into a red build, and the fix at that point is a
+# `Configuration` field for `ef_search` plus a deliberately re-promoted baseline.
 HNSW_EF_SEARCH_FLOOR = 40
 
 
