@@ -65,17 +65,53 @@ jobs:
       - run: python -m garage eval gate
 
   image:
-    # The deployment target is an ARM VM (ADR-0001), so arm64 must build on every change,
-    # not at deploy time. Build only — no registry push while the VM does not exist yet.
+    # The deployment target is an ARM VM (ADR-0001), so arm64 builds on every change and not at
+    # deploy time. Since issue #11 it is also *pushed* — but only from `main`, so a branch still gets
+    # the build as a gate without publishing an image nobody asked for.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The only new permission, and no new secret: `GITHUB_TOKEN` already exists and GHCR accepts
+      # it. A deploy that needed a personal access token would be a deploy nobody else could
+      # reproduce, which is the same objection ADR-0009 makes to the tunnel.
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      # GHCR rejects an uppercase path and `github.repository` is `G59-Toneli/garage`. Lowercased
+      # here rather than hard-coded, so a rename or a fork still pushes to the right place.
+      - id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: ${{ github.ref == 'refs/heads/main' }}
+          # Tagged by sha *and* by `main`, and the deployment pins neither. `deploy/compose.prod.yaml`
+          # names a `@sha256:` digest, because a tag is a mutable pointer and "what is running in
+          # production" has to be a question the git history answers. The tags exist so a human can
+          # find the image; the digest is what runs.
+          tags: |
+            ${{ steps.name.outputs.image }}:${{ github.sha }}
+            ${{ steps.name.outputs.image }}:main
+          # Baked into the image, and it is a cache-key component before it is a display string:
+          # without it a deploy that changes the prompt keeps serving the previous build's cached
+          # answers under this build's version stamp (`garage/cache.py`).
+          build-args: |
+            GARAGE_GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The digest a human copies into `deploy/compose.prod.yaml`. Printed rather than committed by
+      # a bot: the deploy is a commit somebody makes on purpose (ADR-0001), and a workflow that
+      # updated production on every merge to `main` would be continuous deployment nobody chose.
+      - if: github.ref == 'refs/heads/main'
+        run: |
+          echo "::notice title=Deploy digest::${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}"

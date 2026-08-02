@@ -1,0 +1,51 @@
+# TLS, terminated on this machine. ADR-0009 argues why here and not at an edge.
+#
+# Six directives of substance. Caddy obtains and renews the certificate over ACME by itself, with no
+# cron, no renewal hook and no second process — which is the whole reason it is here instead of nginx
+# and certbot, whose renewal path fails ninety days after anybody last looked at it.
+#
+# The domain is `{$GARAGE_DOMAIN}` and is never written down in git. Issue #15 has not decided which
+# domain this is (it costs money), and nothing in this repository needs to wait for that decision.
+
+{
+	# The ACME account address. Let's Encrypt sends expiry warnings here, which is the only
+	# notification path this deployment has for a certificate that stopped renewing.
+	email {$ACME_EMAIL}
+}
+
+{$GARAGE_DOMAIN} {
+	encode zstd gzip
+
+	# HSTS. One year, subdomains included. Stated here rather than in the application because it is
+	# a property of *this deployment being reachable over TLS*, and the application is also expected
+	# to run on a laptop over plain HTTP where the header would be actively harmful.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# The interface is hand-written HTML, CSS and ES modules from this same origin, with no CDN,
+		# no bundler and no third-party anything (ADR-0006). That makes a strict policy free, and
+		# free is the only kind that survives. `data:` is for the empty favicon in the three HTML
+		# files, which exists so the console of this demo stays quiet.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+	}
+
+	reverse_proxy serve:8000
+
+	handle_errors {
+		# A 502 here is almost always one specific thing: `serve` refused to boot because the
+		# database is not this commit's artifact, or because a committed showcase record was built
+		# against another corpus (ADR-0002, `showcase.verify_showcase_records`). That refusal is
+		# **correct** — serving numbers about the wrong material is the one failure a glass box must
+		# never produce quietly — so the page says so instead of showing a bare gateway error that
+		# reads like a crash.
+		@unavailable expression `{err.status_code} in [502, 503, 504]`
+		handle @unavailable {
+			rewrite * /unavailable.html
+			file_server {
+				root /srv/errors
+			}
+		}
+		respond "{err.status_code} {err.status_text}"
+	}
+}

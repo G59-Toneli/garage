@@ -1,0 +1,35 @@
+# systemd unit for the whole stack. Install to /etc/systemd/system/garage.service.
+#
+# `restart: unless-stopped` in Compose already brings the containers back when the Docker daemon
+# restarts. This unit is for the other case, which is the one that actually happens: the VM reboots,
+# and something has to bring the *stack* up in a known state with a known working directory and a
+# known environment file. It also gives `systemctl status garage` as the one answer to "is the site
+# supposed to be running", which is a better contract than a shell history entry.
+#
+# Deliberately `oneshot` with `RemainAfterExit`. Compose exits after `up -d`; a `simple` unit would
+# see that exit as a crash and restart it forever.
+
+[Unit]
+Description=Garage — reproducible retrieval benchmark, public deployment
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/garage
+# The two secrets, and nowhere else. Mode 600, owned by root, never in git: `GARAGE_GEMINI_API_KEY`
+# and the ACME identity. No Docker secrets and no vault — ADR-0001 refuses "hardened production"
+# infrastructure by name, and a file with the right mode is the proportionate answer for one
+# provider key on a single-user VM.
+EnvironmentFile=/opt/garage/.env
+ExecStart=/usr/bin/docker compose -f compose.yaml -f deploy/compose.prod.yaml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f compose.yaml -f deploy/compose.prod.yaml down
+# Pull before starting, so a reboot after a digest change converges instead of quietly running the
+# image that happens to be in the local store.
+ExecStartPre=/usr/bin/docker compose -f compose.yaml -f deploy/compose.prod.yaml pull --quiet
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

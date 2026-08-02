@@ -1,0 +1,37 @@
+# The Caddyfile for verifying the overlay off the VM. See `compose.local-tls.yaml`.
+#
+# Identical to `Caddyfile` except that automatic HTTPS is off, because ACME needs a public name
+# resolving to this host and a laptop does not have one. Everything else — the proxy, the headers,
+# the error page — is the same, so what is verified here is the same configuration minus the one
+# thing that is unverifiable off the VM.
+#
+# `auto_https off` rather than `tls internal`: an internal CA would produce a certificate no client
+# trusts, so every `curl` would need `-k` and the verification would be testing the flag rather than
+# the configuration. Plain HTTP is the honest local shape.
+
+{
+	auto_https off
+}
+
+:80 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+	}
+
+	reverse_proxy serve:8000
+
+	handle_errors {
+		@unavailable expression `{err.status_code} in [502, 503, 504]`
+		handle @unavailable {
+			rewrite * /unavailable.html
+			file_server {
+				root /srv/errors
+			}
+		}
+		respond "{err.status_code} {err.status_text}"
+	}
+}

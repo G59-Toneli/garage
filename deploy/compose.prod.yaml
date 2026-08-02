@@ -1,0 +1,111 @@
+# The production overlay. Applied *on top of* the repository's `compose.yaml`, never instead of it:
+#
+#   docker compose -f compose.yaml -f deploy/compose.prod.yaml up -d
+#
+# An overlay rather than a second full file, because two full files would be two descriptions of the
+# same three services and the divergence would be discovered on the VM. What this file contains is
+# exactly the set of differences between "a laptop" and "a public URL", and every one of them is a
+# difference somebody has to be able to argue with.
+#
+# ## The three differences
+#
+# 1. **Nothing is published on the host except 80 and 443.** The development compose publishes 5432
+#    and 8000 so a developer can reach them; on a VM with a public address those are a Postgres and
+#    an unauthenticated API on the internet. `!reset []` removes the inherited mapping rather than
+#    overriding it — a `ports:` list in an overlay is *appended* to the base, so writing nothing here
+#    would leave both ports exactly as exposed as before. This is the single most important line in
+#    the file and it is the one that looks like a formatting detail.
+#
+# 2. **`serve` runs a pinned digest, not a build.** See `docs/deploy.md`: the deploy is a commit.
+#
+# 3. **Caddy exists**, terminating TLS on the origin. ADR-0009 argues why the origin and not an edge.
+#
+# ## Log rotation
+#
+# Every service gets `max-size` and `max-file`. Without them the JSON log driver grows without bound,
+# and a VM that fills its disk in four months presents as a mysterious outage rather than as a full
+# disk. Three files of ten megabytes is thirty megabytes per service, which is nothing, and it is
+# enough history to read a crash loop.
+
+services:
+  postgres:
+    # Never reachable from outside the compose network. Nothing needs it but `serve`.
+    ports: !reset []
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  serve:
+    ports: !reset []
+    # Pinned by digest, never by tag. A tag is a mutable pointer, so `garage:latest` on the VM is not
+    # answerable from the repository — and "what is running in production" has to be a question the
+    # git history answers (ADR-0001, ADR-0002 applied to the deployment). Updating production is
+    # editing this line and committing it; rolling back is `git revert`.
+    #
+    # The placeholder below is a placeholder and the deployment will fail loudly against it, which is
+    # the correct behaviour for a file that has never been pointed at a real image. `docs/deploy.md`
+    # has the two commands that replace it.
+    image: ghcr.io/g59-toneli/garage@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    # The base file builds from the checkout; a production host pulls. `!reset null` is required
+    # because `image` and `build` together mean "build and tag as", which would silently rebuild the
+    # pinned digest into whatever the VM's working tree happens to contain.
+    build: !reset null
+    restart: unless-stopped
+    environment:
+      # Behind Caddy every request arrives from the compose network, so without this the two per-IP
+      # limiters would silently become a second global limit. It is safe *here* and nowhere else:
+      # Caddy appends the peer it accepted the connection from, and `limits.client_address` reads the
+      # rightmost element for exactly that reason.
+      GARAGE_TRUST_FORWARDED_FOR: "true"
+      # Baked into the image by the Dockerfile; restated here so an operator can see that the value
+      # exists and override it when debugging. It is a cache-key component before it is a display
+      # string — see `garage/cache.py`.
+      GARAGE_GIT_SHA: ${GARAGE_GIT_SHA:-}
+      # The free tier's ceiling, and the only number here that is worth revisiting. See
+      # `docs/deploy.md` for what happens when it is wrong in either direction.
+      GARAGE_GENERATION_BUDGET_PER_DAY: ${GARAGE_GENERATION_BUDGET_PER_DAY:-200}
+      GARAGE_GENERATIONS_PER_DAY_PER_CLIENT: ${GARAGE_GENERATIONS_PER_DAY_PER_CLIENT:-60}
+      GARAGE_REQUESTS_PER_MINUTE: ${GARAGE_REQUESTS_PER_MINUTE:-10}
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    # Alpine, official multi-arch — `linux/arm64` is a first-class target, which the Ampere VM
+    # requires (ADR-0001). Around twenty megabytes resident at idle.
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Both are read by the Caddyfile through Caddy's own `{$VAR}` substitution, so the file in git
+      # names no domain and holds no address. Issue #15 has not decided which domain this is, and
+      # nothing here has to wait for that decision.
+      GARAGE_DOMAIN: ${GARAGE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/unavailable.html:/srv/errors/unavailable.html:ro
+      # **The certificate store, and the one volume that breaks the deployment silently if it is
+      # forgotten.** Let's Encrypt allows five duplicate certificates per registered domain per week.
+      # Without this volume every `docker compose down && up` throws the certificate away and issues
+      # a new one, so the fifth restart of the week succeeds and the sixth serves a TLS error for
+      # days. Nothing in the logs says "rate limit" until it happens.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      serve:
+        # Caddy must not start answering before the boot gate has passed. `serve` refuses to become
+        # healthy against a database that is not this commit's artifact (ADR-0002), so this
+        # dependency is what turns "the database diverged" into "the site is down" instead of into
+        # "the site is serving numbers about the wrong corpus".
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy-data:
+  caddy-config:

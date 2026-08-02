@@ -1,0 +1,36 @@
+# Verifying the production overlay on a machine with no public DNS.
+#
+#   docker compose -f compose.yaml -f deploy/compose.prod.yaml -f deploy/compose.local-tls.yaml up
+#
+# It exists because the production overlay is otherwise unverifiable anywhere except the VM, and an
+# unverifiable deployment file is a deployment file that is wrong. Two overrides, both of them
+# exactly the two things that cannot work off the VM:
+#
+#   1. **`Caddyfile.local` instead of `Caddyfile`.** ACME needs a public name resolving to this host.
+#      The local file turns automatic HTTPS off and serves plain HTTP on 80, so everything *else*
+#      about the overlay — the reverse proxy, the error page, the header set, the fact that 5432 and
+#      8000 are no longer published — is exercised for real.
+#
+#   2. **A locally built image instead of the pinned digest.** The digest names an image that has
+#      been pushed to GHCR by CI; a laptop verifying the overlay before that push has to build.
+#
+# What this therefore does *not* prove: that ACME works, that the certificate renews, or that the
+# HSTS header is honoured. Those are only observable against the real domain and are listed as such
+# in `docs/deploy.md`.
+
+services:
+  serve:
+    image: !reset null
+    build: .
+
+  caddy:
+    volumes: !override
+      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - ./deploy/unavailable.html:/srv/errors/unavailable.html:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports: !override
+      - "8080:80"
+    environment:
+      GARAGE_DOMAIN: localhost
+      ACME_EMAIL: nobody@example.invalid
