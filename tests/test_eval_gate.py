@@ -27,6 +27,7 @@ from garage.evaluation import (
     run_evaluation,
     verify_chunk_ids,
 )
+from garage.database import TEXT_SEARCH_CONFIG
 from garage.ingest import build
 
 DATABASE_URL = os.environ.get("GARAGE_DATABASE_URL")
@@ -83,6 +84,10 @@ def test_the_run_record_cites_the_artifact_the_database_actually_holds(record):
     assert len(record.provenance.corpus_hash) == 64
     assert record.provenance.ingest_version == 1
     assert record.provenance.postgres_version and record.provenance.pg_trgm_version
+    # The configuration the search ran under, not the server default. Recording the default was a
+    # defect: nothing in this pipeline reads it, so it could not detect a change that mattered.
+    assert record.provenance.text_search_config.endswith(TEXT_SEARCH_CONFIG)
+    assert "portuguese_stem" in record.provenance.text_search_dictionaries
     assert record.arms[0].configuration.strategy == "lexical"
     assert record.arms[0].configuration.k == EVAL_K
 

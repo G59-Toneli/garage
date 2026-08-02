@@ -64,7 +64,7 @@
 {"fact_id": "peca-bomba-substituida", "question": "Which older pump does the current fuel pump replace?", "phrasing": "natural", "expected_value": "90 484 209", "chunk_ids": ["parts-gsi-1994#0010"]}
 {"fact_id": "peca-bobina", "question": "Qual a peça da bobina de ignição?", "phrasing": "natural", "expected_value": "90 511 418", "chunk_ids": ["parts-gsi-1994#0002"]}
 {"fact_id": "swap-250s-cabe-no-cofre", "question": "Será que cabe o swap 250-S no cofre do Kadett?", "phrasing": "natural", "expected_value": "não cabe bonito", "chunk_ids": ["forum-swap-250s#0004"]}
-{"fact_id": "swap-250s-vale-a-pena", "question": "vale a pena swap 250-S no Kadett", "phrasing": "natural", "expected_value": "não é pra Kadett", "chunk_ids": ["forum-swap-250s#0008"]}
+{"fact_id": "swap-250s-vale-a-pena", "question": "Vale a pena fazer o swap 250-S num Kadett?", "phrasing": "natural", "expected_value": "não é pra Kadett", "chunk_ids": ["forum-swap-250s#0008"]}
 {"fact_id": "swap-250s-o-que-reforcar", "question": "O que precisa reforçar pra colocar um motor em linha?", "phrasing": "natural", "expected_value": "longarina reforçada", "chunk_ids": ["forum-swap-250s#0004"]}
 {"fact_id": "cabecote-plainado", "question": "cabecote plainado demais estraga o pistao?", "phrasing": "natural", "expected_value": "comendo pistão", "chunk_ids": ["forum-swap-250s#0009"]}
 {"fact_id": "potencia-cabecote-trabalhado", "question": "Quanto de potência dá pra tirar de um 2.0 MPFI com cabeçote trabalhado?", "phrasing": "natural", "expected_value": "150 cv", "chunk_ids": ["forum-swap-250s#0008"]}

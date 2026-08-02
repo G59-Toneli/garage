@@ -24,6 +24,8 @@ from typing import Any, Protocol, Sequence
 import psycopg
 from psycopg.rows import dict_row
 
+from garage.database import TEXT_SEARCH_CONFIG
+
 # The two signals are fused by rank, not by adding their scores together, because they are not on
 # the same scale and never will be: `ts_rank_cd` lands around 0.01 for a good full-text hit while
 # `word_similarity` lands around 0.7 for a good trigram one. A weighted sum of those two numbers is
@@ -106,7 +108,9 @@ class Retriever(Protocol):
 # `dense` or `hybrid` implementation could not follow it (both rank in SQL — pgvector `<=>` and RRF).
 _SEARCH = f"""
 WITH parsed AS (
-    SELECT plainto_tsquery('portuguese', %(query)s) AS tsq
+    -- The same configuration the stored `tsvector` was built with, from the same constant. A query
+    -- parsed under a different stemmer than the index would silently stop matching it.
+    SELECT plainto_tsquery('{TEXT_SEARCH_CONFIG}', %(query)s) AS tsq
 ),
 scored AS (
     SELECT

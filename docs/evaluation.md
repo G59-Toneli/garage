@@ -95,13 +95,29 @@ questions people would really ask measures everything that matters. Every point 
 | `natural` | 42 | 0.071429 |
 | all | 76 | 0.447368 |
 
-The `hit_rank` distribution is `1: 33`, `2: 1`, `miss: 42`, and the near-absence of ranks 2–10 is a
-property of **the retriever, not the suite**. `plainto_tsquery` ANDs its terms, so a query either
-contains only words the chunk has — and pins it at rank 1 — or contains one word it does not and
-matches nothing at all, with the `word_similarity` floor of 0.6 too high for the trigram half to
-rescue it. There is no fact set that produces a smooth rank curve against this strategy. The right
-response is to fix the retriever, not to write questions that flatter it; the rank histogram is
-printed on every run so that the day it changes shape, everyone sees it.
+The `hit_rank` distribution is `1: 33`, `2: 1`, `miss: 42`. It is **bimodal with a thin tail at 2**,
+and that shape is a property of the retriever rather than of the suite.
+
+`plainto_tsquery` ANDs its terms, so a query containing one word the chunk does not have matches it
+not at all — and the `word_similarity` floor of 0.6 is too high for the trigram half to rescue it.
+That is the `miss` mode, and it accounts for the whole left half of the table. The other mode is not
+quite "rank 1 or nothing", though: when the conjunction matches *several* chunks they frequently tie
+on `ts_rank_cd`, and `ORDER BY score DESC, chunk_id` breaks the tie by identifier — deterministically,
+which is the point, but the gold chunk lands wherever its `chunk_id` sorts.
+
+```
+'bearing cap nuts order'  ->  #0014, #0012, #0003        gold #0012 at rank 2
+'injector part'           ->  #0008, #0009               gold #0009 at rank 2
+'capacity litres'         ->  #0015, #0016, #0017, #0018 all four tied, ordered by chunk_id
+```
+
+So ranks 2 and 3 are reachable. What is *not* reachable is a smooth curve out to 10: every gold chunk
+found beyond rank 2 in probing turned out to belong to a question with more than one defensible
+answer, and an ambiguous question is not a Fact. A fact set cannot manufacture the middle of the
+distribution here, and writing questions that try would be writing worse questions.
+
+The right response is to fix the retriever, not to write questions that flatter it. The rank
+histogram is printed on every run so that the day it changes shape, everyone sees it.
 
 Every line is validated against a Pydantic model that forbids unknown fields, blank lines are
 rejected rather than skipped, and errors are reported with line numbers, all of them at once. A
@@ -173,7 +189,8 @@ every single time. The history is the directory listing.
     "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 1,
     "python_version": "3.12.13", "platform": "Windows-11-…",
     "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
-    "text_search_config": "pg_catalog.english"
+    "text_search_config": "pg_catalog.portuguese",
+    "text_search_dictionaries": "portuguese_stem, simple"
   },
   "sample_count": 76,
   "facts_sha256": "d44c3af4af84…",
@@ -218,11 +235,25 @@ not from the manifest in the checkout. The manifest is what we expected; the art
 measured ([ADR-0002](adr/0002-database-as-derived-artifact.md)). Both numbers are cited together or
 not at all ([ADR-0007](adr/0007-corpus-hash-and-ingest-version-are-separate.md)).
 
-`postgres_version`, `pg_trgm_version` and `text_search_config` are in provenance because the ranking
-is not in Python. It is `ts_rank_cd`, the `portuguese` snowball stemmer and `word_similarity`, all of
-them inside the server. A minor upgrade that retunes the stemmer moves every number in the file, and a
-record that noted the laptop's OS but not the version of the engine that did the ranking would be
-describing the wrong machine.
+The four database fields are in provenance because the ranking is not in Python. It is `ts_rank_cd`,
+a snowball stemmer and `word_similarity`, all of them inside the server, and a record that noted the
+laptop's OS but not the engine that did the ranking would be describing the wrong machine.
+
+`text_search_config` is the configuration the **search actually runs under** — `TEXT_SEARCH_CONFIG`
+from `database.py`, resolved through `::regconfig` exactly as `to_tsvector` and `plainto_tsquery`
+resolve it. It is deliberately *not* the server's `default_text_search_config`: `chunks.tsv` and the
+query both name `portuguese` explicitly, so the default is a setting this pipeline never reads. An
+earlier version of this field recorded the default, which meant it could not detect a change to the
+configuration that matters and quietly misdescribed the run to anyone reading it.
+
+`text_search_dictionaries` is there because the configuration name is only a pointer. `portuguese` is
+a label for a snowball stemmer plus a stop word list, and a server upgrade that reissues either moves
+every `ts_rank_cd` in the file while the configuration is still called `portuguese`. That is the field
+which would actually catch it.
+
+The single constant is what keeps all of this honest: `database.TEXT_SEARCH_CONFIG` is interpolated
+into the stored `tsvector`, into `plainto_tsquery`, and into what the record cites, so the record
+cannot drift from the SQL it claims to describe.
 
 `git_dirty` excludes `eval/runs/` from its answer, which is a fix rather than a convenience: writing a
 record dirties the tree, so without the exclusion every run after the first would report a dirty tree
@@ -271,13 +302,25 @@ into a build dependency. Both `promote` and `gate` say out loud when an arm gate
 **`tolerance` is a policy number, not a statistical one.** Nothing in this pipeline is random: the
 same commit against the same artifact produces bit-identical metrics, so there is no variance to
 estimate and no confidence interval to derive. The tolerance says how much quality a human is willing
-to wave through on a change that buys something elsewhere. It is `0.014` — one question out of
-seventy-six, and no more. A change may cost a single question and must say so; costing two fails.
-Zero would have been a ratchet, and a ratchet on a retriever this weak would block the work that
-fixes it.
+to wave through.
 
-`noise_floor` is `0.013`, just under the `1/76 ≈ 0.0132` that one question is worth, so every real
-improvement is reported and nothing else is.
+It is compared against each metric's own delta, so what `0.014` actually buys depends on how many
+questions that metric averages over — and the two cases are deliberately different:
+
+| Metric | Population | One question is worth | Effect of `tolerance: 0.014` |
+| ------ | ---------- | --------------------- | ---------------------------- |
+| `recall@10`, `mrr@10`, `ndcg@10`, … | 76 | 0.0132 | one question may regress; two may not |
+| `recall@10:keyword` | 34 | 0.0294 | **strict** — one question fails the build |
+| `recall@10:natural` | 42 | 0.0238 | **strict** — one question fails the build |
+
+The aggregate metrics get exactly one question of slack, so a change that is a clear win overall is
+not blocked by a single unlucky query. The strata get none, and that is the intent rather than an
+oversight: the strata exist to stop a change trading one phrasing against the other, and a stratum
+with slack in it could not do that job. If you want to lose a keyword question to win several natural
+ones, the gate makes you say so — run `eval run`, look at the record, and promote deliberately.
+
+`noise_floor` is `0.013`, just under the `1/76 ≈ 0.0132` that one question is worth on an aggregate,
+so every real improvement is reported and nothing else is.
 
 Both live in a committed file rather than an environment variable precisely so that changing either
 is a reviewable act rather than a CI setting somebody adjusted.

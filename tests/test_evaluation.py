@@ -285,7 +285,8 @@ PROVENANCE = Provenance(
     platform="test",
     postgres_version="16.14",
     pg_trgm_version="1.6",
-    text_search_config="pg_catalog.english",
+    text_search_config="pg_catalog.portuguese",
+    text_search_dictionaries="portuguese_stem, simple",
 )
 
 
@@ -574,7 +575,10 @@ def test_the_measurement_view_excludes_the_clock_the_machine_and_the_commit():
     assert measurement(fast) == measurement(slow)
 
 
-@pytest.mark.parametrize("field", ["postgres_version", "pg_trgm_version", "text_search_config"])
+@pytest.mark.parametrize(
+    "field",
+    ["postgres_version", "pg_trgm_version", "text_search_config", "text_search_dictionaries"],
+)
 def test_the_measurement_view_does_not_excuse_a_different_database_engine(field):
     # The ranking is `ts_rank_cd`, the portuguese stemmer and `word_similarity`, all inside
     # Postgres. A server or pg_trgm upgrade moves every number in the file, so unlike the laptop's

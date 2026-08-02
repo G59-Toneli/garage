@@ -330,11 +330,17 @@ class Provenance(BaseModel):
     platform: str
     postgres_version: str
     pg_trgm_version: str
-    # The *server* default, which the pipeline does not currently rely on: `chunks.tsv` and
-    # `plainto_tsquery` both name `portuguese` explicitly. Recorded anyway, because a pinned
-    # argument becoming an implicit default is exactly the kind of change that moves a benchmark
-    # without appearing in any diff of this repository.
+    # The configuration the search actually runs under — `database.TEXT_SEARCH_CONFIG`, resolved to
+    # its schema-qualified name — and *not* the server's `default_text_search_config`. Recording the
+    # server default was a real defect: `chunks.tsv` and `plainto_tsquery` both name `portuguese`
+    # explicitly, so the default is a number this pipeline never reads. A record citing it would
+    # miss a change to the configuration that matters and mislead whoever read it.
     text_search_config: str
+    # And the dictionaries behind that name, because the name is a pointer. `portuguese` is a label
+    # for a snowball stemmer plus a stop word list; a server upgrade that reissues either one moves
+    # every `ts_rank_cd` in the file while the configuration is still called `portuguese`. This is
+    # the field that would actually catch it.
+    text_search_dictionaries: str
 
 
 class Configuration(BaseModel):
@@ -487,11 +493,17 @@ class Baseline(BaseModel):
     arms: tuple[BaselineArm, ...] = Field(min_length=1)
     # A *policy* number, not a statistical one. Nothing in this pipeline is random — the same commit
     # against the same artifact produces bit-identical metrics — so there is no variance to estimate
-    # and no confidence interval to derive. The tolerance exists to say how much loss a human is
-    # willing to wave through on a change that buys something elsewhere. Deciding it is a judgement;
-    # writing it in a committed file is what makes the judgement reviewable. One policy for every
-    # arm, because "how much regression is acceptable" is a statement about this project, not about
-    # a strategy.
+    # and no confidence interval to derive. The tolerance says how much loss a human is willing to
+    # wave through. Deciding it is a judgement; writing it in a committed file is what makes the
+    # judgement reviewable. One policy for every arm, because "how much regression is acceptable" is
+    # a statement about this project, not about a strategy.
+    #
+    # It is compared against a metric's own delta, so what it buys depends on the population that
+    # metric averages over — a subtlety worth stating because it is easy to promise slack the code
+    # does not give. At 0.014 over 76 questions, one question is 0.0132 and passes on an aggregate
+    # metric while two do not. Over the 34-question `keyword` stratum one question is 0.0294 and
+    # fails. That asymmetry is deliberate: the strata exist to stop a change from trading one
+    # phrasing against the other, and a stratum with slack in it could not do that job.
     tolerance: float = Field(ge=0.0)
     # Below this, an improvement is not worth a promotion commit. Also policy, and also here rather
     # than in an environment variable, so the gate is reproducible from the checkout alone.
@@ -580,17 +592,36 @@ def is_ancestor_of_head(sha: str) -> bool:
         return True
 
 
-def database_provenance(database_url: str) -> tuple[str, str, str]:
-    """The engine that did the ranking: server version, `pg_trgm` version, server text search config."""
+# The dictionaries `TEXT_SEARCH_CONFIG` maps its token types to, in a stable order. `::regconfig`
+# resolves the bare name exactly as `to_tsvector` and `plainto_tsquery` resolve it, through the same
+# `search_path`, so this reports the configuration the query really used rather than one that merely
+# shares its name.
+_TEXT_SEARCH_DICTIONARIES = """
+SELECT
+    %(config)s::regconfig::text AS config,
+    coalesce(string_agg(DISTINCT dictionaries.dictname, ', ' ORDER BY dictionaries.dictname), 'none')
+        AS dictionaries
+FROM pg_ts_config_map AS mapping
+JOIN pg_ts_dict AS dictionaries ON dictionaries.oid = mapping.mapdict
+WHERE mapping.mapcfg = %(config)s::regconfig
+"""
+
+
+def database_provenance(database_url: str) -> tuple[str, str, str, str]:
+    """The engine that did the ranking: server, `pg_trgm`, and the text search config it searched under."""
     import psycopg
+
+    from garage.database import TEXT_SEARCH_CONFIG
 
     with psycopg.connect(database_url) as connection:
         server = connection.execute("SHOW server_version").fetchone()[0]
-        config = connection.execute("SHOW default_text_search_config").fetchone()[0]
-        row = connection.execute(
+        trgm = connection.execute(
             "SELECT extversion FROM pg_extension WHERE extname = 'pg_trgm'"
         ).fetchone()
-    return (server, row[0] if row else "absent", config)
+        config, dictionaries = connection.execute(
+            _TEXT_SEARCH_DICTIONARIES, {"config": TEXT_SEARCH_CONFIG}
+        ).fetchone()
+    return (server, trgm[0] if trgm else "absent", config, dictionaries)
 
 
 def verify_chunk_ids(database_url: str, facts: Sequence[Fact]) -> None:
@@ -622,7 +653,7 @@ def verify_chunk_ids(database_url: str, facts: Sequence[Fact]) -> None:
 def local_provenance(database_url: str, corpus_id: str, corpus_hash: str, ingest_version: int) -> Provenance:
     """Provenance for a run happening right here, right now, against this database."""
     sha, dirty = git_provenance()
-    postgres_version, pg_trgm_version, text_search_config = database_provenance(database_url)
+    postgres_version, pg_trgm_version, config, dictionaries = database_provenance(database_url)
     return Provenance(
         git_sha=sha,
         git_dirty=dirty,
@@ -633,7 +664,8 @@ def local_provenance(database_url: str, corpus_id: str, corpus_hash: str, ingest
         platform=platform_info.platform(),
         postgres_version=postgres_version,
         pg_trgm_version=pg_trgm_version,
-        text_search_config=text_search_config,
+        text_search_config=config,
+        text_search_dictionaries=dictionaries,
     )
 
 
@@ -772,11 +804,11 @@ def _aggregate(facts: Sequence[Fact], items: Sequence[ItemResult], k: int) -> di
     # ranking metric and never averaged into the three above: it asks whether the single chunk a
     # reader is shown would let them answer, which recall does not ask and MRR does not either.
     metrics["value_match@1"] = _round(sum(item.value_matched for item in items) / count)
-    # Split by phrasing, reported and left ungated. The headline `recall@10` is one number over two
-    # populations that behave nothing alike, and averaging them hides the only question anyone
-    # actually wants answered about a retriever: can it handle a sentence, or only a bag of words?
-    # This is the pair of numbers issue #7 will be judged on, and it is deliberately visible before
-    # there is anything to compare it to.
+    # Split by phrasing, and both halves are gated by the committed baseline. The headline
+    # `recall@10` is one number over two populations that behave nothing alike, and averaging them
+    # hides the only question anyone actually wants answered about a retriever: can it handle a
+    # sentence, or only a bag of words? Gating the average alone would let a change buy keyword
+    # recall with sentence recall and pass, which is the specific trade this project must not make.
     for phrasing in ("keyword", "natural"):
         selected = [(fact, item) for fact, item in zip(facts, items) if fact.phrasing == phrasing]
         if selected:
@@ -878,6 +910,7 @@ def measurement(record: RunRecord) -> dict[str, Any]:
         "postgres_version": record.provenance.postgres_version,
         "pg_trgm_version": record.provenance.pg_trgm_version,
         "text_search_config": record.provenance.text_search_config,
+        "text_search_dictionaries": record.provenance.text_search_dictionaries,
         "sample_count": record.sample_count,
         "facts_sha256": record.facts_sha256,
         "arms": [arm.model_dump(mode="json") for arm in record.arms],
