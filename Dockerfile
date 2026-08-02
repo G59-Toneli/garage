@@ -34,6 +34,17 @@ COPY eval ./eval
 ENV GARAGE_EMBEDDER_DIR=/opt/garage/embedder
 RUN python -m garage embedder fetch
 
+# The commit this image was built from. Passed by CI, empty on a local build — and empty is handled
+# rather than faked: the service falls back to asking git and answers `unknown` when there is no git,
+# which is what an image built from a tarball honestly is.
+#
+# It is not decoration. `garage/cache.py` puts it in the answer-cache key, so a deploy that changes
+# the prompt starts with a cold cache instead of serving the previous build's answers under this
+# build's version stamp. **Last** among the layers on purpose: it changes on every commit, and above
+# the embedder fetch it would invalidate 470 MB of weights every time.
+ARG GARAGE_GIT_SHA=""
+ENV GARAGE_GIT_SHA=${GARAGE_GIT_SHA}
+
 EXPOSE 8000
 # Entry through the package, not through `uvicorn` directly: the bind address is configuration
 # like everything else, and going through `main()` means a misconfigured container fails at boot.

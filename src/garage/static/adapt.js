@@ -169,6 +169,14 @@ function comparison(arms) {
       : null,
     floorNote,
     traceScaleMs,
+    // One entry per answered column. Per-arm rather than one value for the comparison, because the
+    // two arms are two independent `POST /query` calls and genuinely can differ: the left one can be
+    // a cache hit while the right one is generated live, and a single band claiming one origin for
+    // both would be wrong half the time. Null on the showcase screen, whose own banner already says
+    // the whole page is precomputed in four channels.
+    origins: answered.some((arm) => arm.origin)
+      ? answered.map((arm) => ({ strategy: arm.strategy, ...(arm.origin || { origin: null }) }))
+      : null,
   };
 }
 
@@ -181,6 +189,9 @@ function failedArm({ strategy, error }) {
     failed: true,
     error,
     strategy,
+    // No response arrived, so there is no origin to report. Null and never `"live"`: a column that
+    // never answered did not answer live.
+    origin: null,
     question: null,
     corpusHash: null,
     embedder: null,
@@ -194,11 +205,59 @@ function failedArm({ strategy, error }) {
   };
 }
 
+// Where an answer came from, as the screen needs to say it. One shape for all four origins, with
+// nulls where an origin has nothing to put in a slot, because the alternative is the renderer
+// branching on `origin` four times to read four different objects.
+//
+// This is the issue #11 field, and it is on the *body* rather than in an HTTP header for the reason
+// `app.QueryResponse` gives: this file receives payloads, not responses, and a fact the screen must
+// render cannot live somewhere this file cannot see.
+export function originView(body) {
+  const origin = body.origin ?? null;
+  if (origin === null) return null;
+  const detail = body.origin_detail || {};
+  return {
+    origin,
+    // Null for every origin except `cache`. The moment the answer was generated is the single most
+    // important thing about a cached one, and it is displayed rather than implied.
+    storedAt: detail.stored_at ?? null,
+    ageSeconds: detail.age_seconds ?? null,
+    showcaseId: detail.showcase_id ?? null,
+    scope: detail.scope ?? null,
+    questionId: detail.question_id ?? null,
+    measuredOn: detail.measured_on ?? null,
+    displayedSample: detail.displayed_sample ?? null,
+    sampleCount: detail.n ?? null,
+    displayRule: detail.display_rule ?? null,
+    // Which limiter said no, as a name and not a sentence. The sentence is already on
+    // `answer.degradation_reason`, in the page's language, written by the endpoint.
+    refusal: detail.refusal ?? null,
+    // Published on every live response, not only on the refused one, so the screen can show the
+    // budget falling instead of only announcing that it hit zero.
+    //
+    // `generationConfigured` gates whether they are shown at all. A retrieval-only build has no
+    // generator, so its budget describes a resource it cannot spend — and the band used to announce
+    // "200 de 200 gerações restantes hoje" on a service that will never generate one. Defaulting to
+    // `true` when the key is absent would reintroduce exactly that, so the fallback is the honest
+    // direction: unknown means do not make the claim.
+    generationConfigured: detail.generation_configured === true,
+    generationsRemaining: detail.generations_remaining ?? null,
+    generationBudget: detail.generation_budget ?? null,
+    // The visitor pressed "re-executar ao vivo" and the budget refused. Distinct from an ordinary
+    // degradation: they asked to falsify a published number and were not allowed to.
+    rerunRefused: detail.rerun_refused === true,
+    // The whole distribution behind a precomputed answer, carried so the single displayed draw is
+    // never on screen without the n it came from (ADR-0004).
+    spread: detail.spread ? spreadView(detail.spread) : null,
+  };
+}
+
 function armView(body) {
   const scoring = scoringOf(body.chunks);
   const trace = traceView(body.trace);
   const chunks = body.chunks.map((chunk, index) => chunkView(chunk, index, scoring));
   return {
+    origin: originView(body),
     question: body.question,
     corpusHash: body.corpus_hash,
     strategy: body.strategy,
@@ -210,7 +269,7 @@ function armView(body) {
     contract: body.contract,
     scoring,
     chunks,
-    answer: answerView(body.answer, trace),
+    answer: answerView(body.answer, trace, body.origin ?? null),
     trace,
   };
 }
@@ -293,7 +352,7 @@ function chunkView(chunk, index, scoring) {
 // degradation is "I could not ask", rejection is "it answered, it was billed, and we refused it".
 // Issue #8 spent its whole argument keeping those three apart; flattening them here would undo it.
 
-function answerView(answer, trace) {
+function answerView(answer, trace, origin) {
   if (answer === null || answer === undefined) {
     // Nothing failed. No generator is configured, so no stage ran and no span exists — the same
     // absence the trace already expresses. Neutral, never an error.
@@ -318,6 +377,16 @@ function answerView(answer, trace) {
     return {
       ...base,
       state: "degraded",
+      // **Still the same state, and deliberately so.** Issue #11 added a second way to reach it —
+      // the day's generation budget is spent — and resisted adding a sixth state for it. "I could
+      // not ask" already covers "I could not ask because there is no quota left", and the five
+      // states were argued into existence in issue #8; a sixth would undo that work to express a
+      // distinction that is a *cause*, not a kind.
+      //
+      // `cause` is how the two are told apart, and it is read off `origin` rather than off the
+      // wording of `degradation_reason`. Matching on a Portuguese sentence would make translating
+      // the site a way to break the interface.
+      cause: origin === "live_degraded" ? "budget" : "provider",
       // The exception *type* is all the HTTP response carries, on purpose. The raw provider message
       // lives on the span and is shown folded away.
       reason: answer.degradation_reason,
@@ -638,6 +707,123 @@ function hydrate(chunk, byId) {
     // record — it is the manifest's catalogue entry, in git already.
     section: held ? held.section : null,
   };
+}
+
+// --- the re-run comparison (issue #11, criterion five) --------------------------------------------
+//
+// The button executes a curated question live and shows the visitor where their result falls against
+// the recorded spread. What it may honestly *claim* is three different things at three levels, and
+// this file is where the three are kept apart, because the temptation to collapse them into one
+// "better / worse" verdict is the whole risk of the feature.
+//
+//   1. **Retrieval order — a strong comparison.** Retrieval is deterministic over a fixed artifact,
+//      so the live ranking and the recorded ranking must be the same list in the same order. When
+//      they are not, that is a *finding*, displayed as a finding, and ADR-0008 already names the
+//      most likely cause: floating-point arithmetic differing between x86-64 and aarch64. It
+//      measured zero order differences in the top ten, with a margin of only 1.13× against the
+//      analytical bound — which is thin enough that this is worth watching rather than asserting.
+//
+//   2. **Generated quantities — a weak comparison, and the weakness dominates.** The live result is
+//      **one** draw, on aarch64, against n draws recorded on x86-64. The variance of the provider is
+//      orders of magnitude larger than any architecture effect. So the only sentence available is
+//      "your value fell inside / outside the observed range", and never "better", never "worse",
+//      never a percentage difference. One sample against a distribution supports none of those three.
+//
+//   3. **Latency — no comparison at all.** ARM against x86, cold connection, one sample. The
+//      waterfall is already labelled "não é uma medição de desempenho"; offering the confrontation
+//      here would take it back. `generate_ms` is excluded below, by name, and the exclusion is
+//      stated on screen rather than done quietly.
+
+// Exactly `showcase.SPREAD_METRICS` minus `generate_ms`. Written out rather than filtered from the
+// record's keys so that a metric added in Python appears here only when somebody decides it is
+// comparable — the default for a new stochastic quantity should be "not yet", not "silently".
+export const COMPARABLE_METRICS = [
+  "tokens_in",
+  "tokens_out",
+  "cost_usd",
+  "claims",
+  "citations",
+  "invalid_citations",
+  "unsupported_claims",
+];
+
+// The same arithmetic `showcase.sample_metrics` does in Python, over a live `QueryResponse` body.
+// It is duplicated across the language boundary and that is a real cost, paid deliberately: the
+// alternative is a `/compare` endpoint, which would be the interface's decision leaking into the API
+// exactly as `docs/ui.md` refuses for the two-column layout. `generate_ms` is absent here and not
+// merely unused — a value that cannot be shown should not be computed.
+export function liveSampleMetrics(body) {
+  const answer = body.answer;
+  if (!answer) return null;
+  return {
+    tokens_in: answer.tokens_in,
+    tokens_out: answer.tokens_out,
+    cost_usd: answer.cost_usd,
+    claims: (answer.claims || []).length,
+    citations: (answer.claims || []).reduce((total, claim) => total + claim.citations.length, 0),
+    invalid_citations: answer.invalid_citations,
+    unsupported_claims: answer.unsupported_claims,
+  };
+}
+
+// The recorded ranking against the live one, as identifiers and in order.
+//
+// Returns the two lists and a boolean, and deliberately no score comparison. Scores are floats and
+// two of them differing in the twelfth decimal is not a finding; the *order* changing is, because
+// the order is what a retriever produces and what everything downstream consumes.
+export function compareRetrievalOrder(recordedChunkIds, liveChunkIds) {
+  const recorded = [...recordedChunkIds];
+  const live = [...liveChunkIds];
+  const identical =
+    recorded.length === live.length && recorded.every((id, index) => id === live[index]);
+  return {
+    recorded,
+    live,
+    identical,
+    // Same set, different sequence — worth telling apart from "different chunks came back", because
+    // the two have different causes. A reordering within a tie is arithmetic; a different membership
+    // is a different artifact or a different query.
+    sameMembership:
+      recorded.length === live.length &&
+      new Set(recorded).size === new Set([...recorded, ...live]).size,
+  };
+}
+
+// One row per comparable metric: the recorded marks and the live mark on **one** axis.
+//
+// The axis is widened to contain the live value, so a live result outside the recorded range is
+// drawn outside it rather than clamped to the edge — clamping would draw the single most interesting
+// outcome as the least interesting one. `inside` is computed against the *recorded* minimum and
+// maximum, never against the widened axis.
+export function compareToSpread(spreadRows, live) {
+  if (!live) return [];
+  const byKey = new Map((spreadRows || []).map((row) => [row.key, row]));
+  return COMPARABLE_METRICS.filter((key) => byKey.has(key)).map((key) => {
+    const row = byKey.get(key);
+    const value = live[key] ?? null;
+    const low = row.minimum;
+    const high = row.maximum;
+    const known = low !== null && high !== null && value !== null;
+    const axisLow = known ? Math.min(low, value) : low;
+    const axisHigh = known ? Math.max(high, value) : high;
+    const span = axisLow === null || axisHigh === null || axisHigh === axisLow ? 0 : axisHigh - axisLow;
+    const place = (candidate) =>
+      candidate === null || candidate === undefined ? null : span === 0 ? 0.5 : (candidate - axisLow) / span;
+    return {
+      key,
+      label: row.label,
+      n: row.n,
+      minimum: low,
+      maximum: high,
+      distinct: row.distinct,
+      liveValue: value,
+      // Null when there is nothing to decide — an all-null recorded metric, or a live call that
+      // produced no figure. Rendered as "não comparável", never as a pass.
+      inside: known ? value >= low && value <= high : null,
+      marks: row.marks.map((mark) => ({ ...mark, fraction: place(mark.value) })),
+      liveFraction: place(value),
+    };
+  });
 }
 
 function spreadView(spread) {

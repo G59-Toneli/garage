@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Served by Caddy when the application is not answering. It is a static file with no dependency on
+  the thing that is down, which is the only way an error page is worth having.
+
+  It says what is most likely wrong rather than "something went wrong", because in this system a 502
+  has a dominant cause: the service refuses to start against a database that is not this commit's
+  artifact, or against a showcase record built on another corpus (ADR-0002). That refusal is the
+  system working. A page that read like a crash would send an operator looking for the wrong thing,
+  and would tell a visitor that a glass box had gone opaque.
+
+  **The stylesheet is a linked file and must never become a `<style>` block.** The site serves
+  `style-src 'self'` and Caddy's `handle_errors` inherits that header, so an inline sheet here is
+  blocked by this deployment's own policy — which is exactly how the first version of this page
+  shipped: unstyled, with a CSP violation in the console, on the one page that exists to be read
+  when nothing else works. See `unavailable.css` and the guard in `tests/test_ui_contract.py`,
+  which now scans this directory as well as `static/`.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Garage — indisponível</title>
+    <link rel="icon" href="data:," />
+    <!-- Absolute, not relative. This page is served in place of whatever URL the visitor asked for,
+         so a relative href would resolve against a path that does not exist. The Caddyfile serves
+         this one asset directly rather than rewriting it to the page. -->
+    <link rel="stylesheet" href="/unavailable.css" />
+  </head>
+  <body>
+    <h1>Garage está fora do ar</h1>
+    <p>
+      O servidor web está de pé e o serviço por trás dele não está respondendo. Nada foi consultado e
+      nada está sendo escondido — não há o que mostrar.
+    </p>
+    <p>
+      A causa mais provável não é uma queda: <strong>o serviço se recusa a subir contra um banco que
+      não é o artefato deste commit.</strong> O <code>corpus_hash</code> gravado no banco, ou o de
+      algum registro de showcase committado, diverge do que este código descreve. Essa recusa é o
+      comportamento correto: servir números sobre material que este artefato não contém seria pior do
+      que não servir nada, porque pareceria igualmente confiável.
+    </p>
+    <p class="aside">
+      Operador: <code>docker compose logs serve</code> nomeia os dois hashes. O conserto é
+      <code>python -m garage ingest</code> e, se um registro de showcase divergir,
+      reconstruí-lo ou removê-lo. Veja <code>docs/deploy.md</code>.
+    </p>
+  </body>
+</html>

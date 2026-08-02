@@ -39,6 +39,10 @@
 import { el, clear, number, usd, EM_DASH } from "./dom.js";
 import { toView } from "./adapt.js";
 import { renderComparison } from "./render.js";
+import { mountProvenanceBanner } from "./banner.js";
+import { attachRerun } from "./rerun.js";
+
+mountProvenanceBanner();
 
 const recordSelect = document.querySelector("#record");
 const questionSelect = document.querySelector("#question");
@@ -146,6 +150,9 @@ async function show() {
   renderComparison(view, region);
   stampPanels(region, view);
   attachSpreads(region, view);
+  // Last, so the re-run panel sits below the spread it is drawn against and is not stamped
+  // "PRÉ-COMPUTADO" by `stampPanels` — it is the one panel on this screen that is not.
+  attachRerun(region, view, item);
   output.append(region);
 
   say(
@@ -332,8 +339,8 @@ function stripPlot(metric, arm) {
     track.append(
       el("span", {
         class: mark.index === arm.displayedSample ? "strip-mark strip-shown" : "strip-mark",
+        style: { left: mark.fraction * 100 },
         attrs: {
-          style: `left:${mark.fraction * 100}%`,
           // Every mark is reachable and announced. The strip is the only place the individual draws
           // exist on screen, and a plot a screen reader cannot enumerate would put them back out of
           // reach of exactly the reader who most needs the numbers rather than the picture.

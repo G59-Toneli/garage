@@ -134,10 +134,16 @@ def settings(tmp_path) -> Settings:
     # is the honest dependency: these tests are about the query endpoint and have no business
     # knowing which showcase happens to be committed. The tests that *are* about the showcase point
     # this at a directory they filled themselves.
+    # `requests_per_minute=0` disables the issue #11 anti-abuse bucket, and the same argument again
+    # one layer further out: a test of the query endpoint has no business failing because it happened
+    # to be the eleventh `POST /query` this app object saw. The limiter is a property of the
+    # deployment, it is tested as arithmetic in `test_limits.py`, and the tests that are *about* the
+    # bucket turn it back on themselves (`test_cascade.py`).
     return Settings(
         database_url="postgresql://u:p@db:5432/garage",
         gemini_api_key=None,
         showcase_dir=tmp_path / "no-showcase",
+        requests_per_minute=0,
     )
 
 

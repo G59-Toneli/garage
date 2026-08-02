@@ -1,0 +1,58 @@
+/* The error page's stylesheet, as a file rather than a `<style>` block.
+ *
+ * It is a file because of the same rule that governs `static/`: the deployment serves
+ * `style-src 'self'` (`deploy/Caddyfile`), and that directive blocks an inline `<style>` element
+ * exactly as hard as it blocks a `style` attribute. Caddy's `handle_errors` inherits the site's
+ * headers, so the first version of this page arrived with its own policy forbidding its own
+ * stylesheet: no margins, no typography, no `max-width`, and a CSP violation in the console — on
+ * the one page that exists to be read when everything else has failed, under a Caddyfile comment
+ * promising that console stays quiet.
+ *
+ * `tests/test_ui_contract.py` now scans `deploy/` for inline style as well as `static/*.js`, which
+ * is the gap that let this through: the guard globbed `static/*.js`, and `deploy/` is not `static/`.
+ *
+ * Deliberately no custom properties and no dark/light duplication beyond the media query below.
+ * This sheet has to work when the application is down; every line in it is a line that can be wrong
+ * at the worst possible moment.
+ */
+
+body {
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  max-width: 44rem;
+  margin: 3rem auto;
+  padding: 0 1.25rem;
+  color: #16181d;
+  background: #ffffff;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: #f6f6f4;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.aside {
+  color: #4c5058;
+  font-size: 0.9rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e9ecf1;
+    background: #14161a;
+  }
+
+  code {
+    background: #1d2027;
+  }
+
+  .aside {
+    color: #a8aeb9;
+  }
+}

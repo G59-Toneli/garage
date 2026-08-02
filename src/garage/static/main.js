@@ -3,6 +3,12 @@
 import { el, clear } from "./dom.js";
 import { toView } from "./adapt.js";
 import { renderComparison } from "./render.js";
+import { mountProvenanceBanner } from "./banner.js";
+
+// Fire and forget, and deliberately not awaited: the banner is about the *corpus*, not about this
+// page working, so a slow `/provenance` must not delay the strategy list the controls depend on.
+// `banner.js` reports its own failure in its own element (see the unknown-provenance branch there).
+mountProvenanceBanner();
 
 // No strategy name is written down in this file or in the HTML any more. The selects start empty
 // and disabled and are filled by `GET /strategies`, so a lexical-only build never shows a visitor a

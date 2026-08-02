@@ -123,6 +123,46 @@ this fixture's dense arm actually does with Portuguese questions — **recall pt
 is 2/10**, and cross-language retrieval is 6.5% of dense's `recall@10:natural` gain (issue #7) — are
 all in `docs/showcase.md`. What is committed today is a small **proving run**, not the curated set.
 
+## Deployment
+
+`deploy/compose.prod.yaml` is an **overlay** on `compose.yaml`, never a replacement, and its most
+important line is `ports: !reset []` — an overlay's `ports:` is *appended* to the base, so omitting
+that would leave Postgres and an unauthenticated API published on a public address. `serve` runs a
+`@sha256:` digest and never a tag, because **the deploy is a commit**: updating production is editing
+that line, rollback is `git revert`, and "what is running" is a question the git history answers
+(ADR-0001 and ADR-0002 applied to the deployment). CI pushes multi-arch to GHCR from `main` only,
+under the `GITHUB_TOKEN` that already exists, and prints the digest rather than committing it —
+nothing here is continuous deployment. TLS terminates on the origin under Caddy, with automatic ACME
+and no cron; **a Cloudflare Tunnel was considered and rejected** in ADR-0009, on reproducibility and
+because a glass box cannot put an unauditable intermediary between the visitor and the trace. The
+`caddy-data` volume is load-bearing and breaks the site *silently*: five duplicate certificates per
+domain per week is the Let's Encrypt limit, and without the volume the sixth restart of a week
+serves a TLS error for days with nothing in the logs saying so. Both OCI firewalls have to agree
+about 80 and 443 — the Security List *and* the host's own `iptables`, which the Ubuntu images
+populate independently — and that step is invisible from this repository. Everything above, plus the
+resource budget, the reingest procedure and a failure table, is in `docs/deploy.md`.
+
+`POST /query` became a **cascade** the moment the free tier went behind a public URL, and the order
+is the design: anti-abuse bucket → precomputed → cache → live → degraded. Every response carries
+`origin` and `origin_detail`, on the body and not in a header, because `adapt.toView` consumes bodies
+(issue #9) — and that addition deliberately broke `tests/test_ui_contract.py`, which exists so that
+growing this payload is a decision. The **showcase lookup happens before the budgets**: a curated
+question was paid for once and costs nothing now, which is exactly what makes "quota exhaustion
+degrades to the pre-computed path" true. The honest limit is stated in the code, the docs and a test:
+that only helps for questions in the curated set, and free-form input really degrades to
+retrieval-only. **Only the per-minute anti-abuse bucket returns 429.** Both generation budgets degrade
+instead — reusing issue #8's fifth state with a different reason rather than inventing a sixth — because
+an error would throw away the retrieval, which is local, free and the actual product. Retrieval is
+never rate limited at all. The three limiters live in `garage/limits.py` as arithmetic over an
+injected clock, in memory with no Redis, and the counters resetting on restart is accepted and
+written down: the real backstop is the provider's own 429, and persisting them would put a write path
+into a service ADR-0002 keeps read-only. `garage/cache.py` keys on the question **plus** every
+runtime axis plus `corpus_hash`, `embedder`, `model` and `git_sha` — serving a `cited` answer to a
+`free` request would erase the axis ADR-0005 exists to demonstrate, and without `git_sha` a deploy
+that changes the prompt serves the previous build's answers under this build's stamp. There is one
+test per axis. Accents are deliberately **not** folded, unlike `jargon.fold`, because the question is
+echoed back onto the screen.
+
 ## Interface
 
 The two-column comparison lives in `src/garage/static/` — hand-written HTML, CSS and ES modules, no
