@@ -94,7 +94,11 @@ function armColumn(arm, traceScaleMs) {
   if (arm.failed) {
     return el("section", { class: "arm", data: { strategy: arm.strategy } }, [
       el("header", { class: "arm-head" }, [el("h3", { text: arm.strategy })]),
-      el("article", { class: "state state-rejected" }, [
+      // `state-unreachable`, deliberately not `state-rejected`. The two are semantic opposites — a
+      // rejection is a call that was answered and billed and that we refused, this is a call that
+      // never completed — and giving them the same red frame made them indistinguishable side by
+      // side. Neutral, dashed, closer to the "did not run" vocabulary than to the "was paid for" one.
+      el("article", { class: "state state-unreachable" }, [
         el("h4", { text: "Esta coluna não respondeu" }),
         el("p", { text: arm.error }),
         el("p", {

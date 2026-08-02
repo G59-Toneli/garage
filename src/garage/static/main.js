@@ -4,10 +4,9 @@ import { el, clear } from "./dom.js";
 import { toView } from "./adapt.js";
 import { renderComparison } from "./render.js";
 
-// The pair the two selects hold before `GET /strategies` answers, and the only thing this file
-// still says about strategy names. It is a placeholder for one round trip, not a decision: whatever
-// the build actually serves replaces it, so a lexical-only deployment never renders a permanently
-// failing second column.
+// No strategy name is written down in this file or in the HTML any more. The selects start empty
+// and disabled and are filled by `GET /strategies`, so a lexical-only build never shows a visitor a
+// "dense" option — not even for the one round trip a hard-coded default used to leave it on screen.
 
 const form = document.querySelector("#ask");
 const questionInput = document.querySelector("#question");
@@ -16,6 +15,7 @@ const tierInputs = [...document.querySelectorAll("input[name=tier]")];
 const contractInput = document.querySelector("#contract");
 const leftSelect = document.querySelector("#left");
 const rightSelect = document.querySelector("#right");
+const submitButton = document.querySelector("#ask button[type=submit]");
 const output = document.querySelector("#output");
 const status = document.querySelector("#status");
 
@@ -63,10 +63,15 @@ async function ask() {
   );
 
   clear(output);
-  renderComparison(toView({ source: "live", responses }), output);
+  const view = toView({ source: "live", responses });
+  renderComparison(view, output);
 
   const failures = responses.filter((response) => response.failed);
-  if (failures.length === strategies.length) {
+  if (!view.shared.agrees) {
+    // The comparison was refused, so no success line: "duas requisições paralelas" under a panel
+    // saying the two arms are not comparable reads as though it worked.
+    fail("corpus_hash divergente entre as colunas — a comparação foi recusada");
+  } else if (failures.length === strategies.length) {
     fail(failures.map((response) => response.error).join(" · "));
   } else if (failures.length) {
     fail(`${failures.map((response) => response.error).join(" · ")} — a outra coluna continua válida`);
@@ -115,10 +120,12 @@ async function refreshStrategies() {
   if (!served.length) return;
   fillSelect(leftSelect, served, served[0]);
   fillSelect(rightSelect, served, served[served.length - 1]);
+  submitButton.disabled = false;
 }
 
 function fillSelect(select, names, selected) {
   clear(select);
+  select.disabled = false;
   for (const name of names) {
     select.append(el("option", { text: name, attrs: { value: name, selected: name === selected } }));
   }

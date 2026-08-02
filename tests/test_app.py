@@ -429,6 +429,80 @@ def test_a_degraded_call_records_no_cost_because_none_was_incurred(booted):
     assert "generation.tokens.total" not in attributes
 
 
+def test_the_served_rejection_carries_the_cost_the_span_carries(booted):
+    """The sibling of the span test above, one layer out, and it exists because that test passed
+    while the response was wrong.
+
+    The span recorded the cost of a rejection from the day the state was introduced. The `Answer`
+    did not — `reject_unverifiable` filled five fields and let the billing fall to its defaults — so
+    the trace said 812/96 tokens at $0.0005 and the wire said 0/0 at null for the same call. Nothing
+    read the `Answer` in that state until an interface did, and it then printed a cost panel
+    identical to a degradation's under a sentence explaining that this one was paid for.
+
+    A pair of assertions on the span alone cannot catch that, because the two are separate readings
+    of the same event. So the pair is doubled: cost present on the span *and* on the response here,
+    absent on both in the degradation below.
+    """
+    with booted(FakeRetriever([candidate()]), FakeGenerator(invented())) as client:
+        body = client.post("/query", json={"question": "torque"}).json()
+
+    answer = body["answer"]
+    assert answer["support"] == "rejected"
+    assert (answer["tokens_in"], answer["tokens_out"]) == (812, 96)
+    assert answer["cost_usd"] == 0.0005
+    assert answer["cost_estimated"] is True
+    assert answer["pricing_as_of"] == "2026-08-01"
+    # One invalid citation, counted. Zero here was the worst of the three wrong numbers: it was
+    # printed in the one state whose entire cause is an invalid citation.
+    assert answer["invalid_citations"] == 1
+
+    # And the two readings agree, which is now structural rather than coincidental — `app._answer`
+    # builds the rejected answer first and writes the span from it.
+    attributes = body["trace"]["children"][1]["attributes"]
+    assert attributes["generation.cost.usd_estimated"] == answer["cost_usd"]
+    assert attributes["generation.tokens.input"] == answer["tokens_in"]
+    assert attributes["generation.citations.invalid"] == answer["invalid_citations"]
+
+
+def test_the_served_degradation_carries_no_cost_because_none_was_incurred(booted):
+    # The mirror image at the response level. Do not "tidy" these two into agreement: the provider
+    # never answered here, so a zero cost would be an invented charge exactly as a missing one above
+    # would be a hidden charge. The interface renders these two panels from these two payloads, and
+    # if they ever match, one of them is lying.
+    with booted(FakeRetriever([candidate()]), FakeGenerator(fails=RuntimeError("quota"))) as client:
+        answer = client.post("/query", json={"question": "torque"}).json()["answer"]
+
+    assert answer["degraded"] is True
+    assert answer["cost_usd"] is None
+    assert (answer["tokens_in"], answer["tokens_out"]) == (0, 0)
+    assert answer["pricing_as_of"] is None
+    # Nothing was validated because nothing came back, so this is genuinely zero rather than unknown.
+    assert answer["invalid_citations"] == 0
+
+
+def test_every_unresolvable_citation_is_counted_not_just_the_first(booted):
+    # `verify_citations` used to raise on the first violation, which made the served count 1 for any
+    # number of them. The count is printed, so it has to be the real one.
+    two_bad = Answer(
+        text="inventado",
+        claims=(
+            Claim(text="um", citations=(Citation(1, "NAO-RECUPERADO#7"),)),
+            Claim(text="dois", citations=(Citation(2, "TAMBEM-NAO#9"),)),
+        ),
+        support="supported",
+        provider="fake",
+        model="fake-1",
+        tokens_in=10,
+        tokens_out=2,
+    )
+
+    with booted(FakeRetriever([candidate()]), FakeGenerator(two_bad)) as client:
+        answer = client.post("/query", json={"question": "torque"}).json()["answer"]
+
+    assert answer["support"] == "rejected"
+    assert answer["invalid_citations"] == 2
+
+
 def test_the_contract_that_ran_is_the_contract_the_answer_reports(booted):
     # Both no-call paths defaulted this field to `cited`, so a `free` run was filed under the wrong
     # configuration axis — invisible in the response, corrupting in a stored run record.

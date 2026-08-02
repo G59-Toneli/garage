@@ -154,6 +154,11 @@ button { background: var(--accent); color: var(--bg); border-color: var(--accent
 /* It answered, it was billed, and we refused it. */
 .state-rejected { border: 1px solid var(--error); border-left: 4px solid var(--error); background: color-mix(in srgb, var(--error) 8%, transparent); }
 .state-answered { border: 1px solid var(--line); }
+/* Not a state of the answer at all: the request never completed, so there is no answer to be in a
+   state. It shares its neutral dashed look with `state-disabled` — both are "this did not run" — and
+   deliberately not the red frame of `state-rejected`, which means the opposite: answered, billed,
+   and refused by us. */
+.state-unreachable { border: 1px dashed var(--muted); border-left: 4px dashed var(--muted); }
 
 .prose { line-height: 1.65; }
 .claim-unsupported {

@@ -46,14 +46,17 @@ Formatting — how an absence looks — lives in `static/dom.js`. Keeping the tw
 Acceptance criterion six says nothing displayed is hard-coded. Three lists in this interface are
 written by hand anyway, and each one is a *name the pipeline owns* rather than a number:
 
+No strategy name is written down either: the two selects start empty and disabled and are filled
+from `GET /strategies`, so a lexical-only build never offers a visitor a `dense` option — not even
+for the one round trip a hard-coded default used to leave it on screen.
+
 1. `KNOWN_STAGES = ["retrieve", "rerank", "generate"]` — the pipeline's own vocabulary of stages.
    It is the only way the panel can draw `rerank` as **absent** instead of simply not knowing it was
    ever supposed to exist.
 2. `COMPONENT_LABELS` — Portuguese labels for known scoring signals, applied while iterating
    *generically* over whatever `components` actually contains, with the raw key as fallback. The day
    `hybrid` arrives with three signals the panel shows three signals.
-3. `DEFAULT_COLUMNS = ["lexical", "dense"]` in `main.js` — which arm reads on the left, and a
-   fallback when the build cannot be probed.
+3. `TIER_LABELS` — the two tier letters and the words a reader sees for them.
 
 Every metric, score, duration, token count and cost on screen comes from a response body or from a
 file read over HTTP.
@@ -79,7 +82,9 @@ Three consequences, all handled rather than hidden:
   and trace with it. A failed arm becomes a view source like any other — empty `chunks`, null
   `trace`, a `failed` flag — and renders as a failure *column*, in place. It is excluded from the
   overlap band and from the `corpus_hash` check, because a column that never ran is not a column
-  that retrieved nothing.
+  that retrieved nothing. It gets its own `state-unreachable` look, neutral and dashed, and
+  deliberately not the red frame of state 4: "never completed" and "answered, billed, and refused by
+  us" are semantic opposites and must not look alike side by side.
 - **Latency is not a result.** One connection per query with no pool, and `dense` embeds the query
   on the CPU. Every waterfall is labelled *tempo de parede, uma amostra, conexão fria — não é uma
   medição de desempenho*. The two columns do share one absolute millisecond scale, normalised
@@ -123,12 +128,27 @@ Issue #8 spent its entire argument keeping 2, 3 and 4 apart. Abstention is *"the
 cover this"*; degradation is *"I could not ask"*; rejection is *"it answered, it was paid for, and we
 refused it"*. Folding them into one banner would undo that work.
 
-Two asymmetries the interface must **not** tidy:
+Two asymmetries the interface must **not** tidy, and they hold on the **wire** as well as on the
+span:
 
-- On a degradation the span carries no cost and no tokens, because the provider never answered.
-  Filling zeros there would erase the distinction.
-- On a contract violation the span carries the full cost. Hiding it would let the configuration that
-  reliably breaks the citation contract show up as the cheap one.
+- On a degradation there is no cost, no tokens and no pricing date, because the provider never
+  answered. Filling zeros there would invent a charge.
+- On a contract violation the full cost travels, along with the real count of invalid citations.
+  Hiding it would let the configuration that reliably breaks the citation contract show up as the
+  cheap one.
+
+Building this screen is what found the defect that made those two identical. `reject_unverifiable`
+filled five fields and let the billing fall to its defaults, so a rejection reached the browser as
+`cost_usd: null`, `0 / 0` tokens and `invalid_citations: 0` — a cost panel byte for byte the same as a
+degradation's, under a sentence saying the opposite, with a zero count of invalid citations in the
+one state whose cause is an invalid citation. The span had been right the whole time; nothing read
+the `Answer` in that state until an interface did.
+
+Two things changed so it cannot recur. `app._answer` now builds the rejected `Answer` **first** and
+writes the span *from it*, so the trace and the wire are one object read twice rather than two
+assemblies of the same facts that can drift. And `verify_citations` gathers every violation instead
+of raising on the first, because a count taken from a loop that exits on its first hit is always 1,
+and that number is printed.
 
 `answer.text` is `""` and `claims` is `[]` in states 2, 3 and 4 alike, so `if (answer.text)` is never
 the test for anything.
@@ -165,6 +185,12 @@ a name switch would need a new case for `hybrid`, and could mislabel a unit.
 - `lexical` present → unit **RRF**, around 0.016 at the top and carrying no absolute meaning at all.
   Drawn relative to the column's own maximum and labelled as such.
 
+The axis label says what the axis is and nothing more. It briefly read "absoluta, 0–1, sem piso",
+which is not vocabulary but an assertion about `DenseRetriever`'s internals that this interface
+cannot check and that nothing would invalidate if a floor were added. Whether there is a floor is
+visible in the data — the lowest score in the column, on an absolute axis — and stated in prose in
+the note between the columns, where it is an explanation rather than a label claiming to be a fact.
+
 `components` is iterated generically. A `_rank` of `null` renders **"não disparou"**, never `0` — the
 "matched on trigram alone" case is the single most informative row in the panel. The array position
 (`#3`) and the component rank are shown separately, because `rank()` ties: two adjacent rows may
@@ -182,6 +208,11 @@ Two rules are load-bearing:
   `generate` does not exist without a generator, nor on the zero-cost abstention. Those rows are
   drawn in secondary text with a dashed track and the label `não executado`, duration `—`. A zero
   millisecond bar would be the trace describing a pipeline it does not have.
+- **Rows are sorted back into `KNOWN_STAGES` order.** The absent ones used to be appended, which put
+  `rerank` below `generate`: a reader takes vertical order in a waterfall as execution order, so a
+  missing middle stage drawn last is a diagram of the wrong pipeline. Only depth 0 is reordered — a
+  child belongs inside its parent's window — and a stage this list has never heard of keeps its
+  arrival order after the ones it knows.
 - **Offsets come from a running sum of sibling `durationMs`, in `children` order — never from
   `startTimeUnixNano`.** Those are two different clocks: `time.time_ns` stamps the timestamps and
   `perf_counter_ns` measures durations (`tracing.Span`), so subtracting timestamps produces a number

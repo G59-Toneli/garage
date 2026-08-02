@@ -68,7 +68,12 @@ export function usd(value) {
   // here as null, and both must read as "no figure" — a free-looking row in a cost comparison is the
   // one number in this interface that would actively mislead.
   if (value === null || value === undefined) return EM_DASH;
-  return `US$ ${value.toLocaleString("en-US", { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
+  // The same locale as every other number on the page. It was `en-US`, which put `US$ 0.000414`
+  // directly above `0,700000 RRF` on a document declaring `lang="pt-BR"` — where a decimal point is
+  // a thousands separator and that figure reads as four hundred and fourteen. The currency is USD
+  // and stays USD; how a Brazilian reader parses the digits is a separate question from which
+  // currency they denominate.
+  return `US$ ${value.toLocaleString(NUMBER_LOCALE, { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
 }
 
 const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";

@@ -203,7 +203,11 @@ function scoringOf(chunks) {
     // the corpus does not cover returns its k nearest anyway, and only an absolute axis shows that
     // the best of them sits at 0.31. Normalising to the column maximum would draw that arm's top
     // result as a full bar and hide the entire finding. No floor is drawn, because there is none.
-    return { unit: "cosseno", axis: "absoluta, 0–1, sem piso", max: 1, ticks: [0.25, 0.5, 0.75] };
+    // The axis label states the axis and nothing else. It used to add "sem piso", which is not
+    // vocabulary but an assertion about `DenseRetriever`'s internals that this file cannot check and
+    // that nothing would invalidate if a floor were added tomorrow. The floor — or its absence — is
+    // visible in the data instead: the lowest score in the column, on an absolute axis.
+    return { unit: "cosseno", axis: "absoluta, 0–1", max: 1, ticks: [0.25, 0.5, 0.75] };
   }
   if (keys.has("lexical")) {
     // Reciprocal rank fusion, so the score is around 0.016 at the top and carries no absolute
@@ -358,6 +362,16 @@ function traceView(trace) {
     });
   }
 
+  // Sorted back into pipeline order, because appending the absent stages left `rerank` *below*
+  // `generate` and drew a pipeline this system does not have. A reader takes vertical order in a
+  // waterfall as execution order — that is what a waterfall is — so a missing middle stage shown
+  // last is a diagram of the wrong pipeline. It looked right in the zero-cost abstention only by
+  // accident, because there the two absent stages happen to be the last two.
+  //
+  // Stable, and only among top-level rows: a stage the pipeline has never heard of keeps its arrival
+  // order after the ones it knows, and nested children stay attached under their parent.
+  sortByPipelineOrder(rows);
+
   return {
     traceId: trace.traceId,
     name: trace.name,
@@ -366,6 +380,18 @@ function traceView(trace) {
     attributes: attributeList(trace.attributes),
     rows,
   };
+}
+
+function sortByPipelineOrder(rows) {
+  const position = (row) => {
+    const known = KNOWN_STAGES.indexOf(row.name);
+    return known === -1 ? KNOWN_STAGES.length : known;
+  };
+  // Only depth 0 is reordered. Depth is 2 at most today and a child belongs to its parent's window,
+  // so hoisting one into the top-level ordering would move it out of the span that contains it.
+  const top = rows.filter((row) => row.depth === 0);
+  if (top.length !== rows.length) return;
+  rows.sort((left, right) => position(left) - position(right));
 }
 
 function walk(children, depth, start, rows) {

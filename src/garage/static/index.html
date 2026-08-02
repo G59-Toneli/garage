@@ -44,15 +44,22 @@
           <option value="free">free</option>
         </select>
       </label>
+      <!--
+        Both selects start empty and disabled, and no strategy name is written here. They used to
+        hold `lexical` and `dense` as placeholders, which meant a lexical-only build showed a
+        visitor a `dense` option until `GET /strategies` came back — a strategy this build cannot
+        serve, offered by the interface, for one round trip. Empty is honest: the list is a property
+        of the running build and this file does not know it.
+      -->
       <label class="field">
         <span>coluna esquerda</span>
-        <select id="left"><option value="lexical" selected>lexical</option></select>
+        <select id="left" disabled></select>
       </label>
       <label class="field">
         <span>coluna direita</span>
-        <select id="right"><option value="dense" selected>dense</option></select>
+        <select id="right" disabled></select>
       </label>
-      <button type="submit">Comparar</button>
+      <button type="submit" disabled>Comparar</button>
     </form>
 
     <p id="status" class="status" role="status" aria-live="polite"></p>
