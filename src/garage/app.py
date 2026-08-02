@@ -247,7 +247,7 @@ def create_app(
         # Each embedder comes off the retriever that will actually answer queries with it, never
         # resolved a second time here: a second resolution is the divergence
         # `embedding.embedder_for` exists to make unwriteable.
-        embedders = [held for held in (getattr(s, "embedder", None) for s in strategies) if held]
+        embedders = [held for held in (strategy.embedder for strategy in strategies) if held]
         # Raising here is the refusal: uvicorn aborts the boot and the operator reads why. Building
         # the app is deliberately not enough to touch the database, so `--help` never needs one.
         for embedder in embedders or [None]:

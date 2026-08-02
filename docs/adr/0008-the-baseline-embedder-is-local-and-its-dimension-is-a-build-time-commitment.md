@@ -71,20 +71,45 @@ architecture is the constraint, not the capacity — see the determinism consequ
   is free.
 
   It is a mitigation with a measured residual, **not** a construction that guarantees
-  architecture-independent ordering, and this ADR will not claim otherwise. Rounding has boundaries,
-  and a value landing within the perturbation envelope of one rounds to different sides on the two
-  machines. Counting the 760 adjacent top-10 pairs the suite produces, against the analytic
-  1.162e-06 bound: raw ordering has **0** pairs that could swap and five-decimal rounding has **2**.
-  A sweep across precisions wanders between 0 and 2 with no trend, because a coarser grid pulls in
-  more pairs at the same rate it makes each one less likely to straddle. Against the *observed*
-  2.384e-07 delta both are 0, which is why the empirical run shows no difference.
+  architecture-independent ordering, and this ADR will not claim otherwise. The mechanism is worth
+  stating exactly, because it is easy to describe wrongly. `round` is monotone, so it can never
+  create an inversion the raw comparison did not already permit; what it creates is **ties**, and
+  `chunk_id` settles those identically on every machine. Ties are the entire benefit.
 
-  Read plainly: on this corpus rounding is not what is buying the agreement — the gap distribution
-  is. Five decimals is kept because it costs nothing measurable, because it stays 200× below the
-  2.6e-04 median gap so it swallows no distinction the suite makes, and because it turns the tightest
-  pair into a deterministic tie under most perturbations rather than leaving it to luck. It is
-  insurance against a corpus with a denser gap distribution than this one, bought at zero premium.
-  It is not a proof, and the day the corpus grows is the day to re-run this measurement.
+  At five decimals this suite gets **zero** ties across all 760 adjacent top-10 pairs. Including the
+  tightest one, measured:
+
+  ```
+  kw-cabecote-trabalhado, positions 8 and 9
+    pos 8  blog-projetinho-de-rua#0003   0.834365457382   round5 0.83437
+    pos 9  forum-swap-250s#0002          0.834364043654   round5 0.83436
+    gap 1.4137e-06     bound B = 1.162e-06
+    round5 equal? False   <- the boundary at 0.834365 falls BETWEEN the two
+    round4 equal? True
+  ```
+
+  Both values sit 4.6e-07 and 9.6e-07 from that boundary, both inside B. Five decimals leaves the
+  pair strictly ordered and exactly as exposed as raw. An earlier version of this ADR claimed
+  rounding made this pair a deterministic tie; it does not, and the claim is withdrawn.
+
+  Precision sweeps wander with no trend, and **the exact integers do not reproduce between
+  measurements** — which is the argument itself rather than an inconsistency. The count depends on
+  where each value falls relative to a grid boundary, so cosines recomputed in float32 and cosines
+  read from pgvector's float4 give different integers (0→2 one way, 1→1 the other) while agreeing on
+  the conclusion: no precision drives it to zero by construction.
+
+  Four decimals was measured and **rejected**: it creates 11 ties, of which 5 are resolved by
+  `chunk_id` *against* cosine order. That trades real ranking for a guarantee that still would not
+  be one.
+
+  So five decimals is kept on the grounds that survived measurement, and no others. It is
+  demonstrably free — every metric and every per-item order identical to the unrounded run — and it
+  sits 200× below the 2.6e-04 median gap, so it swallows no distinction the suite makes. It is cheap
+  insurance against one class of perturbation on a corpus denser than this one. On *this* corpus the
+  x86-64/arm64 agreement is bought by the gap distribution, not by rounding.
+
+  The margin is 1.13× against the analytic bound. That is a reason to keep the cross-architecture
+  measurement in the procedure as the corpus grows, not a reason to relax.
 
 - **What a residual would cost, which is close to nothing.** The tightest pairs sit at positions 8
   and 9 of one question (`kw-cabecote-trabalhado`). A swap there changes `retrieved_chunk_ids` and

@@ -229,18 +229,27 @@ scored AS (
 # a similarity difference smaller than the platform's own floating-point error is not signal, it is
 # noise wearing the shape of signal.
 #
-# What rounding is **not** is a guarantee, and nobody should upgrade this comment into one. Every
-# grid has boundaries, and a value landing within the envelope of one still rounds to different
-# sides. Against the analytic bound, raw ordering leaves 0 of the 760 adjacent top-ten pairs able to
-# swap and five-decimal rounding leaves 2; a precision sweep wanders between 0 and 2 with no trend,
-# because a coarser grid pulls in more pairs at the same rate it makes each one safer (ADR-0008 has
-# the table). On this corpus the agreement is bought by the gap distribution, not by this line.
+# What rounding is **not** is a guarantee, and nobody should upgrade this comment into one. `round`
+# is monotone, so it never creates an inversion the raw comparison did not already permit; what it
+# does create is *ties*, which `chunk_id` then settles identically everywhere. That is the whole
+# mechanism, and at five decimals it fires on **zero** of the 760 adjacent top-ten pairs this suite
+# produces — including the tightest one, where the grid boundary at 0.834365 falls between the two
+# values (0.834365457 and 0.834364044) and leaves them strictly ordered and exactly as exposed as
+# before. A precision sweep wanders with no trend, and the exact counts do not even reproduce
+# between measurements: they depend on where each value lands relative to a boundary, so cosines
+# recomputed in float32 and cosines read from pgvector's float4 disagree on the integer while
+# agreeing on the conclusion. ADR-0008 has both sweeps.
 #
-# Five decimals is kept because it is free — every metric and every per-item order is identical to
-# the unrounded run — because it sits 200x below the 2.6e-04 median gap so it swallows nothing the
-# suite distinguishes, and because it makes the tightest pair a deterministic tie under most
-# perturbations instead of leaving it to a margin of 1.13x. Insurance at zero premium against a
-# denser corpus. The day the corpus grows is the day to re-run the measurement.
+# So five decimals is kept on the two grounds that survived being measured, and not on a third that
+# did not. It is demonstrably free — every metric and every per-item order identical to the
+# unrounded run — and it sits 200x below the 2.6e-04 median gap, so it swallows no distinction the
+# suite makes. It is cheap insurance against one class of perturbation on a denser corpus, bought at
+# zero premium; on *this* corpus the x86-64/arm64 agreement is bought by the gap distribution, not
+# by this line. Four decimals was measured and rejected: it creates 11 ties, 5 of which `chunk_id`
+# resolves against cosine order — real ranking traded for a guarantee that still would not be one.
+#
+# The margin is 1.13x against the analytic bound. That is a reason to keep the cross-architecture
+# measurement in the procedure when the corpus grows, not a reason to relax.
 _DENSE_SCORED = """
 scored AS (
     SELECT

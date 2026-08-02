@@ -123,12 +123,17 @@ worst observed cosine delta is 2.384e-07, and the smallest adjacent top-ten gap 
 1.311e-06 — so the order does hold, on a margin of 5.5×, and **0 of 76 top-ten orders differ**.
 
 Rounding collapses sub-grid differences into ties that the `chunk_id` tie-break settles identically
-everywhere. It is a mitigation, not a guarantee — grids have boundaries too — and on this corpus it
-is the gap distribution rather than the rounding that buys the agreement. It is kept because it is
-measurably free (no metric and no per-item order moved), sits 200× below the median gap so it
-swallows no distinction the suite makes, and costs a pair separated by less than 1e-5 nothing worse
-than alphabetical order. A similarity difference smaller than the platform's own floating-point
-error is not signal. See
+everywhere. It is **cheap insurance against one class of perturbation, not a construction that makes
+order architecture-independent** — `round` is monotone, so all it can add are ties, and at five
+decimals this suite gets none: even the tightest pair straddles a grid boundary and stays strictly
+ordered. On this corpus the x86-64/arm64 agreement is bought by the gap distribution, not by the
+rounding. It is kept because it is measurably free (no metric and no per-item order moved) and sits
+200× below the median gap, so it swallows no distinction the suite makes, while covering a denser
+corpus later. Four decimals was measured and rejected: it creates ties that `chunk_id` resolves
+against cosine order, trading real ranking for a guarantee that still would not be one.
+
+The margin against the analytic bound is 1.13×. That is why the cross-architecture measurement stays
+part of the procedure as the corpus grows. See
 [ADR-0008](adr/0008-the-baseline-embedder-is-local-and-its-dimension-is-a-build-time-commitment.md)
 for the full measurement and the precision sweep.
 
