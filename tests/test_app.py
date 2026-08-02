@@ -139,6 +139,12 @@ def settings(tmp_path) -> Settings:
     # to be the eleventh `POST /query` this app object saw. The limiter is a property of the
     # deployment, it is tested as arithmetic in `test_limits.py`, and the tests that are *about* the
     # bucket turn it back on themselves (`test_cascade.py`).
+    #
+    # Restated here even though `conftest.the_anti_abuse_bucket_is_off_unless_a_test_asks_for_it`
+    # already sets it for the whole suite, and the redundancy is wanted rather than tolerated: this
+    # is the fixture most tests in this repository actually read, and a reader here should not have
+    # to know a conftest exists to know what budget their app has. The two cannot drift into
+    # disagreement — both are zero, and `test_cascade.py` asserts the suite-wide default is zero.
     return Settings(
         database_url="postgresql://u:p@db:5432/garage",
         gemini_api_key=None,
