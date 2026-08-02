@@ -393,9 +393,29 @@ function chunkCard(chunk, arm) {
       el("span", { class: "sep", text: " · " }),
       el("span", { class: "mono small", text: chunk.chunkId }),
     ]),
-    el("p", { class: "chunk-text", text: chunk.text }),
+    chunkText(chunk),
     componentTable(chunk),
     crossReference(chunk),
+  ]);
+}
+
+function chunkText(chunk) {
+  if (!chunk.textAbsent) return el("p", { class: "chunk-text", text: chunk.text });
+  // The one component this file gained for the showcase, and it is the vocabulary this interface
+  // already speaks: an absence travels as an absence. A showcase record stores `chunk_id`s and never
+  // the material (ADR-0003), so a clone without the operator's Corpus lands here — with the rank,
+  // the score, the tier, the document and the identifier all intact and only the paragraph missing.
+  //
+  // Deliberately not an empty `<p>`, which is what a null text rendered as a string produces: a
+  // blank card is an absence pretending to be a short chunk. And deliberately not an error: nothing
+  // failed, and everything around it is still the product.
+  return el("p", { class: "chunk-text chunk-text-absent" }, [
+    el("strong", { text: "Texto não disponível neste artefato." }),
+    el("span", {
+      text:
+        " O registro guarda o identificador do trecho e nunca as palavras dele, e esta base não " +
+        "tem o material do operador para hidratá-lo. O trecho está identificado acima.",
+    }),
   ]);
 }
 

@@ -301,3 +301,85 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
 .corridor-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--warn) 45%, transparent); }
 .corridor-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); }
 .corridor-measured { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--accent); border-left: 2px dotted var(--accent); }
+
+/* --- the showcase screen --------------------------------------------------------------------------
+   Everything below exists to make "these numbers are old" impossible to miss, on channels that do
+   not all depend on a working colour display — the same argument the tier treatment makes above.
+   Texture first, text second, colour last. */
+
+/* A repeating diagonal hatch, and deliberately not a lighter shade of the panel background. A tone
+   says nothing in monochrome, nothing in print, and nothing to a reader who has never seen the live
+   page beside it. A hatch is visible in all three. It is kept faint enough to read text over —
+   checked against the body colour, not guessed — and the region is bordered as well, so the
+   boundary of "what is precomputed" is a line and not a gradient. */
+.precomputed {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--muted) 22%, transparent) 0 3px,
+    transparent 3px 10px
+  );
+  border: 2px solid var(--muted);
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+.precomputed-banner { border-left: 4px solid var(--muted); }
+
+/* Channel 2: a stamp on every panel of numbers. Small, monospaced and repetitive on purpose — it is
+   a watermark, not a heading, and a screenshot of any single panel still carries the record id. */
+.stamp {
+  margin: 0 0 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  border-bottom: 1px dashed var(--muted);
+  padding-bottom: 0.15rem;
+}
+
+/* The strip plot: n marks on a line. No whisker, no box, no mean — see `showcasescreen.js`. */
+.spreads { display: flex; flex-direction: column; gap: 0.55rem; }
+.spread-head { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.82rem; }
+.spread-label { color: var(--muted); }
+.spread-range { margin-left: auto; font-variant-numeric: tabular-nums; }
+/* A quantity that did not move across n draws is the good outcome at temperature 0, and it reads as
+   a statement rather than as a missing range. */
+.spread-range.constant { font-style: italic; color: var(--muted); }
+
+.strip {
+  position: relative;
+  height: 16px;
+  margin-top: 0.15rem;
+  /* The axis is a line, not a filled track: there is no "amount" here to fill up to. */
+  border-bottom: 1px solid var(--line);
+}
+.strip-mark {
+  position: absolute;
+  top: 2px;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  /* Overlapping draws are the common case at temperature 0, so the marks are translucent: three
+     samples landing on the same value read darker than one, which is the only density cue a strip
+     plot of ten points can honestly give. */
+  opacity: 0.55;
+}
+/* The draw that is actually on screen in the column beside this one, marked so the reader can see
+   where in the spread it sits. Taller and solid, plus a colour — three channels, colour last. */
+.strip-mark.strip-shown {
+  top: -2px;
+  width: 3px;
+  opacity: 1;
+  background: var(--accent);
+}
+.strip-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* A chunk whose text this artifact does not hold. Dashed, quiet, and never red: nothing failed. */
+.chunk-text-absent {
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  padding: 0.35rem 0.45rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: normal;
+}

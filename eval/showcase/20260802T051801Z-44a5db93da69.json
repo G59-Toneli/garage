@@ -1,0 +1,1604 @@
+{
+  "displayed_sample_rule": "median of tokens_out across the samples, ties broken to the lowest sample index; for an even n, the lower median",
+  "duration_ms": 56083,
+  "items": [
+    {
+      "arms": [
+        {
+          "contract": "cited",
+          "displayed_sample": 1,
+          "embedder": null,
+          "k": 10,
+          "retrieval": {
+            "chunks": []
+          },
+          "samples": [
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 0,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 14.2441,
+                    "endTimeUnixNano": "1785647882780709600",
+                    "name": "retrieve",
+                    "parentSpanId": "2371a05620d8545c",
+                    "spanId": "b20b3c4c1c060f9d",
+                    "startTimeUnixNano": "1785647882766103800",
+                    "traceId": "b3e2838db4dcba2fe1e281e6260ff363"
+                  }
+                ],
+                "durationMs": 14.2774,
+                "endTimeUnixNano": "1785647882780709600",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "2371a05620d8545c",
+                "startTimeUnixNano": "1785647882766103800",
+                "traceId": "b3e2838db4dcba2fe1e281e6260ff363"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 1,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 13.8878,
+                    "endTimeUnixNano": "1785647882794245700",
+                    "name": "retrieve",
+                    "parentSpanId": "570e7c3600815564",
+                    "spanId": "15c4cef431f08953",
+                    "startTimeUnixNano": "1785647882780709600",
+                    "traceId": "84f8c36faf5bf8873f6f97fa5c6817a1"
+                  }
+                ],
+                "durationMs": 13.9068,
+                "endTimeUnixNano": "1785647882794245700",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "570e7c3600815564",
+                "startTimeUnixNano": "1785647882780709600",
+                "traceId": "84f8c36faf5bf8873f6f97fa5c6817a1"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 2,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 14.0411,
+                    "endTimeUnixNano": "1785647882807799300",
+                    "name": "retrieve",
+                    "parentSpanId": "15e63759dec43190",
+                    "spanId": "06898e6a3fcc4c31",
+                    "startTimeUnixNano": "1785647882795749500",
+                    "traceId": "ef82cf1334ad3037126ebfdf6b850950"
+                  }
+                ],
+                "durationMs": 14.0601,
+                "endTimeUnixNano": "1785647882809804400",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "15e63759dec43190",
+                "startTimeUnixNano": "1785647882794245700",
+                "traceId": "ef82cf1334ad3037126ebfdf6b850950"
+              }
+            }
+          ],
+          "spread": {
+            "citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "cost_usd": {
+              "distinct": 0,
+              "maximum": null,
+              "minimum": null,
+              "n": 3,
+              "values": [
+                null,
+                null,
+                null
+              ]
+            },
+            "generate_ms": {
+              "distinct": 0,
+              "maximum": null,
+              "minimum": null,
+              "n": 3,
+              "values": [
+                null,
+                null,
+                null
+              ]
+            },
+            "invalid_citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_in": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_out": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "unsupported_claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "strategy": "lexical",
+          "tiers": [
+            "A",
+            "B"
+          ]
+        },
+        {
+          "contract": "cited",
+          "displayed_sample": 1,
+          "embedder": "baseline@6f852da7deb1",
+          "k": 10,
+          "retrieval": {
+            "chunks": [
+              {
+                "chunk_id": "forum-swap-250s#0004",
+                "components": {
+                  "cosine": 0.86998,
+                  "dense_rank": 1.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.86998,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "blog-projetinho-de-rua#0005",
+                "components": {
+                  "cosine": 0.86909,
+                  "dense_rank": 2.0
+                },
+                "doc_id": "blog-projetinho-de-rua",
+                "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+                "kind": "prose",
+                "page": null,
+                "score": 0.86909,
+                "section": "Onde estou hoje",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0008",
+                "components": {
+                  "cosine": 0.86701,
+                  "dense_rank": 3.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.86701,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0006",
+                "components": {
+                  "cosine": 0.85928,
+                  "dense_rank": 4.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85928,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0007",
+                "components": {
+                  "cosine": 0.85919,
+                  "dense_rank": 5.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85919,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0002",
+                "components": {
+                  "cosine": 0.85612,
+                  "dense_rank": 6.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85612,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0011",
+                "components": {
+                  "cosine": 0.85471,
+                  "dense_rank": 7.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85471,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0005",
+                "components": {
+                  "cosine": 0.85209,
+                  "dense_rank": 8.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85209,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0009",
+                "components": {
+                  "cosine": 0.85072,
+                  "dense_rank": 9.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.85072,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0003",
+                "components": {
+                  "cosine": 0.8489,
+                  "dense_rank": 10.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.8489,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              }
+            ]
+          },
+          "samples": [
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "Os trechos fornecidos não contêm informações sobre o torque de aperto do cabeçote do Kadett GSi.",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": true,
+                "cost_usd": 0.0005806,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": "2026-08-01",
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 1527,
+                "tokens_out": 49,
+                "unsupported_claims": 0
+              },
+              "index": 0,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 65.997,
+                    "endTimeUnixNano": "1785647882875660500",
+                    "name": "retrieve",
+                    "parentSpanId": "c3068d2ac2ec0fe0",
+                    "spanId": "97e67725c7b05034",
+                    "startTimeUnixNano": "1785647882809804400",
+                    "traceId": "569989a47947f9c50b0c9268fd7abbe1"
+                  },
+                  {
+                    "attributes": {
+                      "generation.abstained": true,
+                      "generation.citations": 0,
+                      "generation.citations.invalid": 0,
+                      "generation.claims.unsupported": 0,
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.contract.violated": false,
+                      "generation.contradictory": false,
+                      "generation.cost.estimated": true,
+                      "generation.cost.usd_estimated": 0.0005806,
+                      "generation.degraded": false,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.pricing.as_of": "2026-08-01",
+                      "generation.provider": "gemini",
+                      "generation.support": "not_applicable",
+                      "generation.tokens.input": 1527,
+                      "generation.tokens.output": 49,
+                      "generation.tokens.total": 1576
+                    },
+                    "children": [],
+                    "durationMs": 1765.6356,
+                    "endTimeUnixNano": "1785647884640748800",
+                    "name": "generate",
+                    "parentSpanId": "c3068d2ac2ec0fe0",
+                    "spanId": "8e13dfbad0bd852e",
+                    "startTimeUnixNano": "1785647882875660500",
+                    "traceId": "569989a47947f9c50b0c9268fd7abbe1"
+                  }
+                ],
+                "durationMs": 1831.6676,
+                "endTimeUnixNano": "1785647884640748800",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "c3068d2ac2ec0fe0",
+                "startTimeUnixNano": "1785647882809804400",
+                "traceId": "569989a47947f9c50b0c9268fd7abbe1"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "Os trechos fornecidos não contêm informações sobre o torque de aperto do cabeçote do Kadett GSi.",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": true,
+                "cost_usd": 0.0005806,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": "2026-08-01",
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 1527,
+                "tokens_out": 49,
+                "unsupported_claims": 0
+              },
+              "index": 1,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 65.6526,
+                    "endTimeUnixNano": "1785647890707603800",
+                    "name": "retrieve",
+                    "parentSpanId": "3d57717b37fb78f0",
+                    "spanId": "d6fb41e2f2e7696b",
+                    "startTimeUnixNano": "1785647890641975300",
+                    "traceId": "289a9c6a44a973d513bdc877508dabe8"
+                  },
+                  {
+                    "attributes": {
+                      "generation.abstained": true,
+                      "generation.citations": 0,
+                      "generation.citations.invalid": 0,
+                      "generation.claims.unsupported": 0,
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.contract.violated": false,
+                      "generation.contradictory": false,
+                      "generation.cost.estimated": true,
+                      "generation.cost.usd_estimated": 0.0005806,
+                      "generation.degraded": false,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.pricing.as_of": "2026-08-01",
+                      "generation.provider": "gemini",
+                      "generation.support": "not_applicable",
+                      "generation.tokens.input": 1527,
+                      "generation.tokens.output": 49,
+                      "generation.tokens.total": 1576
+                    },
+                    "children": [],
+                    "durationMs": 1058.7859,
+                    "endTimeUnixNano": "1785647891764896100",
+                    "name": "generate",
+                    "parentSpanId": "3d57717b37fb78f0",
+                    "spanId": "19118e30bf860877",
+                    "startTimeUnixNano": "1785647890707603800",
+                    "traceId": "289a9c6a44a973d513bdc877508dabe8"
+                  }
+                ],
+                "durationMs": 1124.4802,
+                "endTimeUnixNano": "1785647891764896100",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "3d57717b37fb78f0",
+                "startTimeUnixNano": "1785647890641975300",
+                "traceId": "289a9c6a44a973d513bdc877508dabe8"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "Os trechos fornecidos não contêm informações sobre o torque de aperto do cabeçote do Kadett GSi.",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": true,
+                "cost_usd": 0.0005806,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": "2026-08-01",
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 1527,
+                "tokens_out": 49,
+                "unsupported_claims": 0
+              },
+              "index": 2,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 64.1171,
+                    "endTimeUnixNano": "1785647897829410400",
+                    "name": "retrieve",
+                    "parentSpanId": "73ece165d0887a9b",
+                    "spanId": "548f97c456b88c88",
+                    "startTimeUnixNano": "1785647897766895100",
+                    "traceId": "9a5ff827ef8f0db036a41bb85ad65d44"
+                  },
+                  {
+                    "attributes": {
+                      "generation.abstained": true,
+                      "generation.citations": 0,
+                      "generation.citations.invalid": 0,
+                      "generation.claims.unsupported": 0,
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.contract.violated": false,
+                      "generation.contradictory": false,
+                      "generation.cost.estimated": true,
+                      "generation.cost.usd_estimated": 0.0005806,
+                      "generation.degraded": false,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.pricing.as_of": "2026-08-01",
+                      "generation.provider": "gemini",
+                      "generation.support": "not_applicable",
+                      "generation.tokens.input": 1527,
+                      "generation.tokens.output": 49,
+                      "generation.tokens.total": 1576
+                    },
+                    "children": [],
+                    "durationMs": 994.6468,
+                    "endTimeUnixNano": "1785647898825133700",
+                    "name": "generate",
+                    "parentSpanId": "73ece165d0887a9b",
+                    "spanId": "28afc81d868e2aa2",
+                    "startTimeUnixNano": "1785647897829410400",
+                    "traceId": "9a5ff827ef8f0db036a41bb85ad65d44"
+                  }
+                ],
+                "durationMs": 1058.8019,
+                "endTimeUnixNano": "1785647898825133700",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "73ece165d0887a9b",
+                "startTimeUnixNano": "1785647897766895100",
+                "traceId": "9a5ff827ef8f0db036a41bb85ad65d44"
+              }
+            }
+          ],
+          "spread": {
+            "citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "cost_usd": {
+              "distinct": 1,
+              "maximum": 0.0005806,
+              "minimum": 0.0005806,
+              "n": 3,
+              "values": [
+                0.0005806,
+                0.0005806,
+                0.0005806
+              ]
+            },
+            "generate_ms": {
+              "distinct": 3,
+              "maximum": 1765.6356,
+              "minimum": 994.6468,
+              "n": 3,
+              "values": [
+                1765.6356,
+                1058.7859,
+                994.6468
+              ]
+            },
+            "invalid_citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_in": {
+              "distinct": 1,
+              "maximum": 1527.0,
+              "minimum": 1527.0,
+              "n": 3,
+              "values": [
+                1527.0,
+                1527.0,
+                1527.0
+              ]
+            },
+            "tokens_out": {
+              "distinct": 1,
+              "maximum": 49.0,
+              "minimum": 49.0,
+              "n": 3,
+              "values": [
+                49.0,
+                49.0,
+                49.0
+              ]
+            },
+            "unsupported_claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "strategy": "dense",
+          "tiers": [
+            "A",
+            "B"
+          ]
+        }
+      ],
+      "question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?",
+      "question_id": "torque-cabecote-natural",
+      "why": "A mesma pergunta do primeiro item, escrita como um mecânico escreveria, e o resultado é desconfortável: o lexical não recupera nada e o denso recupera dez trechos, todos Tier B, de fórum e de blog. Nenhuma das duas colunas responde. Está no showcase exatamente por isso — o Tier A deste Corpus é escrito em inglês, o embedder multilíngue não fecha esse vão aqui, e uma vitrine que só mostrasse as perguntas em que o sistema acerta seria propaganda. Compare com o primeiro item: a diferença entre os dois é a língua da pergunta, e nada mais."
+    },
+    {
+      "arms": [
+        {
+          "contract": "cited",
+          "displayed_sample": 1,
+          "embedder": null,
+          "k": 10,
+          "retrieval": {
+            "chunks": []
+          },
+          "samples": [
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 0,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 13.521,
+                    "endTimeUnixNano": "1785647904838919800",
+                    "name": "retrieve",
+                    "parentSpanId": "9fcd5d934edf1fe8",
+                    "spanId": "6e42b66f346c0453",
+                    "startTimeUnixNano": "1785647904826371500",
+                    "traceId": "94b39934362dd6d06cc4c469d12e3df6"
+                  }
+                ],
+                "durationMs": 13.5491,
+                "endTimeUnixNano": "1785647904838919800",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "9fcd5d934edf1fe8",
+                "startTimeUnixNano": "1785647904826371500",
+                "traceId": "94b39934362dd6d06cc4c469d12e3df6"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 1,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 13.8858,
+                    "endTimeUnixNano": "1785647910852479600",
+                    "name": "retrieve",
+                    "parentSpanId": "d81607a0ee753479",
+                    "spanId": "868f7720498f68d6",
+                    "startTimeUnixNano": "1785647910840435100",
+                    "traceId": "04f80b71169aaa3c4bdf1273bb7eff8b"
+                  }
+                ],
+                "durationMs": 13.9146,
+                "endTimeUnixNano": "1785647910852479600",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "d81607a0ee753479",
+                "startTimeUnixNano": "1785647910840435100",
+                "traceId": "04f80b71169aaa3c4bdf1273bb7eff8b"
+              }
+            },
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "nenhum trecho do Corpus foi recuperado para esta pergunta",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": null,
+                "pricing_as_of": null,
+                "provider": null,
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 2,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 0,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 0,
+                      "retrieval.embedder": null,
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "lexical",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 13.7687,
+                    "endTimeUnixNano": "1785647916866656200",
+                    "name": "retrieve",
+                    "parentSpanId": "6b2cbdd24af62259",
+                    "spanId": "a591860880263af5",
+                    "startTimeUnixNano": "1785647916854617800",
+                    "traceId": "d060d284dae61cbb011c8eb48e6c70b2"
+                  }
+                ],
+                "durationMs": 13.7975,
+                "endTimeUnixNano": "1785647916866656200",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "6b2cbdd24af62259",
+                "startTimeUnixNano": "1785647916854617800",
+                "traceId": "d060d284dae61cbb011c8eb48e6c70b2"
+              }
+            }
+          ],
+          "spread": {
+            "citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "cost_usd": {
+              "distinct": 0,
+              "maximum": null,
+              "minimum": null,
+              "n": 3,
+              "values": [
+                null,
+                null,
+                null
+              ]
+            },
+            "generate_ms": {
+              "distinct": 0,
+              "maximum": null,
+              "minimum": null,
+              "n": 3,
+              "values": [
+                null,
+                null,
+                null
+              ]
+            },
+            "invalid_citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_in": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_out": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "unsupported_claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "strategy": "lexical",
+          "tiers": [
+            "A",
+            "B"
+          ]
+        },
+        {
+          "contract": "cited",
+          "displayed_sample": 2,
+          "embedder": "baseline@6f852da7deb1",
+          "k": 10,
+          "retrieval": {
+            "chunks": [
+              {
+                "chunk_id": "forum-swap-250s#0010",
+                "components": {
+                  "cosine": 0.8431,
+                  "dense_rank": 1.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.8431,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0003",
+                "components": {
+                  "cosine": 0.83431,
+                  "dense_rank": 2.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.83431,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0007",
+                "components": {
+                  "cosine": 0.82752,
+                  "dense_rank": 3.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.82752,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0006",
+                "components": {
+                  "cosine": 0.82168,
+                  "dense_rank": 4.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.82168,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0005",
+                "components": {
+                  "cosine": 0.81683,
+                  "dense_rank": 5.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.81683,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "blog-projetinho-de-rua#0005",
+                "components": {
+                  "cosine": 0.81135,
+                  "dense_rank": 6.0
+                },
+                "doc_id": "blog-projetinho-de-rua",
+                "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+                "kind": "prose",
+                "page": null,
+                "score": 0.81135,
+                "section": "Onde estou hoje",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "blog-projetinho-de-rua#0004",
+                "components": {
+                  "cosine": 0.8094,
+                  "dense_rank": 7.0
+                },
+                "doc_id": "blog-projetinho-de-rua",
+                "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+                "kind": "prose",
+                "page": null,
+                "score": 0.8094,
+                "section": "O que eu não faria",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "blog-projetinho-de-rua#0000",
+                "components": {
+                  "cosine": 0.80191,
+                  "dense_rank": 8.0
+                },
+                "doc_id": "blog-projetinho-de-rua",
+                "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+                "kind": "prose",
+                "page": null,
+                "score": 0.80191,
+                "section": "Blog Garagem 59 — \"Meu projetinho de rua: dois anos com um Kadett GSi\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "forum-swap-250s#0011",
+                "components": {
+                  "cosine": 0.80066,
+                  "dense_rank": 9.0
+                },
+                "doc_id": "forum-swap-250s",
+                "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+                "kind": "prose",
+                "page": null,
+                "score": 0.80066,
+                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
+                "tier": "B"
+              },
+              {
+                "chunk_id": "blog-projetinho-de-rua#0003",
+                "components": {
+                  "cosine": 0.79861,
+                  "dense_rank": 10.0
+                },
+                "doc_id": "blog-projetinho-de-rua",
+                "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+                "kind": "prose",
+                "page": null,
+                "score": 0.79861,
+                "section": "O que eu não faria",
+                "tier": "B"
+              }
+            ]
+          },
+          "samples": [
+            {
+              "answer": {
+                "abstained": true,
+                "abstention_reason": "Os trechos fornecidos não contêm informações sobre a receita de pão de queijo mineiro.",
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": true,
+                "cost_usd": 0.0005093,
+                "degradation_reason": null,
+                "degraded": false,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": "2026-08-01",
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 1306,
+                "tokens_out": 47,
+                "unsupported_claims": 0
+              },
+              "index": 0,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 65.0106,
+                    "endTimeUnixNano": "1785647922933255800",
+                    "name": "retrieve",
+                    "parentSpanId": "33d08c87e383f661",
+                    "spanId": "8a47348e62151b49",
+                    "startTimeUnixNano": "1785647922868918300",
+                    "traceId": "7e7fc9b7c6b2b2e0e3126a03554f2783"
+                  },
+                  {
+                    "attributes": {
+                      "generation.abstained": true,
+                      "generation.citations": 0,
+                      "generation.citations.invalid": 0,
+                      "generation.claims.unsupported": 0,
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.contract.violated": false,
+                      "generation.contradictory": false,
+                      "generation.cost.estimated": true,
+                      "generation.cost.usd_estimated": 0.0005093,
+                      "generation.degraded": false,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.pricing.as_of": "2026-08-01",
+                      "generation.provider": "gemini",
+                      "generation.support": "not_applicable",
+                      "generation.tokens.input": 1306,
+                      "generation.tokens.output": 47,
+                      "generation.tokens.total": 1353
+                    },
+                    "children": [],
+                    "durationMs": 980.246,
+                    "endTimeUnixNano": "1785647923912910800",
+                    "name": "generate",
+                    "parentSpanId": "33d08c87e383f661",
+                    "spanId": "218014e02fcb2e85",
+                    "startTimeUnixNano": "1785647922933255800",
+                    "traceId": "7e7fc9b7c6b2b2e0e3126a03554f2783"
+                  }
+                ],
+                "durationMs": 1045.2945,
+                "endTimeUnixNano": "1785647923912910800",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "33d08c87e383f661",
+                "startTimeUnixNano": "1785647922868918300",
+                "traceId": "7e7fc9b7c6b2b2e0e3126a03554f2783"
+              }
+            },
+            {
+              "answer": {
+                "abstained": false,
+                "abstention_reason": null,
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": "o provedor de geração não respondeu (GenerationError)",
+                "degraded": true,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": null,
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 1,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 62.9357,
+                    "endTimeUnixNano": "1785647929976589500",
+                    "name": "retrieve",
+                    "parentSpanId": "6ed71eda769937c3",
+                    "spanId": "bf2689d2ffe366d5",
+                    "startTimeUnixNano": "1785647929914609400",
+                    "traceId": "903f20a505495636b767a81bb3e1a482"
+                  },
+                  {
+                    "attributes": {
+                      "error": true,
+                      "exception.message": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash\\nPlease retry in 7.405609526s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.5-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '7s'}]}}",
+                      "exception.type": "GenerationError",
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.degraded": true,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.provider": "gemini"
+                    },
+                    "children": [],
+                    "durationMs": 973.8546,
+                    "endTimeUnixNano": "1785647930950048800",
+                    "name": "generate",
+                    "parentSpanId": "6ed71eda769937c3",
+                    "spanId": "c685bf98c0c9d4a2",
+                    "startTimeUnixNano": "1785647929976589500",
+                    "traceId": "903f20a505495636b767a81bb3e1a482"
+                  }
+                ],
+                "durationMs": 1036.8309,
+                "endTimeUnixNano": "1785647930950048800",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "6ed71eda769937c3",
+                "startTimeUnixNano": "1785647929914609400",
+                "traceId": "903f20a505495636b767a81bb3e1a482"
+              }
+            },
+            {
+              "answer": {
+                "abstained": false,
+                "abstention_reason": null,
+                "claims": [],
+                "contract": "cited",
+                "contract_violation": null,
+                "contradictory": false,
+                "cost_estimated": false,
+                "cost_usd": null,
+                "degradation_reason": "o provedor de geração não respondeu (GenerationError)",
+                "degraded": true,
+                "invalid_citations": 0,
+                "model": "gemini-2.5-flash",
+                "pricing_as_of": null,
+                "provider": "gemini",
+                "support": "not_applicable",
+                "text": "",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unsupported_claims": 0
+              },
+              "index": 2,
+              "trace": {
+                "attributes": {
+                  "corpus.hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+                  "query.candidates": 10,
+                  "query.question": "Qual a receita de pão de queijo mineiro?"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "retrieval.candidates": 10,
+                      "retrieval.embedder": "baseline@6f852da7deb1",
+                      "retrieval.k": 10,
+                      "retrieval.strategy": "dense",
+                      "retrieval.tiers": "A,B"
+                    },
+                    "children": [],
+                    "durationMs": 61.3249,
+                    "endTimeUnixNano": "1785647937011893600",
+                    "name": "retrieve",
+                    "parentSpanId": "941d9b06e971a51f",
+                    "spanId": "e632553eadf008a5",
+                    "startTimeUnixNano": "1785647936951970300",
+                    "traceId": "a1adb1c5de7679a309b8d00ae557fdd4"
+                  },
+                  {
+                    "attributes": {
+                      "error": true,
+                      "exception.message": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash\\nPlease retry in 1.040101554s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.5-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '1s'}]}}",
+                      "exception.type": "GenerationError",
+                      "generation.context.chunks": 10,
+                      "generation.contract": "cited",
+                      "generation.degraded": true,
+                      "generation.model": "gemini-2.5-flash",
+                      "generation.provider": "gemini"
+                    },
+                    "children": [],
+                    "durationMs": 302.7908,
+                    "endTimeUnixNano": "1785647937315664100",
+                    "name": "generate",
+                    "parentSpanId": "941d9b06e971a51f",
+                    "spanId": "50aebec11375c245",
+                    "startTimeUnixNano": "1785647937011893600",
+                    "traceId": "a1adb1c5de7679a309b8d00ae557fdd4"
+                  }
+                ],
+                "durationMs": 364.1545,
+                "endTimeUnixNano": "1785647937315664100",
+                "name": "query",
+                "parentSpanId": null,
+                "spanId": "941d9b06e971a51f",
+                "startTimeUnixNano": "1785647936951970300",
+                "traceId": "a1adb1c5de7679a309b8d00ae557fdd4"
+              }
+            }
+          ],
+          "spread": {
+            "citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "cost_usd": {
+              "distinct": 1,
+              "maximum": 0.0005093,
+              "minimum": 0.0005093,
+              "n": 3,
+              "values": [
+                0.0005093,
+                null,
+                null
+              ]
+            },
+            "generate_ms": {
+              "distinct": 3,
+              "maximum": 980.246,
+              "minimum": 302.7908,
+              "n": 3,
+              "values": [
+                980.246,
+                973.8546,
+                302.7908
+              ]
+            },
+            "invalid_citations": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_in": {
+              "distinct": 2,
+              "maximum": 1306.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                1306.0,
+                0.0,
+                0.0
+              ]
+            },
+            "tokens_out": {
+              "distinct": 2,
+              "maximum": 47.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                47.0,
+                0.0,
+                0.0
+              ]
+            },
+            "unsupported_claims": {
+              "distinct": 1,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "n": 3,
+              "values": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "strategy": "dense",
+          "tiers": [
+            "A",
+            "B"
+          ]
+        }
+      ],
+      "question": "Qual a receita de pão de queijo mineiro?",
+      "question_id": "fora-do-corpus",
+      "why": "O Corpus não cobre isto, e as duas colunas se recusam de maneiras diferentes e por preços diferentes. O lexical não recupera nada e a abstenção sai sem chamar modelo nenhum: custo zero, zero token, sem span de geração. O denso não tem piso, devolve seus dez vizinhos mais próximos por mais distantes que estejam, o modelo é chamado, é cobrado, e se abstém corretamente. A abstenção é o resultado, não a falha — e esta pergunta mostra que ela tem dois preços."
+    }
+  ],
+  "layer": "showcase",
+  "provenance": {
+    "corpus_hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+    "corpus_id": "fixture",
+    "git_dirty": true,
+    "git_sha": "44a5db93da69eba1046481564b5805d40b7e89f8",
+    "ingest_version": 1,
+    "pg_trgm_version": "1.6",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)",
+    "python_version": "3.12.13",
+    "text_search_config": "pg_catalog.portuguese",
+    "text_search_dictionaries": "portuguese_stem, simple"
+  },
+  "redistribution": {
+    "chunk_text_stored": false,
+    "verbatim_token_limit": 25,
+    "worst_verbatim": {
+      "chunk_id": null,
+      "question_id": null,
+      "tokens": 0
+    }
+  },
+  "sampling": {
+    "generator": "gemini",
+    "measured_on": "2026-08-02",
+    "model": "gemini-2.5-flash",
+    "n": 3,
+    "temperature": 0.0
+  },
+  "scope": "amostra de prova: 2 perguntas, n=3, dois braços — NÃO é o conjunto curado final (ver docs/showcase.md)",
+  "showcase_id": "20260802T051801Z-44a5db93da69",
+  "showcase_record_version": 1,
+  "started_at": "2026-08-02T05:18:01Z"
+}

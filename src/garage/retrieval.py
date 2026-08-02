@@ -448,6 +448,81 @@ def _as_vector(vector: Sequence[float]) -> str:
     return "[" + ",".join(repr(float(value)) for value in vector) + "]"
 
 
+# The cap on `GET /chunks?ids=...`. It is not a rate limit and is not about load: it is the same
+# argument as `MAX_K`, which is that a public read-only endpoint must not offer "return the whole
+# corpus in one request" as an ordinary parameter. A hundred is four times the largest hydration any
+# showcase arm can ask for at `MAX_K = 50` per column, so nothing legitimate meets it.
+MAX_CHUNK_IDS = 100
+
+
+@dataclass(frozen=True)
+class StoredChunk:
+    """One chunk read by identifier: the same fields a `Candidate` carries, minus the ranking.
+
+    No `score` and no `components`, and their absence is the whole distinction. A `Candidate` is the
+    result of a *query* — this chunk, found this way, at this position. A `StoredChunk` is the
+    artifact's own record of a paragraph, and it is the same paragraph whoever asks and whyever.
+    Giving it a score would mean inventing one for a lookup that ranked nothing.
+    """
+
+    chunk_id: str
+    doc_id: str
+    doc_title: str
+    tier: str
+    page: int | None
+    section: str | None
+    kind: str
+    text: str
+
+
+_BY_ID = f"""
+SELECT {_CHUNK_COLUMNS}
+FROM chunks
+JOIN documents ON documents.doc_id = chunks.doc_id
+WHERE chunks.chunk_id = ANY(%(ids)s)
+ORDER BY chunks.chunk_id
+"""
+
+
+def fetch_chunks(database_url: str, ids: Sequence[str]) -> tuple[StoredChunk, ...]:
+    """The text behind a list of identifiers, straight off the artifact.
+
+    This is what makes ADR-0003 survivable for a *precomputed* record. A showcase commits
+    `chunk_id`s and never a word of the material, and the words are read back here at render time —
+    local, free, deterministic, and no model anywhere near it (`docs/showcase.md`).
+
+    Identifiers that do not exist are simply not returned, and that is the contract rather than a
+    shortcut: a clone of this repository with no database, or with a Corpus that does not hold the
+    operator's manual, must be able to render the showcase with those chunks marked absent. The
+    caller compares what it asked for against what came back and says so on screen. A 404 here would
+    turn a legitimate partial artifact into an error page.
+
+    No tier filter and no `k`. The caller is hydrating identifiers it already holds from a record
+    this build verified at boot, so a filter would only be able to *hide* a chunk the reader was
+    already looking at the citation for.
+    """
+    wanted = list(dict.fromkeys(ids))
+    if not wanted:
+        return ()
+    if len(wanted) > MAX_CHUNK_IDS:
+        raise ValueError(f"at most {MAX_CHUNK_IDS} chunk ids per request, got {len(wanted)}")
+    with psycopg.connect(database_url) as connection:
+        rows = connection.cursor(row_factory=dict_row).execute(_BY_ID, {"ids": wanted}).fetchall()
+    return tuple(
+        StoredChunk(
+            chunk_id=row["chunk_id"],
+            doc_id=row["doc_id"],
+            doc_title=row["doc_title"],
+            tier=row["tier"],
+            page=row["page"],
+            section=row["section"],
+            kind=row["kind"],
+            text=row["text"],
+        )
+        for row in rows
+    )
+
+
 def available_retrievers(database_url: str, embedder: Embedder | None = _UNSET) -> tuple[Retriever, ...]:
     """Every strategy this build can measure, in the order a report should show them.
 

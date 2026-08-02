@@ -90,6 +90,31 @@ is an optional extra imported late, no key means no generator and no `generate` 
 `tests/` may import the SDK or touch the network. Anything that does is marked `live` and excluded
 from the default run by `addopts`; `pytest -m live` is the deliberate opt-in, and it costs money.
 
+## Showcase
+
+`python -m garage showcase build` samples the curated questions in `eval/showcase/questions.jsonl`
+against every strategy and writes `eval/showcase/<showcase_id>.json`, which `GET /showcase/{id}`
+serves and the showcase screen renders with **zero model calls**. It is a second record format on
+purpose and never an extension of the Run Record: the gate is deterministic, offline and keyless,
+this is stochastic and costs money on every line, and fusing them would put CI one dependency away
+from needing `GEMINI_API_KEY` (ADR-0004, ADR-0007). It is the only command in the CLI that spends
+money, so it is the only one that prints its plan and refuses to act without `--yes`, and it
+throttles between calls — only around draws that actually reached the provider, since a question
+that retrieves nothing abstains for free. **The record stores no chunk text, ever** (ADR-0003): it
+commits `chunk_id`s, `GET /chunks?ids=…` hydrates them locally and for nothing, and a clone without
+the operator's material renders everything else with the chunks shown as identified absences. The
+second leak is the generated prose, and a mechanical verbatim gate closes it — the longest
+contiguous token run between each claim and any cited Tier A chunk, over a declared threshold the
+build fails and names the question, never truncating and never redacting, with the threshold and the
+worst observed run written into the record so the decision is auditable. Sampling is declared once at
+the top of the file; **no stochastic metric has a scalar field anywhere**, so the interface cannot
+render a point estimate for a number that wobbles (ADR-0004); and the displayed draw is chosen by a
+rule recorded in the file, never by picking the best one. The service refuses to boot against a
+record built on another `corpus_hash`, exactly as it refuses a mismatched database. The format, the
+two ADR-0003 gates, the deviation from the issue's "subsequence" wording, and a measured finding
+about what this fixture's dense arm actually does with Portuguese questions are all in
+`docs/showcase.md`. What is committed today is a small **proving run**, not the curated set.
+
 ## Interface
 
 The two-column comparison lives in `src/garage/static/` — hand-written HTML, CSS and ES modules, no
@@ -105,8 +130,9 @@ sorted — that order decides which arm a comparison opens with, and the invalid
 the same list in `ctx.strategies` as a backstop. Three read-only `GET /eval/*` endpoints hand back `eval/baseline.json` and
 `eval/runs/*.json` unmodelled, so the metrics screen reads the committed numbers from the files
 rather than from a constant. Everything is documented in `docs/ui.md`: the single adaptation
-boundary every component consumes (`adapt.toView`, the thing that makes issue #11 an adapter branch
-and the React port a rewrite of one file), the five answer states and why abstention, degradation
+boundary every component consumes (`adapt.toView`, which the showcase screen went through with one
+component change and which makes the React port a rewrite of one file), the five answer states and
+why abstention, degradation
 and rejection are never merged, the four redundant channels the tier is carried on, why the two
 score scales are never drawn on one axis, and why a stage that did not run is absent rather than
 zero. Two rules are enforced by `tests/test_ui_contract.py` rather than by review: the exact key set
