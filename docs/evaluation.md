@@ -13,15 +13,17 @@ corpus_hash: 21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
 postgres:    16.14 (Debian 16.14-1.pgdg12+1) (pg_trgm 1.6)
 facts:       76 (sha256 3c7dc8b7e9dd…)
 lexical  k=10
-  mrr@10             0.440789
-  ndcg@10            0.442512
-  recall@1           0.427632
-  recall@10          0.447368
-  recall@10:keyword  0.911765
-  recall@10:natural  0.071429
-  recall@5           0.447368
-  value_match@1      0.434211
-  hit_rank           1:33  2:1  miss:42
+  candidates@10      4.236842
+  mrr@10             0.751974
+  ndcg@10            0.779283
+  precision@10       0.088158
+  recall@1           0.703947
+  recall@10          0.868421
+  recall@10:keyword  1.000000
+  recall@10:natural  0.761905
+  recall@5           0.815789
+  value_match@1      0.710526
+  hit_rank           1:54  2:2  3:3  4:1  5:2  6:1  9:3  miss:10
 gate: pass
 ```
 
@@ -155,6 +157,19 @@ Python, because the SQL already made the order total (`ORDER BY score DESC, chun
   true of `163`, of `0.63` and of `Section 6.3`. Without one the value is matched as text, accent-
   and case-insensitively, by the same folding ingestion used to detect Jargon.
 
+- **`precision@10`, `candidates@10`** — `|top-k ∩ relevant| / k`, and the mean number of candidates
+  a question got back at all. Both **ungated**, and both added by
+  [ADR-0010](adr/0010-lexical-search-tries-strict-and-before-loose-or.md) for one reason: every other
+  metric here rewards finding the right chunk and none of them notices what came back with it. That
+  was harmless while `lexical` returned 0.7 candidates per question and is not now that it returns
+  4.2 — the same change on a corpus of fifty thousand chunks could return fifty per question while
+  `recall@10` climbs and the gate stays green the whole way. `candidates@10` is the one carrying the
+  news; `precision@10` is capped near 0.1 on a fact set of mostly single-chunk answers and moves
+  almost exactly like recall. They stay out of `gated_metrics` because gating means committing to a
+  direction, and the honest direction for `candidates@10` is not "lower" — a retriever that abstains
+  on everything scores a perfect zero. In the record, watched by a person, gated when somebody can
+  say what a bad value is.
+
 `value_match@1` used to scan all ten retrieved chunks, and at that width it agreed with `mrr@10` to
 six decimals on every question — a metric that never disagrees with another is noise in the report.
 Asked of the single chunk a reader is shown first it disagrees with both: a hit at rank 3 states the
@@ -186,11 +201,11 @@ every single time. The history is the directory listing.
   "suite": "facts",
   "provenance": {
     "git_sha": "fba1dad4ff09…", "git_dirty": false,
-    "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 1,
+    "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 2,
     "python_version": "3.12.13", "platform": "Windows-11-…",
     "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
-    "text_search_config": "pg_catalog.portuguese",
-    "text_search_dictionaries": "portuguese_stem, simple"
+    "text_search_config": "public.garage_bi",
+    "text_search_dictionaries": "garage_en_stop, garage_pt_stop, portuguese_stem, simple, unaccent"
   },
   "sample_count": 76,
   "facts_sha256": "3c7dc8b7e9dd…",
@@ -198,7 +213,7 @@ every single time. The history is the directory listing.
     {
       "configuration": {"strategy": "lexical", "k": 10, "tiers": ["A", "B"],
                         "reranker": null, "embedder": null},
-      "metrics": {"recall@1": 0.427632, "mrr@10": 0.440789, "…": 0.0},
+      "metrics": {"recall@1": 0.703947, "mrr@10": 0.751974, "…": 0.0},
       "per_item": [
         {"fact_id": "kw-torque-volante-motor", "question": "flywheel bolt torque",
          "expected_chunk_ids": ["svc-kadett-1993#0006"], "expected_value": "63",

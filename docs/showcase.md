@@ -269,7 +269,20 @@ the one component that did change.
 
 ## What is committed here, and what it is not
 
-`eval/showcase/20260802T051801Z-44a5db93da69.json` is a **proving run**: 2 questions × 2 arms × n=3,
+**There is no committed record in this checkout, and that is a state rather than an omission.** The
+screen says so in as many words, because a build with no showcase is legitimate: producing one calls
+a paid provider and is a deliberate act.
+
+The proving run described below was deleted by
+[ADR-0010](adr/0010-lexical-search-tries-strict-and-before-loose-or.md). That change altered the
+lexical ranking without altering a document, so the record's measurements stopped describing this
+build while its `corpus_hash` still matched — and the extended boot gate now refuses to serve it,
+naming `ingest_version`, `text_search_config` and `text_search_dictionaries`. Rebuilding costs
+provider calls that were not authorised, and the refusal message offers deletion as the other way
+out, so deletion is what happened. The paragraphs below are kept as the record of what was measured
+and of the four caveats the next build must not repeat.
+
+`eval/showcase/20260802T051801Z-44a5db93da69.json` **was** a **proving run**: 2 questions × 2 arms × n=3,
 built against the real Gemini API to show end to end that the command works, that the record
 renders with no calls, and that a 429 is recorded as a degradation. Its `scope` says so.
 

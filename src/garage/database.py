@@ -48,9 +48,22 @@ DROP_SCHEMA = "\n".join(f"DROP TABLE IF EXISTS {table} CASCADE;" for table in IN
 # It is not optional any more: `embeddings.embedding` is a `vector(384)` column, so a database
 # without the extension is not a database this code can build at all, and the one statement that
 # creates it belongs in the one step that always runs.
+# `unaccent` joined them with #12, and it is the one extension here whose reason is a *correctness*
+# claim rather than a capability. `to_tsvector('portuguese', 'cabeçote')` and the same call on
+# `cabecote` produce different lexemes, so a Brazilian who types the word the way Brazilians type it
+# in a hurry matched nothing at all through full text and depended entirely on trigram to be found.
+#
+# Trigram does sometimes rescue that, and the measurement is the reason to stop relying on it: whether
+# it does depends on how much of the *rest* of the query happens to match, not on the misspelt word.
+# `word_similarity('cabecote plainado', ...)` peaks at 0.714 and clears the 0.6 floor; the bare word
+# `cabecote` peaks at 0.500 and is dropped; `torque do parafuso do cabeçote` peaks at 0.357 across all
+# 53 chunks. Same word, three outcomes, decided by sentence length. `unaccent` folds both spellings to
+# one lexeme at index time and at query time, so the hit is a full-text hit with a rank behind it
+# rather than a coin flip against a threshold nobody measured.
 CREATE_EXTENSIONS = """
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS unaccent;
 """
 
 # The one text search configuration this project uses, named once. Both halves of full text have to
@@ -58,7 +71,72 @@ CREATE EXTENSION IF NOT EXISTS vector;
 # ever disagreed, queries would silently stop matching stems the index holds. It is also what a run
 # record cites, because the stemmer behind this name is part of what produced the ranking, so a
 # constant is the only way the record cannot drift from the SQL it claims to describe.
-TEXT_SEARCH_CONFIG = "portuguese"
+#
+# It stopped being `portuguese` with #12 (ADR-0010). The corpus is bilingual — Brazilian forum prose
+# on one side, English service-manual headings and spec tables on the other — and one language's
+# stock configuration treats the other language's function words as content. Under `portuguese`,
+# `what`, `is`, `the`, `of` and `how` are ordinary lexemes, which `plainto_tsquery` then ANDs into
+# every query, and every natural-language English question aimed at a spec table became
+# unsatisfiable by construction.
+TEXT_SEARCH_CONFIG = "garage_bi"
+
+# Created by ingestion, between `DROP_SCHEMA` and `CREATE_SCHEMA`, and the ordering is load bearing:
+# `chunks.tsv` is a generated column that references this configuration **by OID**, so the config
+# cannot be dropped while the table stands (Postgres refuses, or takes the column with it under
+# CASCADE). Dropped and recreated rather than `IF NOT EXISTS`-ed, on the same principle as the rest
+# of this module: the build is a rebuild, so an operator who edits the mapping below gets the edit
+# by re-running ingestion and never by remembering to drop something by hand.
+#
+# `ACCEPT = false` is the whole trick, and it is easy to miss in the documentation. A dictionary
+# chain stops at the first dictionary that *recognises* a token. The `simple` template normally
+# recognises everything — it lowercases and returns — so `simple` anywhere but last would swallow
+# the corpus and leave nothing for the stemmer. With `ACCEPT = false` it returns NULL for anything
+# that is not in its stop word list, which passes the token *down the chain* instead of ending it.
+# So `en_stop` and `pt_stop` here are pure filters: they delete stop words in either language and
+# are otherwise invisible, and `portuguese_stem` still sees every content word.
+#
+# What this deliberately does **not** do is stack `portuguese_stem, english_stem`. That was measured
+# and it cannot work: a Snowball stemmer recognises every token it is given, so the second stemmer
+# in a chain is unreachable code. `to_tsvector` under such a chain returns `'running' 'tightened'
+# 'hous'` — the English words untouched, the Portuguese one stemmed, `english_stem` never consulted.
+# Bilingual *stemming* is not available from a dictionary chain at all; bilingual *stop words* are,
+# and measurement says the stop words were carrying the failure.
+#
+# `unaccent` runs first so that both the accented and the unaccented spelling reach the stop word
+# lists and the stemmer as the same string.
+CREATE_TEXT_SEARCH_CONFIG = f"""
+DROP TEXT SEARCH CONFIGURATION IF EXISTS {TEXT_SEARCH_CONFIG};
+DROP TEXT SEARCH DICTIONARY IF EXISTS garage_en_stop;
+DROP TEXT SEARCH DICTIONARY IF EXISTS garage_pt_stop;
+
+CREATE TEXT SEARCH DICTIONARY garage_en_stop (
+    TEMPLATE = pg_catalog.simple, STOPWORDS = english, ACCEPT = false
+);
+CREATE TEXT SEARCH DICTIONARY garage_pt_stop (
+    TEMPLATE = pg_catalog.simple, STOPWORDS = portuguese, ACCEPT = false
+);
+
+CREATE TEXT SEARCH CONFIGURATION {TEXT_SEARCH_CONFIG} (COPY = pg_catalog.portuguese);
+ALTER TEXT SEARCH CONFIGURATION {TEXT_SEARCH_CONFIG}
+    ALTER MAPPING FOR asciiword, asciihword, hword_asciipart, word, hword, hword_part
+    WITH unaccent, garage_en_stop, garage_pt_stop, portuguese_stem;
+"""
+
+# One reproducibility caveat, written here because it is new with this configuration and nothing in
+# the pipeline can catch it.
+#
+# `unaccent` is not self-contained: it loads its fold table from `unaccent.rules` in the server's
+# `$SHAREDIR/tsearch_data`. That file is part of the *server installation*, not of this repository,
+# so the stored `tsvector` is now a function of one file that neither `corpus_hash` nor
+# `INGEST_VERSION` covers (ADR-0007 covers the material and the rules; this is neither). The same is
+# true of `english.stop` and `portuguese.stop` behind the two dictionaries above.
+#
+# `measurement()` records `postgres_version` and `text_search_dictionaries`, so a server swap that
+# moves the ranking makes the baseline stop comparing — it is *detected*, by way of the version
+# string, and it is not *prevented*. Preventing it would mean shipping our own rules file and
+# pointing the dictionaries at it, which is a real option the day two machines disagree. Nothing
+# measured today says they do: the fixture corpus produces identical metrics on the CI image and on
+# the deployment image, both `pgvector/pgvector:pg16`.
 
 CREATE_SCHEMA = f"""
 CREATE TABLE documents (
@@ -88,8 +166,10 @@ CREATE TABLE chunks (
     text         text NOT NULL,
     jargon_terms text[] NOT NULL DEFAULT '{{}}',
     -- Generated, not populated: lexical retrieval (#5) must search exactly what ingestion stored.
-    -- 'portuguese' because the material is overwhelmingly Brazilian Portuguese; the stemmer being
-    -- wrong for the English headings costs far less than no stemming for the workshop text.
+    -- The configuration is `garage_bi` and is created by ingestion immediately before this
+    -- statement; see `CREATE_TEXT_SEARCH_CONFIG` for why a stock `portuguese` was measurably wrong
+    -- for a corpus half of which is written in English, and `INGEST_VERSION` for why changing it
+    -- was a version bump.
     tsv          tsvector GENERATED ALWAYS AS (to_tsvector('{TEXT_SEARCH_CONFIG}', text)) STORED,
     UNIQUE (doc_id, ordinal)
 );

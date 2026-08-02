@@ -13,6 +13,7 @@ import pytest
 
 from garage.chunking import INGEST_VERSION
 from garage.corpus import FIXTURE_CORPUS, CorpusError
+from garage.database import TEXT_SEARCH_CONFIG
 from garage.ingest import ArtifactMismatch, build, stored_corpus_hash, verify_artifact
 
 DATABASE_URL = os.environ.get("GARAGE_DATABASE_URL")
@@ -49,6 +50,74 @@ def test_rebuilding_is_safe_to_re_run_and_produces_the_same_rows(ingested):
     assert again.chunk_count == ingested.chunk_count
     assert _query("SELECT chunk_id, text FROM chunks ORDER BY chunk_id") == before
     assert _query("SELECT count(*) FROM corpus_meta")[0][0] == 1
+
+
+def test_two_rebuilds_leave_tsv_a_generated_column_over_the_project_s_own_configuration():
+    """The DDL ordering, held as a property, because exactly one ordering works and it looks arbitrary.
+
+    `chunks.tsv` is `GENERATED ALWAYS AS (to_tsvector('garage_bi', text)) STORED`, so it depends on
+    the text search configuration **by OID**. That pins the sequence in `ingest.build` to
+    extensions, drop the tables, drop and recreate the configuration, create the tables — and every
+    other arrangement fails in a way nobody would predict from reading it. Recreate the
+    configuration before dropping `chunks` and Postgres either refuses outright or, with CASCADE,
+    quietly takes the generated column with it and leaves a table that ingests fine and retrieves
+    nothing. The failure is silent at build time and total at query time, which is the worst
+    combination available.
+
+    Twice, and not once, because the first build runs against an empty database where the ordering
+    cannot be wrong. The second is the one that has to drop a live dependency, and it is the one a
+    developer runs every day.
+
+    Its own build rather than the module fixture: this test is about what repeated building does,
+    so sharing a fixture with the tests that assume a built database would make it depend on
+    collection order — the defect `conftest.py` was written to stop repeating.
+    """
+    build(DATABASE_URL, FIXTURE_CORPUS)
+    build(DATABASE_URL, FIXTURE_CORPUS)
+
+    generated, expression = _query(
+        """
+        SELECT is_generated, generation_expression
+        FROM information_schema.columns
+        WHERE table_name = 'chunks' AND column_name = 'tsv'
+        """
+    )[0]
+    assert generated == "ALWAYS"
+    # The configuration name is read out of the stored expression rather than asserted as a literal,
+    # so this follows `database.TEXT_SEARCH_CONFIG` instead of becoming a second declaration of it.
+    assert TEXT_SEARCH_CONFIG in expression
+
+    # And it still holds lexemes, which `is_generated` alone would not tell us: a column that exists
+    # and is empty passes every structural check and returns nothing for every query.
+    populated = _query("SELECT count(*) FROM chunks WHERE tsv IS NOT NULL AND tsv != ''::tsvector")
+    assert populated[0][0] == _query("SELECT count(*) FROM chunks")[0][0]
+
+
+def test_the_search_configuration_folds_accents_and_drops_stop_words_in_both_languages():
+    """`garage_bi` itself, asserted against the server rather than against the DDL that asked for it.
+
+    Three claims, and each was a measured failure of the stock `portuguese` configuration (#12):
+    `unaccent` reaches the same lexeme from `cabecote` and `cabeçote`; English function words are
+    dropped instead of becoming mandatory query terms; Portuguese ones still are too. The third is
+    there because it is the one a careless mapping would break — reordering the dictionaries so that
+    `garage_en_stop` accepted everything would leave Portuguese stop words in the index and nothing
+    in this suite would otherwise notice.
+    """
+    build(DATABASE_URL, FIXTURE_CORPUS)
+
+    folded = _query(
+        f"SELECT to_tsvector('{TEXT_SEARCH_CONFIG}', 'cabecote') = "
+        f"to_tsvector('{TEXT_SEARCH_CONFIG}', 'cabeçote')"
+    )[0][0]
+    assert folded
+
+    for stop_words in ("what is the of and how", "o a de para com que"):
+        empty = _query(f"SELECT to_tsvector('{TEXT_SEARCH_CONFIG}', %s) = ''::tsvector", (stop_words,))
+        assert empty[0][0], stop_words
+
+    # Stemming survives the two filter dictionaries, which is the whole reason they are declared
+    # `ACCEPT = false`. Without it `simple` would consume every token and this would be `torques`.
+    assert _query(f"SELECT to_tsvector('{TEXT_SEARCH_CONFIG}', 'torques')::text")[0][0] == "'torqu':1"
 
 
 def test_the_corpus_hash_is_stored_and_readable(ingested):

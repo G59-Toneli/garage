@@ -9,27 +9,58 @@ Two implementations live here now, and the pair is the point: the benchmark cann
 until there is something to compare.
 
 `LexicalRetriever` is the first implementation: Postgres full text over the stored `tsvector`, plus
-trigram matching for what full text structurally cannot reach. Both are needed. Stemming finds
-`torques` from `torque`; it does nothing at all for `cabecote` written without its cedilla, or for
-`kadet` with one `t` — and Brazilian workshop text is full of both (`jargon._fold` exists for the
-same reason). Trigram similarity is what recovers those, at the cost of matching some noise, which
-is why the two scores are combined rather than either being used alone.
+trigram matching for what full text structurally cannot reach. Both are needed, though the division
+of labour changed with #12. Full text now searches under `garage_bi`
+(`database.CREATE_TEXT_SEARCH_CONFIG`), which folds accents through `unaccent` before stemming, so
+`cabecote` written without its cedilla is a full-text hit today.
 
-`DenseRetriever` is the second, and it exists to pay a specific debt. The lexical arm scores 0.91 on
-keyword phrasings and **0.07** on natural-language ones, because the questions are Portuguese
-sentences and half the corpus is English headings — a gap no amount of stemming closes, because
-stemming has no idea that `flywheel` and `volante do motor` are the same part. A multilingual
-embedder does, and that number is the whole reason this class was written.
+This paragraph used to say that dropped accents were the *trigram* arm's job, and that was true only
+by accident. Trigram reaches an unaccented word when enough of the rest of the sentence matches and
+not otherwise: `cabecote plainado` peaks at `word_similarity` 0.714 and clears the floor, the bare
+word `cabecote` peaks at 0.500 and is dropped, and `torque do parafuso do cabeçote` peaks at 0.357
+across all 53 chunks. One word, three outcomes, decided by sentence length rather than by spelling.
+`unaccent` makes it a full-text hit with a rank behind it in all three cases. What trigram still
+carries on its own is genuine misspelling — `kadet` with one `t` — and partial terms, which no
+dictionary folds; it fires above the floor for 31 of the 76 fact questions, so it is a live signal
+and not a decoration.
+
+`DenseRetriever` is the second, and it exists to pay a specific debt — a debt #12 has now partly
+settled from the lexical side, which changes what the pair is for rather than removing the reason
+for it. The lexical arm scored 0.91 on keyword phrasings and **0.07** on natural-language ones; with
+the query shape below it scores 1.00 and 0.76. Almost all of the remainder is one thing, and it is
+the thing dense exists for. Take the 21 natural-language questions written in Portuguese and split
+them by the language the *target document* is written in: corrected lexical finds 9 of the 11 whose
+answer is in Portuguese material and 3 of the 10 whose answer is in the English manual, and the
+three are cognates (`torque`, `motor`) rather than translation. No parser of tsqueries will ever
+learn that `flywheel` and `volante do motor` are the same part. A multilingual embedder has, and
+that is now the *whole* of the remaining gap rather than most of a general one.
+
+Which makes the two arms complementary in a way worth stating, because the `hybrid` strategy is
+supposed to exploit it: corrected lexical reaches **0.952** on natural English questions and
+**0.571** on natural Portuguese ones — a spread of 0.38 in one direction — while dense's overall
+natural recall of 0.810 is not built that way. They fail on different questions, which is the
+premise fusion needs and the reason neither arm is on its way out.
 
 The two are deliberately *not* the same shape underneath, and one difference matters enough to state
-here rather than bury: **dense does not abstain.** `LexicalRetriever` drops trigram matches below
-`WORD_SIMILARITY_FLOOR`, which is what lets a question the corpus does not cover retrieve nothing at
-all; nearest-neighbour search has no such notion and always returns its k least-distant vectors,
+here rather than bury: **dense does not abstain.** `LexicalRetriever` returns nothing when neither
+signal fires — no lexeme of the question is in any chunk, and no trigram match clears
+`WORD_SIMILARITY_FLOOR` — which is what lets a question the corpus does not cover retrieve nothing
+at all; nearest-neighbour search has no such notion and always returns its k least-distant vectors,
 however distant. No floor is invented here, because there is no measurement to set one from and a
 threshold picked to look right is a number the gate would then be defending. The consequence is
 real and documented in `docs/retrieval.md`: the zero-cost abstention in `app._answer` is reachable
 under `lexical` and unreachable under `dense`, and the gate is the thing that will show what that
 costs.
+
+That abstention is **weaker after #12 and deliberately kept**. Over the 76 fact questions it fired
+42 times before and fires 3 times now, because the OR fallback changed the bar from "some term of
+the question did not match" to "no term of the question matched anything". The 39 it lost were
+mostly not abstentions at all — they were a working retriever refusing to answer questions the
+corpus does answer, which is the defect #12 reports. What remains is the honest case, and it is
+still a real one: nothing in this corpus mentions a turbocharger wastegate actuator, so no lexeme of
+that question is in any tsvector and the retriever says so by returning nothing. Buying recall by
+deleting the property would have been the easy version of this change; ADR-0010 argues why the
+narrower version was worth the extra CTE.
 
 No language model anywhere here, deliberately: retrieval that can only be judged through a generator
 cannot be measured, and measuring it is the point (ADR-0004). An embedder is not an exception to
@@ -77,6 +108,23 @@ RRF_K = 60
 # chunk, which is the right question when a five-word question meets a two-hundred-word paragraph;
 # plain `similarity()` would divide by the length of the chunk and score every long one to zero.
 # Below this, a match is coincidence — the trigrams shared by any two Portuguese sentences.
+#
+# **Left alone by #12, on purpose**, and the reason is not that the signal is inert — an earlier
+# draft of this comment claimed that and it is false. Measured over the 76 fact questions, 31 of them
+# have at least one chunk above 0.6, so the floor is decided and is deciding.
+#
+# What 0.6 does not have is a *measurement*, and the distribution it sits in is bimodal enough that
+# guessing again would be no better. Of the 76, **11 reach exactly 1.000** — a keyword question can be
+# a literal substring of a spec row — and the 45 that fall short spread from 0.172 to 0.591, which
+# includes a question that misses the floor by nine thousandths. So the value is deciding real
+# outcomes and nobody knows whether it is deciding them correctly, which is an argument for measuring
+# it rather than for nudging it — and #13 changes the distribution underneath it anyway. A floor
+# picked today is a floor #13 invalidates, and in the meantime the gate would be defending it. When
+# there is a measurement, this line changes with a baseline behind it.
+#
+# (An earlier draft of this comment said five reached 1.000. It was eleven. Correcting an unmeasured
+# claim with another unmeasured claim is the defect this whole change is about, so the counts above
+# are `select max(word_similarity(question, text)) from chunks` over `eval/facts.jsonl`, run.)
 WORD_SIMILARITY_FLOOR = 0.6
 
 DEFAULT_K = 10
@@ -180,20 +228,73 @@ _CHUNK_COLUMNS = """
 # Full text and trigram, per chunk, with the tier filter applied inside the SQL. `Filters` is part
 # of the `Retriever` contract and applying it in Python would mean a retriever that returns fewer
 # than k results for a tier-narrowed query — a comparison that means nothing.
+#
+# The full-text half is **strict AND with an OR fallback**, and the shape is the answer to #12 rather
+# than a flourish. `plainto_tsquery` requires every lexeme, which is right when the question is
+# keywords and catastrophic when it is a sentence: 42 of 76 fact questions retrieved literally
+# nothing. Always OR-ing instead fixes recall (0.447 -> 0.842) and pays for it at the top of the
+# list, because a one-word coincidence now ranks — r@1 0.612 against 0.704 for the shape below, and
+# 7.0 candidates returned per question against 4.1. Trying AND first and falling back only when it
+# matched nothing keeps the 34 keyword questions exactly as surgical as they were and spends the OR
+# only where the alternative was an empty page (ADR-0010).
+#
+# It also keeps the abstention, which is the property that distinguishes this retriever from
+# `DenseRetriever` and the reason the zero-cost path in `app._answer` is reachable at all. Weaker
+# than it was, and honestly so: 42 empty results become 3. What survives is genuine — a question
+# about a turbocharger wastegate actuator still returns nothing under OR, because *no* content word
+# of it is anywhere in the corpus — but the bar moved from "not every term matched" to "not one term
+# matched", and that is a real loss of margin recorded in ADR-0010 rather than glossed.
 _LEXICAL_SCORED = f"""
 parsed AS (
-    -- The same configuration the stored `tsvector` was built with, from the same constant. A query
-    -- parsed under a different stemmer than the index would silently stop matching it.
-    SELECT plainto_tsquery('{TEXT_SEARCH_CONFIG}', %(query)s) AS tsq
+    -- Two readings of the same question, both under the same configuration the stored `tsvector`
+    -- was built with, from the same constant. A query parsed under a different stemmer than the
+    -- index would silently stop matching it.
+    SELECT
+        -- Every content word required. This is the precise reading and it stays the default.
+        plainto_tsquery('{TEXT_SEARCH_CONFIG}', %(query)s) AS strict_tsq,
+        -- Any content word will do. Built by unnesting `to_tsvector` under the *same*
+        -- configuration rather than by a second parser, so the lexemes here are byte for byte the
+        -- lexemes the index holds: stop words are already gone, stemming has already happened,
+        -- accents are already folded. Nothing can diverge between the two readings, because only
+        -- one of them does any parsing.
+        (
+            SELECT string_agg(quote_literal(lexeme), ' | ')
+            FROM unnest(to_tsvector('{TEXT_SEARCH_CONFIG}', %(query)s))
+        )::tsquery AS loose_tsq
+),
+strict AS (
+    -- The fallback fires on **zero rows**, not on an empty tsquery, and the difference is the
+    -- entire fix. A question like `what torque for the cylinder head bolts in stage 1` parses to a
+    -- perfectly well-formed conjunction; it just happens to match nothing, because a spec table row
+    -- reads `| Cylinder head bolt, stage 1 | M11 | 41 |` and contains no `for`. Testing the tsquery
+    -- for emptiness would have declared that query fine and returned nothing, which is the bug.
+    SELECT count(*) AS hits
+    FROM chunks
+    CROSS JOIN parsed
+    WHERE chunks.tier = ANY(%(tiers)s)
+      AND chunks.tsv @@ parsed.strict_tsq
+),
+chosen AS (
+    -- One statement, one round trip, no parsing in Python. The whole ranking still lives in the
+    -- database, which is the property that lets `dense` and `hybrid` be the same shape.
+    SELECT
+        CASE
+            WHEN strict.hits > 0 THEN parsed.strict_tsq
+            -- `COALESCE` because `string_agg` over an empty tsvector is NULL: a question made
+            -- entirely of stop words has no loose reading either, and must fall back to the empty
+            -- conjunction rather than to NULL, which would make `ts_rank_cd` null for every row.
+            ELSE COALESCE(parsed.loose_tsq, parsed.strict_tsq)
+        END AS tsq
+    FROM parsed CROSS JOIN strict
 ),
 scored AS (
     SELECT
         {_CHUNK_COLUMNS},
-        ts_rank_cd(chunks.tsv, parsed.tsq) AS lexical,
+        ts_rank_cd(chunks.tsv, chosen.tsq) AS lexical,
         word_similarity(%(query)s, chunks.text) AS trigram
     FROM chunks
     JOIN documents ON documents.doc_id = chunks.doc_id
-    CROSS JOIN parsed
+    CROSS JOIN chosen
     WHERE chunks.tier = ANY(%(tiers)s)
 )
 """

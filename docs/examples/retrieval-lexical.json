@@ -1,0 +1,173 @@
+{
+  "capture_version": 1,
+  "k": 5,
+  "queries": [
+    {
+      "chunk_count": 5,
+      "chunks": [
+        {
+          "chunk_id": "svc-kadett-1993#0001",
+          "components": {
+            "lexical": 0.7,
+            "lexical_rank": 1.0,
+            "trigram": 0.49315068,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.011475409836065573,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0002",
+          "components": {
+            "lexical": 0.6,
+            "lexical_rank": 2.0,
+            "trigram": 0.45333335,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0003",
+          "components": {
+            "lexical": 0.4,
+            "lexical_rank": 3.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.011111111111111112,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0004",
+          "components": {
+            "lexical": 0.3,
+            "lexical_rank": 4.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.0109375,
+          "tier": "A"
+        },
+        {
+          "chunk_id": "svc-kadett-1993#0005",
+          "components": {
+            "lexical": 0.3,
+            "lexical_rank": 4.0,
+            "trigram": 0.328125,
+            "trigram_rank": null
+          },
+          "doc_id": "svc-kadett-1993",
+          "doc_title": "Manual de Serviço — Kadett GSi 2.0 MPFI",
+          "kind": "spec",
+          "page": null,
+          "score": 0.0109375,
+          "tier": "A"
+        }
+      ],
+      "question": "What torque should the cylinder head bolts be tightened to in stage 1?"
+    },
+    {
+      "chunk_count": 5,
+      "chunks": [
+        {
+          "chunk_id": "forum-swap-250s#0006",
+          "components": {
+            "lexical": 0.2,
+            "lexical_rank": 1.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.011475409836065573,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "blog-projetinho-de-rua#0005",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "blog-projetinho-de-rua",
+          "doc_title": "Blog Garagem 59 — dois anos com um Kadett GSi",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0002",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.25641027,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0007",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.32142857,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        },
+        {
+          "chunk_id": "forum-swap-250s#0008",
+          "components": {
+            "lexical": 0.1,
+            "lexical_rank": 2.0,
+            "trigram": 0.35714287,
+            "trigram_rank": null
+          },
+          "doc_id": "forum-swap-250s",
+          "doc_title": "Fórum Opala & Cia — vale a pena swap 250-S no Kadett?",
+          "kind": "prose",
+          "page": null,
+          "score": 0.01129032258064516,
+          "tier": "B"
+        }
+      ],
+      "question": "torque do parafuso do cabeçote"
+    }
+  ],
+  "strategy": "lexical",
+  "tiers": [
+    "A",
+    "B"
+  ]
+}

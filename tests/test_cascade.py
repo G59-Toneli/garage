@@ -30,6 +30,7 @@ from test_app import (
     settings,  # noqa: F401 — a fixture, used by name
 )
 from test_showcase import (
+    IDENTITY,
     QUESTION,
     CountingGenerator,
     ExplodingGenerator,
@@ -73,6 +74,11 @@ def curated(offline, settings, tmp_path):  # noqa: F811
 
 def client(settings, *, retriever=None, generator=None, monkeypatch):  # noqa: F811
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # The showcase boot gate reads the live text search configuration when a record is committed
+    # (ADR-0010), and the `curated` fixture commits one. Stubbed with the values `PROVENANCE` gives
+    # those records, so the cascade tests exercise a record that *does* describe this build — which
+    # is the precondition for every assertion in this file about the precomputed origin.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
     return TestClient(
         create_app(
             settings,

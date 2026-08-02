@@ -179,6 +179,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="actually spend the money. Without it the command prints the plan and stops",
     )
 
+    # The documentation's one measured example, produced by the same retriever the service runs.
+    # A subcommand and not a script in `tools/`, because the property it holds — the block in
+    # `docs/retrieval.md` is a capture and not a composition (#12) — is a property of this build,
+    # and a script nobody installs is a property nobody re-establishes.
+    docs = commands.add_parser("docs", help="documentation artifacts").add_subparsers(
+        dest="docs_command", required=True
+    )
+    docs_capture = docs.add_parser(
+        "capture",
+        help="run the real retriever and rewrite the captured example in docs/retrieval.md",
+    )
+    _add_database_argument(docs_capture)
+
     # A subcommand rather than a `curl` line in the Dockerfile and another in `ci.yml`. The sha256
     # digests are the load-bearing part of vendoring model weights, and a digest maintained in three
     # places is a digest that is wrong in two of them — the same argument that moved `pg_trgm` and
@@ -202,6 +215,7 @@ def _build_parser() -> argparse.ArgumentParser:
     eval_gate.set_defaults(handler=_eval_gate)
     eval_promote.set_defaults(handler=_eval_promote)
     showcase_build.set_defaults(handler=_showcase_build)
+    docs_capture.set_defaults(handler=_docs_capture)
     embedder_fetch.set_defaults(handler=_embedder_fetch)
     embedder_show.set_defaults(handler=_embedder_show)
     commands.add_parser("serve", help="run the read-only HTTP server").set_defaults(handler=_serve)
@@ -586,6 +600,29 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
                 f"displayed #{arm.displayed_sample}"
             )
     print(f"record:      {path}")
+    return 0
+
+
+def _docs_capture(arguments: argparse.Namespace) -> int:
+    """Re-measure the documented example and write it into the document. Free, local, no model.
+
+    Run it after anything that could move a lexical ranking, and commit the two files it touches
+    together — `tests/test_capture.py` fails on the pair being out of step, which is the point.
+    """
+    from garage.capture import CaptureError, refresh
+
+    database_url = _resolve_database_url(arguments)
+    if database_url is None:
+        return 1
+
+    try:
+        artifact, document = refresh(database_url)
+    except CaptureError as failure:
+        print(f"capture failed\n{failure}", file=sys.stderr)
+        return 1
+
+    print(f"captured: {artifact}")
+    print(f"rewrote:  {document}")
     return 0
 
 

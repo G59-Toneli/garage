@@ -27,6 +27,7 @@ from garage.evaluation import (
     run_evaluation,
     verify_chunk_ids,
 )
+from garage.chunking import INGEST_VERSION
 from garage.database import TEXT_SEARCH_CONFIG
 from garage.ingest import build
 
@@ -82,7 +83,10 @@ def test_the_run_record_cites_the_artifact_the_database_actually_holds(record):
     # manifest is what we expected, the artifact is what we measured (ADR-0002, ADR-0007).
     assert record.provenance.corpus_id == "fixture"
     assert len(record.provenance.corpus_hash) == 64
-    assert record.provenance.ingest_version == 1
+    # The constant rather than a literal. It was `1` written out here, which meant ADR-0010's bump
+    # broke a test whose subject is not the version number at all — and worse, a literal invites the
+    # next person to "fix" it by editing this line, which is precisely the check being defeated.
+    assert record.provenance.ingest_version == INGEST_VERSION
     assert record.provenance.postgres_version and record.provenance.pg_trgm_version
     # The configuration the search ran under, not the server default. Recording the default was a
     # defect: nothing in this pipeline reads it, so it could not detect a change that mattered.
@@ -99,11 +103,22 @@ def test_the_run_record_reports_every_metric_the_suite_promises(record):
         "value_match@1",
         f"recall@{EVAL_K}:keyword",
         f"recall@{EVAL_K}:natural",
+        # Ungated, and in the record all the same (ADR-0010). Listed here because this test's job is
+        # "every metric the suite promises", and a metric that is reported but not enumerated
+        # anywhere is one an edit can delete without a red build.
+        f"precision@{EVAL_K}",
+        f"candidates@{EVAL_K}",
     }
     arm = record.arms[0]
 
     assert set(arm.metrics) == expected
-    assert all(0.0 <= value <= 1.0 for value in arm.metrics.values())
+    # `candidates@10` is a count and not a rate — it is the mean size of the returned list, bounded
+    # by `k` rather than by 1. The range check is stated per metric rather than loosened for all of
+    # them, because "every score is a fraction" is a real property of the other seven and dropping
+    # it to accommodate the eighth would stop catching a fraction that isn't one.
+    rates = {name: value for name, value in arm.metrics.items() if name != f"candidates@{EVAL_K}"}
+    assert all(0.0 <= value <= 1.0 for value in rates.values())
+    assert 0.0 <= arm.metrics[f"candidates@{EVAL_K}"] <= EVAL_K
     assert record.sample_count == len(arm.per_item) == len(load_facts())
 
 
@@ -146,9 +161,23 @@ def test_the_suite_is_neither_trivial_nor_impossible(record):
     # passes cannot detect an improvement; a suite nothing passes cannot detect a regression. The
     # gate itself compares against the promoted baseline — this only asserts the suite has room in
     # both directions.
-    recall = record.arms[0].metrics["recall@10"]
-
-    assert 0.15 < recall < 0.85
+    # **Every arm**, not `arms[0]`. It read the first arm, which is always `lexical`, so `dense` has
+    # never been covered since the day it landed — and `dense` has scored 0.894737 from that day,
+    # which means it would have failed the old 0.85 ceiling immediately had anything looked. A
+    # triviality check that only inspects the weaker arm cannot detect the thing it is for, because
+    # the fact set being too easy shows up in the *strongest* arm first.
+    #
+    # The ceiling moved from 0.85 to 0.95 with ADR-0010, which took `lexical` from 0.447 to 0.868 and
+    # pushed it through the old bound. Raising a bound because the code got better is exactly the
+    # move this file should be suspicious of, so the reasoning is written down rather than assumed:
+    # this is a check for a *fact set shaped to fit the retriever*, which is what happened before #6.
+    # `facts_sha256` and `sample_count` are byte-identical across the change, so the questions did not
+    # move — the retriever did. The suite is not trivial at 0.868 either: ten of the 76 questions miss
+    # entirely and the arm scores 0.571 on natural Portuguese ones. 0.95 still fires on a rewritten
+    # question set while no longer firing on a genuine improvement, and it now fires for any arm.
+    for arm in record.arms:
+        recall = arm.metrics["recall@10"]
+        assert 0.15 < recall < 0.95, f"{arm.configuration.strategy}: recall@10 {recall}"
 
 
 def test_the_committed_baseline_describes_a_run_record_that_is_in_the_tree():

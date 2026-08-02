@@ -14,7 +14,7 @@ full rebuild and always safe to re-run:
 ```
 corpus_id:      fixture
 corpus_hash:    21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
-ingest_version: 1
+ingest_version: 2
 documents:      5
 chunks:         53 (procedure 6, prose 26, spec 21)
 jargon terms:   12
@@ -44,7 +44,9 @@ boundary — text on the far side of a heading is a different subject, not conte
 Chunking is deterministic. The same bytes produce the same `chunk_id`s (`<doc_id>#<ordinal>`) in the
 same order, which is what lets an evaluation set point at a `chunk_id` and still mean something after
 a rebuild. Change the rules and `INGEST_VERSION` in `src/garage/chunking.py` goes up, because chunks
-already in a database were not built by the new rules.
+already in a database were not built by the new rules. It is at **2**: the chunk text did not change
+with ADR-0010, but `chunks.tsv` is *stored*, and a version-1 database holds a `tsvector` built under
+a configuration this code no longer uses.
 
 Input is Markdown. Real Tier A material arrives as PDF; the extraction step that produces this
 intermediate form lands with the real corpus, and chunking is written against the intermediate form
@@ -76,8 +78,14 @@ embeddings(chunk_id fk, model_key, embedding vector(384))       -- pk (chunk_id,
 embeddings_meta(model_key pk, dimension, fingerprint, normalized, built_at)
 ```
 
-`tsv` is a generated column (`to_tsvector('portuguese', text)`) with a GIN index, so lexical
-retrieval searches exactly what ingestion stored. `tier` is denormalised onto `chunks` on purpose:
+`tsv` is a generated column (`to_tsvector('garage_bi', text)`) with a GIN index, so lexical
+retrieval searches exactly what ingestion stored. `garage_bi` is this project's own text search
+configuration, created by ingestion itself between the drop and the create — `portuguese` with
+`unaccent` in front of the stemmer and stop word lists for **both** languages, because half the
+material is English and one language's stock configuration treats the other's function words as
+content ([ADR-0010](adr/0010-lexical-search-tries-strict-and-before-loose-or.md)). The ordering is
+not cosmetic: the generated column references the configuration by OID, so the configuration can
+only be recreated while no `chunks` table stands. `tier` is denormalised onto `chunks` on purpose:
 the tier filter is a runtime axis applied to every query and must not cost a join.
 
 ## Embeddings
