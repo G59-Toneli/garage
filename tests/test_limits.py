@@ -218,3 +218,24 @@ def test_taking_the_first_forwarded_element_would_be_the_spoofable_choice():
     """
     header = "attacker-chosen, 203.0.113.7"
     assert client_address(header, "10.0.0.5", trust_forwarded_for=True) == "203.0.113.7"
+
+
+def test_zero_means_the_opposite_for_a_budget_and_that_is_deliberate():
+    """The asymmetry, asserted rather than left to read like an inconsistency.
+
+    `requests_per_minute=0` disables the anti-abuse bucket; either generation budget at zero refuses
+    everything. Both readings are wanted: a bucket of zero requests a minute is a policy nobody
+    wants, and a budget of zero generations is exactly how this site runs with retrieval and the
+    precomputed showcase and no provider spend at all. Making the second mean "unlimited" would turn
+    the safest configuration into the most expensive one.
+    """
+    open_bucket = Limiter(requests_per_minute=0, generation_budget_per_day=5)
+    assert all(open_bucket.admit_request("ip", at(0)).allowed for _ in range(50))
+
+    closed_global = Limiter(requests_per_minute=0, generation_budget_per_day=0)
+    refused = closed_global.admit_generation("ip", NOON)
+    assert (refused.allowed, refused.reason) == (False, "global_daily")
+
+    closed_client = Limiter(generations_per_day_per_client=0, generation_budget_per_day=100)
+    refused = closed_client.admit_generation("ip", NOON)
+    assert (refused.allowed, refused.reason) == (False, "client_daily")

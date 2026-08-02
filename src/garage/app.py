@@ -345,9 +345,16 @@ class ProvenanceResponse(BaseModel):
     # no `GARAGE_GIT_SHA`. Never invented: `unknown` is printed as `unknown`.
     git_sha: str
     version: str
+    # Whether this build holds a `Generator` at all. Published beside the budget and not folded into
+    # it, because a retrieval-only deployment is a *supported configuration* rather than a quota of
+    # zero, and the two must not read alike. Without this field the site announced "200 de 200
+    # gerações restantes hoje" on a service that cannot generate anything — a budget for a thing it
+    # does not do.
+    generation_configured: bool
     # The generation budget as it stands right now, published to anyone who asks. A visitor watching
     # the number fall is a visitor who is not surprised when the answers stop being live — and an
-    # operator can read the state of the quota without shelling into the VM.
+    # operator can read the state of the quota without shelling into the VM. Meaningless, and
+    # labelled as such by the flag above, when no generator exists.
     budget: dict[str, int | str]
 
 
@@ -502,6 +509,7 @@ def create_app(
             ingest_version=artifact.ingest_version,
             git_sha=http.app.state.git_sha,
             version=__version__,
+            generation_configured=generator is not None,
             budget=limiter.snapshot(_utcnow()),
         )
 
@@ -626,6 +634,14 @@ def create_app(
             if hit is not None:
                 return hit.payload.model_copy(
                     update={
+                        # The question **this** visitor typed, not the one the first visitor typed.
+                        # Two strings that normalise to the same key can differ in case and spacing,
+                        # and the cached payload carries whoever asked first. Echoing that back
+                        # would print `torque do cabeçote` to somebody who typed
+                        # `TORQUE  DO  CABEÇOTE` — a small dishonesty in exactly the place
+                        # `cache.py` promises the raw string is preserved, and the reason accents
+                        # are deliberately not folded in the first place.
+                        "question": query_request.question,
                         "origin": "cache",
                         "origin_detail": {
                             "key": key[:16],
@@ -923,6 +939,10 @@ def _live_detail(
     """
     return {
         "key": key[:16],
+        # `decision is None` means no `Generator` was ever constructed, so the budget numbers below
+        # describe a resource this build cannot spend. The band reads this and says "geração não
+        # configurada neste build" instead of counting down a quota that will never move.
+        "generation_configured": decision is not None,
         "refusal": decision.reason if (refused and decision is not None) else None,
         "rerun": rerun,
         # True only when the visitor asked for a live re-run and the budget said no *and* there was

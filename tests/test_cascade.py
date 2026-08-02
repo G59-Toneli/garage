@@ -428,3 +428,49 @@ def test_behind_a_trusted_proxy_the_forwarded_address_is_the_client(monkeypatch,
 
     assert one["origin"] == two["origin"] == "live"
     assert again["origin_detail"]["refusal"] == "client_daily"
+
+
+def test_a_cache_hit_echoes_the_question_this_visitor_typed(monkeypatch, settings):  # noqa: F811
+    """The cached payload carries whoever asked first. Echoing that back is a small lie.
+
+    `cache.py` argues at length that accents are deliberately not folded because the question travels
+    back out on the response and is printed on screen — and then the cache served the *first*
+    asker's spelling to everyone who followed. Case and spacing normalise to the same key on purpose;
+    they must not normalise on the way back out.
+    """
+    generator = FakeGenerator()
+    typed_first = "torque do cabeçote"
+    typed_second = "  TORQUE   DO   CABEÇOTE  "
+    with client(settings, generator=generator, monkeypatch=monkeypatch) as http:
+        first = ask(http, question=typed_first)
+        second = ask(http, question=typed_second)
+
+    # Same key — one model call, not two.
+    assert (first["origin"], second["origin"]) == ("live", "cache")
+    assert len(generator.calls) == 1
+    # Different echo. Each visitor reads back what they wrote.
+    assert first["question"] == typed_first
+    assert second["question"] == typed_second
+
+
+def test_a_build_with_no_generator_does_not_advertise_a_generation_budget(monkeypatch, settings):  # noqa: F811
+    """A retrieval-only deployment is a supported configuration, not a quota of two hundred.
+
+    Without this flag the origin band announced "200 de 200 gerações restantes hoje" on a service
+    that cannot generate anything, which is a budget for a thing it does not do. The numbers stay on
+    the wire — an operator may still want them — but the interface is told not to make the claim.
+    """
+    with client(settings, monkeypatch=monkeypatch) as http:
+        body = ask(http)
+        provenance = http.get("/provenance").json()
+
+    assert body["origin"] == "live" and body["answer"] is None
+    assert body["origin_detail"]["generation_configured"] is False
+    assert provenance["generation_configured"] is False
+
+    with client(settings, generator=FakeGenerator(), monkeypatch=monkeypatch) as http:
+        configured = ask(http)
+        provenance = http.get("/provenance").json()
+
+    assert configured["origin_detail"]["generation_configured"] is True
+    assert provenance["generation_configured"] is True

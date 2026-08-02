@@ -471,3 +471,16 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
 /* The permanent caveat under every re-run. Never collapsed, never abbreviated. */
 .footnote { border-top: 1px dashed var(--line); padding-top: 0.4rem; margin-top: 0.6rem; }
 .rerun-latency { font-style: italic; }
+
+/* Half of the re-run happened and half did not. Neutral, never an error frame: retrieval ran, the
+   strong comparison above succeeded, and "no model was called" is a fact about the build rather
+   than a failure. Dashed, like every other absence in this interface. */
+.rerun-absent {
+  border: 1px dashed var(--line);
+  border-left: 4px dashed var(--muted);
+  border-radius: 3px;
+  padding: 0.45rem 0.6rem;
+  color: var(--muted);
+}
+.rerun-absent strong { color: var(--ink); }
+.rerun-absent p { margin: 0.3rem 0 0; font-size: 0.9rem; }

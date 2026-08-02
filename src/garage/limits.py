@@ -49,6 +49,22 @@ arithmetic and never across I/O.
 Everything below takes `now` as an argument. There is no `time.time()` call in this module, which is
 what makes a day boundary, a bucket refill and an eviction testable as pure arithmetic rather than
 as a test that sleeps.
+
+## Zero means two different things, on purpose
+
+`requests_per_minute=0` **disables** the anti-abuse bucket. `generations_per_day_per_client=0` and
+`generation_budget_per_day=0` **refuse everything**.
+
+The asymmetry is deliberate and is written here because it is the kind of thing that reads like an
+inconsistency until you need both. A bucket of zero requests a minute is not a policy anybody wants —
+it would make the service answer nothing at all — so the value is free to mean "no bucket", which is
+what the test suite and a private deployment want. A generation budget of zero *is* a policy somebody
+wants: it is exactly how an operator runs this site with retrieval and the precomputed showcase and
+no provider spend, and it is how `tests/test_cascade.py` reaches the degraded branch. Making that
+mean "unlimited" would turn the safest possible configuration into the most expensive one.
+
+`.env.example` and `docs/deploy.md` say the same thing, because whoever sets these values is reading
+those and not this.
 """
 
 from __future__ import annotations
@@ -173,6 +189,11 @@ class Limiter:
             # Zero means "no anti-abuse bucket", which is what the test suite and a private
             # deployment want. Spelled as a disabling value rather than as a separate flag, so there
             # is one number to read instead of a number and a boolean that can disagree.
+            #
+            # **This is the opposite of what zero means for the two generation budgets**, where it
+            # refuses everything. See the module docstring: a bucket of zero requests a minute is a
+            # policy nobody wants, while a budget of zero generations is a policy several people
+            # want — it is how you run this site with no provider spend at all.
             return RequestDecision(allowed=True)
         seconds = now.timestamp()
         refill_per_second = capacity / 60.0
@@ -203,6 +224,11 @@ class Limiter:
         Two counters move together or neither moves. Checking both and then incrementing both would
         leave a window where the global budget was spent on a client that turned out to be over its
         own limit — a generation debited against a request that was refused.
+
+        Either limit set to **zero refuses every generation**, which is the opposite of what zero
+        does to the anti-abuse bucket and is argued in the module docstring. It is a supported
+        configuration, not a footgun: it is how this site runs with retrieval and the precomputed
+        showcase and no provider spend.
 
         The client counter is checked first, so a single hammering address is reported as the client
         limit rather than as the global one. The distinction matters on screen: "you have used your

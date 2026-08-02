@@ -14,6 +14,7 @@ Everything runs against `TestClient`, which is `httpx` over the ASGI app, with t
 
 import json
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,6 +32,11 @@ from test_app import (
     candidate,
     settings,  # noqa: F401 — a fixture, used by name
 )
+
+# `deploy/` is scanned by the CSP guard below. Resolved from this file rather than from the working
+# directory, so `pytest` from any cwd finds it — and named here because the defect it now catches was
+# invisible precisely because the old guard only knew about `static/`.
+DEPLOY_DIR = Path(__file__).resolve().parents[1] / "deploy"
 
 QUERY_RESPONSE_KEYS = {
     # Issue #11. These two are what let the screen say whether a number was measured for this
@@ -97,6 +103,10 @@ GENERATED_ANSWER_KEYS = {
 # "showcase: —" beside a live number.
 LIVE_ORIGIN_DETAIL_KEYS = {
     "key",
+    # Whether this build holds a generator at all. The band reads it to decide between counting the
+    # budget down and saying the budget does not apply — without it a retrieval-only deployment
+    # advertised "200 de 200 gerações restantes hoje".
+    "generation_configured",
     "refusal",
     "rerun",
     "rerun_refused",
@@ -135,7 +145,15 @@ CACHE_ORIGIN_DETAIL_KEYS = {
     "misses",
 }
 
-PROVENANCE_KEYS = {"corpus_id", "corpus_hash", "ingest_version", "git_sha", "version", "budget"}
+PROVENANCE_KEYS = {
+    "corpus_id",
+    "corpus_hash",
+    "ingest_version",
+    "git_sha",
+    "version",
+    "generation_configured",
+    "budget",
+}
 
 CLAIM_KEYS = {"text", "citations", "supported"}
 CITATION_KEYS = {"index", "chunk_id"}
@@ -384,6 +402,29 @@ def test_no_module_in_the_interface_interpolates_into_innerhtml():
     assert offenders == []
 
 
+# Every way this codebase can write CSS that `style-src 'self'` will silently refuse. Four patterns
+# and not one, because the first version of this guard matched ``style: ` `` alone and a review
+# demonstrated five realistic reintroductions against it: only the backtick form was caught.
+#
+# Two of the five — `style: "left:0"` and `style: someVariable` — are also stopped at runtime by the
+# `throw` in `dom.el`, loudly, on the first render in development. **Two are not**:
+# `setAttribute("style", …)` and `node.style.cssText = …` bypass the helper entirely and fail
+# nowhere except behind Caddy, in production, invisibly. Those are the reason this is a build gate
+# rather than a convention.
+#
+# `style\s*:(?!\s*\{)` is the general form: it permits `style: {left: 42}`, the CSSOM channel, and
+# rejects every other value shape including a bare identifier. The lookahead swallows the whitespace
+# itself rather than sitting behind a `\s*` — written the other way round the `\s*` backtracks to
+# empty, the lookahead then reads a space instead of the brace, and every correct call site is
+# reported as an offender. That is not hypothetical: it is what the first draft of this tuple did.
+_INLINE_STYLE_SINKS = (
+    (r"style\s*:(?!\s*\{)", "a `style:` option that is not the numeric CSSOM map"),
+    (r"""setAttribute\(\s*['"`]style""", "setAttribute('style', …)"),
+    (r"\.style\.cssText", "element.style.cssText"),
+    (r"""\bstyle\s*=\s*['"]""", "an inline style attribute in markup"),
+)
+
+
 def test_no_module_writes_an_inline_style_attribute():
     """The second mechanical rule in this directory, and it is a deployment fact rather than taste.
 
@@ -395,19 +436,92 @@ def test_no_module_writes_an_inline_style_attribute():
     could see saying anything was wrong.
 
     `dom.el` now has a `style` channel that goes through `element.style.setProperty`, which is the
-    CSSOM path and is not covered by `style-src`, and it takes numbers only. This test is what stops
-    the attribute coming back — the failure it prevents is invisible in development, where there is
-    no Caddy and therefore no policy.
+    CSSOM path and is not covered by `style-src`, and it takes numbers only. The four patterns above
+    are what stop the attribute coming back through any of its doors — the failure they prevent is
+    invisible in development, where there is no Caddy and therefore no policy.
     """
-    offenders = [
-        path.name
-        for path in sorted(STATIC_DIR.glob("*.js"))
-        if 'style: `' in _without_comments(path.read_text(encoding="utf-8"))
-        or 'setAttribute("style"' in _without_comments(path.read_text(encoding="utf-8"))
-    ]
-    assert offenders == []
+    # `*.html` as well as `*.js`. The three pages are served from the same origin under the same
+    # policy, and a `style="…"` typed into one of them fails in exactly the same invisible way.
+    served = sorted(STATIC_DIR.glob("*.js")) + sorted(STATIC_DIR.glob("*.html"))
+    assert _inline_style_offenders(served) == []
+
+
+def test_no_page_served_by_the_deployment_carries_inline_style():
+    """The same rule, over `deploy/`, and the gap that let a real defect through.
+
+    The guard above globs `static/*.js`. `deploy/errors/unavailable.html` is neither, and it shipped
+    with a thirty-line `<style>` block — on the page whose entire job is to be readable when the
+    application is down. Caddy's `handle_errors` inherits the site's headers, so that page arrived
+    carrying the very policy that forbade its own stylesheet: no margins, no typography, no
+    `max-width`, and a console violation under a Caddyfile comment promising the console stays quiet.
+
+    `<style>` and the `style` attribute are covered by the same directive, so this scans for both.
+    The fix was `unavailable.css` plus a Caddy handle that serves it before the rewrite.
+    """
+    pages = sorted(DEPLOY_DIR.rglob("*.html"))
+    # A guard over an empty glob is a guard that passes for the wrong reason.
+    assert pages, "expected at least the unavailable page under deploy/"
+    assert _inline_style_offenders(pages) == []
+    # Comments stripped first, here too. The fixed page explains in a comment why it must never grow
+    # a `<style>` block, and a scanner that read its own explanation as the violation would make the
+    # reason unwritable.
+    assert not any(
+        "<style" in _without_comments(page.read_text(encoding="utf-8")) for page in pages
+    )
+
+
+@pytest.mark.parametrize(
+    "door, source",
+    [
+        ("a backtick template", 'el("div", { attrs: { style: `left:${x}%` } })'),
+        ("a plain string", 'el("div", { attrs: { style: "left:0" } })'),
+        ("setAttribute", "node.setAttribute('style', 'left:0')"),
+        ("cssText", 'node.style.cssText = "left:0";'),
+        ("a variable", 'el("div", { attrs: { style: geometry } })'),
+        ("markup", '<div style="left:0"></div>'),
+    ],
+)
+def test_the_inline_style_guard_closes_every_door(door, source):
+    """A guard is only worth what it catches, so the reintroductions are enumerated here.
+
+    The first version of this rule matched the backtick form alone. Five realistic ways to write the
+    same defect were tried against it and four went straight through — and the two worst,
+    `setAttribute('style', …)` and `cssText`, also bypass the runtime `throw` in `dom.el`, so they
+    fail nowhere except behind Caddy, in production, with no console error a developer would ever
+    see locally. This test is the record of that, and it fails if the patterns are ever loosened.
+    """
+    assert [description for pattern, description in _INLINE_STYLE_SINKS if re.search(pattern, source)]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        # The sanctioned channel, which must keep working or every call site becomes an offender.
+        'el("div", { style: { left: 42 } })',
+        'el("div", { class: "tick", style: { left: tick * 100 }, data: { tick } })',
+        # And the CSSOM primitive `dom.el` is built on.
+        'node.style.setProperty("left", "42%");',
+    ],
+)
+def test_the_inline_style_guard_permits_the_cssom_channel(source):
+    assert [description for pattern, description in _INLINE_STYLE_SINKS if re.search(pattern, source)] == []
+
+
+def _inline_style_offenders(paths):
+    found = []
+    for path in paths:
+        source = _without_comments(path.read_text(encoding="utf-8"))
+        for pattern, description in _INLINE_STYLE_SINKS:
+            if re.search(pattern, source):
+                found.append(f"{path.name}: {description}")
+    return found
 
 
 def _without_comments(source: str) -> str:
-    without_blocks = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    # HTML comments go first, and they are not an afterthought: the fixed `unavailable.html` explains
+    # in a comment why it must never carry a `<style>` block, and a scanner that read its own
+    # explanation as the violation would make the reason unwritable — the same trap the `innerHTML`
+    # guard above already sidesteps for JavaScript.
+    without_html = re.sub(r"<!--.*?-->", "", source, flags=re.DOTALL)
+    without_blocks = re.sub(r"/\*.*?\*/", "", without_html, flags=re.DOTALL)
     return re.sub(r"^\s*//.*$", "", without_blocks, flags=re.MULTILINE)

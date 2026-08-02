@@ -87,7 +87,11 @@ services:
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./deploy/unavailable.html:/srv/errors/unavailable.html:ro
+      # The whole error directory, not one file. It holds the page *and* its stylesheet, which
+      # must be a separate file because `handle_errors` inherits `style-src 'self'` and that blocks
+      # an inline `<style>` element. Mounting the directory means adding an asset to the page is a
+      # file, not a file plus a bind mount somebody will forget.
+      - ./deploy/errors:/srv/errors:ro
       # **The certificate store, and the one volume that breaks the deployment silently if it is
       # forgotten.** Let's Encrypt allows five duplicate certificates per registered domain per week.
       # Without this volume every `docker compose down && up` throws the certificate away and issues

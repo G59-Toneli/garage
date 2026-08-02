@@ -234,6 +234,13 @@ export function originView(body) {
     refusal: detail.refusal ?? null,
     // Published on every live response, not only on the refused one, so the screen can show the
     // budget falling instead of only announcing that it hit zero.
+    //
+    // `generationConfigured` gates whether they are shown at all. A retrieval-only build has no
+    // generator, so its budget describes a resource it cannot spend — and the band used to announce
+    // "200 de 200 gerações restantes hoje" on a service that will never generate one. Defaulting to
+    // `true` when the key is absent would reintroduce exactly that, so the fallback is the honest
+    // direction: unknown means do not make the claim.
+    generationConfigured: detail.generation_configured === true,
     generationsRemaining: detail.generations_remaining ?? null,
     generationBudget: detail.generation_budget ?? null,
     // The visitor pressed "re-executar ao vivo" and the budget refused. Distinct from an ordinary

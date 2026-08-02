@@ -26,7 +26,7 @@ services:
   caddy:
     volumes: !override
       - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
-      - ./deploy/unavailable.html:/srv/errors/unavailable.html:ro
+      - ./deploy/errors:/srv/errors:ro
       - caddy-data:/data
       - caddy-config:/config
     ports: !override

@@ -8,6 +8,13 @@
   artifact, or against a showcase record built on another corpus (ADR-0002). That refusal is the
   system working. A page that read like a crash would send an operator looking for the wrong thing,
   and would tell a visitor that a glass box had gone opaque.
+
+  **The stylesheet is a linked file and must never become a `<style>` block.** The site serves
+  `style-src 'self'` and Caddy's `handle_errors` inherits that header, so an inline sheet here is
+  blocked by this deployment's own policy — which is exactly how the first version of this page
+  shipped: unstyled, with a CSP violation in the console, on the one page that exists to be read
+  when nothing else works. See `unavailable.css` and the guard in `tests/test_ui_contract.py`,
+  which now scans this directory as well as `static/`.
 -->
 <html lang="pt-BR">
   <head>
@@ -15,30 +22,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Garage — indisponível</title>
     <link rel="icon" href="data:," />
-    <style>
-      body {
-        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        max-width: 44rem;
-        margin: 3rem auto;
-        padding: 0 1.25rem;
-        color: #16181d;
-        background: #ffffff;
-      }
-      @media (prefers-color-scheme: dark) {
-        body { color: #e9ecf1; background: #14161a; }
-        code { background: #1d2027; }
-      }
-      h1 { font-size: 1.4rem; }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 0.9em;
-        background: #f6f6f4;
-        padding: 0.1em 0.3em;
-        border-radius: 3px;
-      }
-      .aside { color: #4c5058; font-size: 0.9rem; }
-      @media (prefers-color-scheme: dark) { .aside { color: #a8aeb9; } }
-    </style>
+    <!-- Absolute, not relative. This page is served in place of whatever URL the visitor asked for,
+         so a relative href would resolve against a path that does not exist. The Caddyfile serves
+         this one asset directly rather than rewriting it to the page. -->
+    <link rel="stylesheet" href="/unavailable.css" />
   </head>
   <body>
     <h1>Garage está fora do ar</h1>

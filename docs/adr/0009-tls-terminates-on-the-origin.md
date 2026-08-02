@@ -66,6 +66,14 @@ upstream and no legacy configuration.
   per-address rate limiting possible at all. It is trusted only when
   `GARAGE_TRUST_FORWARDED_FOR=true`, set in the production overlay and nowhere else, and the
   rightmost element is the one honoured — see `limits.client_address`.
+- The site's headers, including a strict `Content-Security-Policy`, apply to **everything Caddy
+  serves — including `handle_errors`**. That is correct and it caught the project out twice: once in
+  `static/`, where every inline `style` attribute positioning a bar or a strip-plot mark was blocked
+  and the geometry silently vanished, and once in `deploy/errors/unavailable.html`, which shipped
+  with an inline `<style>` block and was therefore served unstyled under its own policy — on the one
+  page that exists to be read when nothing else works. Both are now build gates in
+  `tests/test_ui_contract.py`, over `static/` **and** `deploy/`. The general rule: CSS reaches this
+  site as a file or through `element.style.setProperty`, and never as markup.
 - Two ports are open to the internet and to nothing else: 80 and 443. Both of the OCI firewalls have
   to agree about that, and the second one is invisible from the repository; `docs/deploy.md` has the
   procedure and the one-minute diagnostic.

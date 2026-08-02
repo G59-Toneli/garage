@@ -104,6 +104,10 @@ function originSentence(arm) {
   if (arm.origin === "live_degraded") {
     return "geração não executada — o orçamento diário recusou a chamada; a recuperação abaixo é real e é de agora";
   }
+  // A build with no generator is not a build with a full quota. It answers with retrieval alone,
+  // which is a supported configuration and is stated as one — counting down a budget it can never
+  // spend would be the band describing a different deployment.
+  if (!arm.generationConfigured) return "resposta ao vivo · geração não configurada neste build";
   const left =
     arm.generationsRemaining === null
       ? ""

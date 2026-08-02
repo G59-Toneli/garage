@@ -41,9 +41,42 @@
 		# reads like a crash.
 		@unavailable expression `{err.status_code} in [502, 503, 504]`
 		handle @unavailable {
-			rewrite * /unavailable.html
-			file_server {
-				root /srv/errors
+			root * /srv/errors
+
+			# The stylesheet is served as itself, before the rewrite below swallows every path.
+			# It has to be a separate file: `handle_errors` inherits this site's headers, including
+			# `style-src 'self'`, which blocks an inline `<style>` element exactly as hard as it
+			# blocks a `style` attribute. An earlier version of this block had only the rewrite, so
+			# the error page carried its own stylesheet inline and this deployment's own policy
+			# refused to apply it.
+			#
+			# 200 for the asset, deliberately, while the page below keeps the real error status. A
+			# stylesheet returned with a 502 is at the mercy of how each browser treats CSS on an
+			# error response, and this is the page where nothing may depend on that.
+			@stylesheet path /unavailable.css
+			handle @stylesheet {
+				# **200, explicitly.** Inside `handle_errors` Caddy carries the upstream's status
+				# onto everything it serves, so without this line the stylesheet came back `502
+				# text/css` — and Chrome will not apply a stylesheet from an error response. The
+				# page then rendered unstyled with no CSP violation to explain why, which is a
+				# worse failure than the inline `<style>` this file replaced, because it looks
+				# like nothing is wrong. Verified on the wire and in a browser, not reasoned about.
+				#
+				# The asset was found and served correctly; 200 is the truth about *this* response.
+				# The page below keeps the real error status, which is the truth about that one.
+				file_server {
+					status 200
+				}
+			}
+
+			handle {
+				rewrite * /unavailable.html
+				# The status the upstream actually failed with, not the 200 `file_server` would
+				# write for a file it found. An error page served as 200 is a page that lies to
+				# every monitor and every crawler that reads it.
+				file_server {
+					status {err.status_code}
+				}
 			}
 		}
 		respond "{err.status_code} {err.status_text}"

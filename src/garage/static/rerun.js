@@ -66,8 +66,14 @@ function rerunPanel(arm, item, showcase) {
 
   button.addEventListener("click", () => {
     button.disabled = true;
+    // "executando", not "chamando o provedor". The old wording asserted a model call before the
+    // response could say whether one would happen — and on a build with no generator it was simply
+    // false, printed a second before a panel that (then) implied the call had succeeded. What is
+    // certainly true is that a request is going out and that it *may* cost a generation; the
+    // outcome below says which of the two happened.
     note.textContent =
-      "chamando o provedor agora — isto gasta uma geração do orçamento diário do site…";
+      "executando a pergunta ao vivo agora — se este build tiver gerador, isto gasta uma geração " +
+      "do orçamento diário do site…";
     clear(results);
     runLive(arm, item)
       .then((body) => {
@@ -145,8 +151,78 @@ function outcome(body, arm, showcase) {
     arm.chunks.map((chunk) => chunk.chunkId),
     (body.chunks || []).map((chunk) => chunk.chunk_id)
   );
+
+  // Half of this button is retrieval and half of it is generation, and the two halves fail
+  // independently. Retrieval always ran — it is local and free — so `orderBlock` is always drawn.
+  // Generation may not have happened at all, and when it did not, saying nothing is the one thing
+  // this panel must not do.
+  //
+  // This is a real defect that shipped and was caught in review, on the screen that exists to
+  // support the project's central claim. On a deployment with no `GARAGE_GEMINI_API_KEY` — which
+  // the production overlay does **not** require — the endpoint answers `origin: "live"` with
+  // `answer: null` and `rerun_refused: false`. The old code fell straight through to the success
+  // branch, `liveSampleMetrics` returned null, `rows` came back empty, and a button labelled
+  // "Falsifique este número" reported "a ordem recuperada é idêntica à registrada" and nothing
+  // else — immediately after a status line promising the provider was being called. A visitor read
+  // a successful re-run of a generation that never occurred.
+  //
+  // Three ways the generated half can be absent, and they are different facts, so they get
+  // different sentences. The same discipline as the five answer states: an absence travels as an
+  // absence, and is never a silently shorter panel.
+  const absence = generationAbsence(body);
+  if (absence) return [orderBlock(order), absence, latencyBlock()];
+
   const rows = compareToSpread(arm.spread, liveSampleMetrics(body));
   return [orderBlock(order), ...(rows.length ? [metricsBlock(rows, arm)] : []), latencyBlock()];
+}
+
+// Null when a model genuinely answered and its numbers may be plotted. Otherwise the block that says
+// which half did not happen.
+//
+// The three conditions are tested in this order and none of them may be folded together. `answer ===
+// null` is a build with no generator configured — nothing failed, and that is a supported
+// configuration this service has always had. `degraded` is a provider that was asked and did not
+// answer. `provider === null` on an answer that exists is the zero-cost abstention: the retriever
+// came back empty, so `app._answer` abstained without asking anybody. All three would otherwise
+// reach `liveSampleMetrics`, which would dutifully report zero tokens and zero cost and plot them
+// against the recorded spread as though they were a measurement.
+function generationAbsence(body) {
+  const answer = body.answer;
+  if (answer === null || answer === undefined) {
+    return absenceBlock(
+      "Nenhum modelo foi chamado: este build não tem gerador configurado.",
+      "A metade geradora desta comparação não aconteceu, então não há tokens, custo nem citações " +
+        "para colocar sobre as amostras registradas. A comparação de ordem acima é real e é de " +
+        "agora — ela não depende de provedor nenhum. Para falsificar também a resposta gerada, " +
+        "este serviço precisa de uma chave de provedor."
+    );
+  }
+  if (answer.degraded) {
+    return absenceBlock(
+      "O provedor foi chamado e não respondeu.",
+      "Nada foi gerado, então não há amostra ao vivo para posicionar sobre as registradas. A " +
+        "comparação de ordem acima continua válida. O motivo cru está no painel de resposta desta " +
+        "coluna."
+    );
+  }
+  if (answer.provider === null || answer.provider === undefined) {
+    return absenceBlock(
+      "Abstenção de custo zero: nenhum modelo foi chamado.",
+      "A recuperação não trouxe nada, então a geração se absteve sem perguntar a ninguém — o " +
+        "comportamento mais barato e correto que este sistema tem. Não há amostra ao vivo, e um " +
+        "zero aqui seria uma medição inventada de uma chamada que não existiu."
+    );
+  }
+  return null;
+}
+
+function absenceBlock(heading, body) {
+  // Neutral, not an error frame. In all three cases nothing failed on this page, and the strong
+  // comparison above it succeeded.
+  return el("div", { class: "rerun-absent" }, [
+    el("strong", { text: heading }),
+    el("p", { text: body }),
+  ]);
 }
 
 function orderBlock(order) {

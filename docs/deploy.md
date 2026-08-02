@@ -95,8 +95,18 @@ vault here would be ceremony that makes the deployment less reproducible, not mo
 
 ### 4. Pin the image
 
-CI pushes a multi-arch image to GHCR on every merge to `main` and prints the digest as a workflow
-notice. Put that digest in `deploy/compose.prod.yaml`:
+**The value committed in `deploy/compose.prod.yaml` today is a placeholder of sixty-four zeros**, and
+it is deliberately not a blank: a file with no `image:` at all would silently fall back to building
+from the checkout on the VM, which is the one thing this pinning exists to prevent. The placeholder
+fails instead — but it fails *opaquely*, with a registry error about a manifest that does not exist,
+so if you have skipped this step that error is the reason:
+
+```
+Error response from daemon: manifest for ghcr.io/g59-toneli/garage@sha256:0000… not found
+```
+
+CI pushes a multi-arch image to GHCR on every merge to `main` and prints the real digest as a
+workflow notice. Replace the placeholder with it:
 
 ```yaml
 image: ghcr.io/g59-toneli/garage@sha256:<digest>
@@ -210,6 +220,12 @@ length; this is the operator's view.
 | generations per day | client address | 60 | degrade |
 | generations per day | *global* | 200 | degrade |
 
+**Zero means two different things.** `GARAGE_REQUESTS_PER_MINUTE=0` *disables* the anti-abuse
+bucket; `GARAGE_GENERATION_BUDGET_PER_DAY=0` or `GARAGE_GENERATIONS_PER_DAY_PER_CLIENT=0` *refuse
+every generation*. Both readings are wanted — a bucket of zero requests a minute is a policy nobody
+wants, and a budget of zero generations is precisely how you run this site with retrieval and the
+precomputed showcase and no provider spend at all.
+
 **Retrieval is not limited at all.** It is local, free and about eleven milliseconds, and it is the
 thing the project wants a visitor to do. Rate-limiting the free half to protect the paid half would
 punish the visitor for using the product.
@@ -255,6 +271,20 @@ is no precomputed answer for a question nobody curated, so the real cascade for 
 **live → cache → retrieval-only degraded**. Claiming more would be a promise the deployment cannot
 keep, and `tests/test_cascade.py` asserts the limitation as well as the feature.
 
+There is a second limit, smaller and worth stating in a section with this title. **A curated question
+is exempt from the two generation budgets but not from the anti-abuse bucket.** Ask more than ten
+questions in a minute from one address and the eleventh gets a 429 whether or not it is curated —
+because that limiter is not protecting the provider's quota, it is protecting an endpoint that
+touches Postgres on every call. The wait is a couple of seconds and the message says so, but "the
+curated questions are always available" is true of the quota and not of the flood.
+
+**Two identical questions arriving at the same instant both generate.** There is no single-flight
+lock around the cache, so a concurrent duplicate spends two generations instead of one and the second
+result overwrites the first in the cache. This is accepted rather than overlooked: the `Lock` in
+`limits.Limiter` is what keeps concurrency from *exceeding the ceiling*, which is the property that
+costs money, and single-flight would add a second synchronisation primitive and a request waiting on
+another request's provider call to save an occasional duplicate on a site with this much traffic.
+
 ---
 
 ## Verifying the overlay without the VM
@@ -290,3 +320,5 @@ that renewal works, and that HSTS is honoured.
 | Every answer says "orçamento diário" | budget spent for the UTC day | `curl /provenance \| jq .budget` |
 | A curated question is answered live | the record's `corpus_hash` no longer matches | rebuild the showcase, or accept it |
 | Answers look like the previous build | `GARAGE_GIT_SHA` not baked in | `curl /provenance \| jq .git_sha` — `unknown` means the cache key lost its build component |
+| Every answer has an empty `answer` field | no `GARAGE_GEMINI_API_KEY` — a supported configuration | `curl /provenance \| jq .generation_configured`; the origin band says so too |
+| `manifest … not found` on pull | the digest placeholder was never replaced | step 4 above |
