@@ -1,0 +1,2974 @@
+{
+  "arms": [
+    {
+      "configuration": {
+        "embedder": null,
+        "k": 10,
+        "reranker": null,
+        "strategy": "lexical",
+        "tiers": [
+          "A",
+          "B"
+        ]
+      },
+      "metrics": {
+        "mrr@10": 0.440789,
+        "ndcg@10": 0.442512,
+        "recall@1": 0.427632,
+        "recall@10": 0.447368,
+        "recall@10:keyword": 0.911765,
+        "recall@10:natural": 0.071429,
+        "recall@5": 0.447368,
+        "value_match@1": 0.434211
+      },
+      "per_item": [
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "77",
+          "fact_id": "kw-torque-cabecote-estagio-2",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "cylinder head bolt stage 2 torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "M11",
+          "fact_id": "kw-torque-cabecote-rosca",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "cylinder head bolt thread",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0003"
+          ],
+          "expected_value": "23",
+          "fact_id": "kw-torque-mancal-comando",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft bearing cap nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0012"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0004"
+          ],
+          "expected_value": "19",
+          "fact_id": "kw-torque-coletor-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "intake manifold nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0005"
+          ],
+          "expected_value": "26",
+          "fact_id": "kw-torque-coletor-escape",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "exhaust manifold nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0006"
+          ],
+          "expected_value": "63",
+          "fact_id": "kw-torque-volante-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "flywheel bolt torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0006"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0007"
+          ],
+          "expected_value": "0.18",
+          "fact_id": "kw-folga-valvula-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "valve clearance intake",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0008"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0008"
+          ],
+          "expected_value": "0.31",
+          "fact_id": "kw-folga-valvula-escape",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "valve clearance exhaust",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0007"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "3.9",
+          "fact_id": "kw-capacidade-oleo-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "engine oil capacity filter",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0016"
+          ],
+          "expected_value": "6.4",
+          "fact_id": "kw-capacidade-arrefecimento",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "cooling system capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0016"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0017"
+          ],
+          "expected_value": "1.7",
+          "fact_id": "kw-capacidade-cambio",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "gearbox capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0017"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0018"
+          ],
+          "expected_value": "52",
+          "fact_id": "kw-capacidade-tanque",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel tank capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0018"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0009"
+          ],
+          "expected_value": "ten minutes",
+          "fact_id": "kw-procedimento-bateria",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "battery negative lead camshaft",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0009"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0010"
+          ],
+          "expected_value": "cylinder one",
+          "fact_id": "kw-procedimento-pms",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "crankshaft top dead centre",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0010"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0011"
+          ],
+          "expected_value": "camshaft sprocket",
+          "fact_id": "kw-procedimento-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt tensioner slacken",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0011",
+            "parts-gsi-1994#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0012"
+          ],
+          "expected_value": "cap 5 to cap 1",
+          "fact_id": "kw-procedimento-ordem-mancais",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft bearing cap nuts quarter turn",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "28",
+          "fact_id": "kw-pressao-pneu",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "tyre pressure front rear",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "destroys valves",
+          "fact_id": "kw-correia-dentada-km",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt 60 000 km",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "stop immediately",
+          "fact_id": "kw-luz-pressao-oleo",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "oil pressure lamp red",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "amber",
+          "fact_id": "kw-luz-injecao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "engine management lamp",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0003",
+            "owner-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0001"
+          ],
+          "expected_value": "90 511 402",
+          "fact_id": "kw-peca-vela-ignicao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "spark plug gap",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0002"
+          ],
+          "expected_value": "90 511 418",
+          "fact_id": "kw-peca-bobina",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "ignition coil twin output",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0003"
+          ],
+          "expected_value": "90 512 007",
+          "fact_id": "kw-peca-sensor-comando",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft position sensor",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0004"
+          ],
+          "expected_value": "90 512 113",
+          "fact_id": "kw-peca-correia-dentada",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt teeth",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0011",
+            "owner-kadett-1993#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0005"
+          ],
+          "expected_value": "90 512 114",
+          "fact_id": "kw-peca-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "tensioner bearing part",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0006"
+          ],
+          "expected_value": "90 484 220",
+          "fact_id": "kw-peca-bomba-combustivel",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel pump in-tank",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0007"
+          ],
+          "expected_value": "90 484 231",
+          "fact_id": "kw-peca-filtro-combustivel",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel filter inline",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0007"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0008"
+          ],
+          "expected_value": "190",
+          "fact_id": "kw-peca-bico-injetor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "injector GSi",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0009"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "150 cv",
+          "fact_id": "kw-cabecote-trabalhado",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "cabeçote trabalhado comando",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0007"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "expected_value": "curta demais",
+          "fact_id": "kw-coroa-curta",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "coroa GSi motor bravo",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0009"
+          ],
+          "expected_value": "gasolina comum",
+          "fact_id": "kw-taxa-alta",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "pistao detonar taxa",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0001"
+          ],
+          "expected_value": "biela",
+          "fact_id": "kw-barulho-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "barulho tensionador correia dentada",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0002"
+          ],
+          "expected_value": "ordem certa",
+          "fact_id": "kw-suspensao",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "suspensao mola amortecedor coxim",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "expected_value": "sob medida",
+          "fact_id": "kw-escape-travessa",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "escape 4x2x1 travessa",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0001"
+          ],
+          "expected_value": "41",
+          "fact_id": "torque-cabecote-estagio-1",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What torque should the cylinder head bolts be tightened to in stage 1?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "77",
+          "fact_id": "torque-cabecote-estagio-2",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o torque do parafuso do cabeçote no segundo estágio?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0003"
+          ],
+          "expected_value": "23",
+          "fact_id": "torque-mancal-comando",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How tight should the camshaft bearing cap nuts be?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0005"
+          ],
+          "expected_value": "26",
+          "fact_id": "torque-coletor-escape",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o torque das porcas do coletor de escape?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0006"
+          ],
+          "expected_value": "63",
+          "fact_id": "torque-volante-motor",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What torque do the flywheel bolts need?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0007"
+          ],
+          "expected_value": "0.18",
+          "fact_id": "folga-valvula-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What should the intake valve clearance be with the engine cold?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0007"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0008"
+          ],
+          "expected_value": "0.31",
+          "fact_id": "folga-valvula-escape",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual a folga das válvulas de escape com o motor frio?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "3.9",
+          "fact_id": "capacidade-oleo-motor",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How much oil does the engine take with a new filter?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "SAE 20W-50",
+          "fact_id": "especificacao-oleo-motor",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Which oil grade should I use in the engine?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0017"
+          ],
+          "expected_value": "1.7",
+          "fact_id": "capacidade-cambio-manual",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Quantos litros de óleo leva o câmbio manual?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0018"
+          ],
+          "expected_value": "52",
+          "fact_id": "capacidade-tanque",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How big is the fuel tank?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0009"
+          ],
+          "expected_value": "battery negative lead",
+          "fact_id": "procedimento-bateria",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What should I do first before removing the camshaft?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0010"
+          ],
+          "expected_value": "top dead centre",
+          "fact_id": "procedimento-pms",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Where should the crankshaft be before I take the camshaft out?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0011"
+          ],
+          "expected_value": "Slacken the timing belt tensioner",
+          "fact_id": "procedimento-tensionador",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How do I get the timing belt off the camshaft sprocket?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0012"
+          ],
+          "expected_value": "cap 5 to cap 1",
+          "fact_id": "procedimento-ordem-mancais",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "In what order should the camshaft bearing caps be undone?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0013"
+          ],
+          "expected_value": "Lift the camshaft out squarely",
+          "fact_id": "procedimento-levantar-comando",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Como tirar o comando de válvulas sem danificar os mancais?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "28",
+          "fact_id": "pressao-pneu-dianteiro",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What pressure should the front tyres be at when cold?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "32",
+          "fact_id": "pressao-pneu-carregado",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Preciso calibrar mais atrás com o carro cheio?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "185/60 R14",
+          "fact_id": "medida-do-pneu",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Which tyre size did the GSi come with from new?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "10 000 km",
+          "fact_id": "intervalo-de-revisao",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How often does this car need servicing?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "60 000 km",
+          "fact_id": "troca-correia-dentada",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "De quanto em quanto tempo troca a correia dentada?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "stop immediately",
+          "fact_id": "luz-pressao-oleo",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What should I do if the red oil pressure light comes on?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "reduced load",
+          "fact_id": "luz-injecao",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "A luz de injeção acendeu, posso continuar dirigindo?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0004"
+          ],
+          "expected_value": "gasolina comum",
+          "fact_id": "combustivel-recomendado",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Which fuel does this car take?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0004"
+          ],
+          "expected_value": "25",
+          "fact_id": "tolerancia-alcool",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Can I run álcool in it?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0006"
+          ],
+          "expected_value": "90 484 220",
+          "fact_id": "peca-bomba-combustivel",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What is the part number for the fuel pump?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0004"
+          ],
+          "expected_value": "90 512 113",
+          "fact_id": "peca-correia-dentada",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o código da correia dentada?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0001"
+          ],
+          "expected_value": "0.8 mm",
+          "fact_id": "peca-vela-ignicao",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "What spark plug does the 2.0 MPFI use, and what gap?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0008"
+          ],
+          "expected_value": "190",
+          "fact_id": "peca-bico-injetor",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "How much do the GSi injectors flow?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0010"
+          ],
+          "expected_value": "90 484 209",
+          "fact_id": "peca-bomba-substituida",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Which older pump does the current fuel pump replace?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0002"
+          ],
+          "expected_value": "90 511 418",
+          "fact_id": "peca-bobina",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual a peça da bobina de ignição?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0004"
+          ],
+          "expected_value": "não cabe bonito",
+          "fact_id": "swap-250s-cabe-no-cofre",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Será que cabe o swap 250-S no cofre do Kadett?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "não é pra Kadett",
+          "fact_id": "swap-250s-vale-a-pena",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Vale a pena fazer o swap 250-S num Kadett?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0004"
+          ],
+          "expected_value": "longarina reforçada",
+          "fact_id": "swap-250s-o-que-reforcar",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "O que precisa reforçar pra colocar um motor em linha?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0009"
+          ],
+          "expected_value": "comendo pistão",
+          "fact_id": "cabecote-plainado",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "cabecote plainado demais estraga o pistao?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "150 cv",
+          "fact_id": "potencia-cabecote-trabalhado",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Quanto de potência dá pra tirar de um 2.0 MPFI com cabeçote trabalhado?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "expected_value": "curta demais",
+          "fact_id": "coroa-curta",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "A coroa original do GSi serve pra motor bravo?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0001"
+          ],
+          "expected_value": "tensionador",
+          "fact_id": "barulho-de-corrente",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Barulho de corrente no 2.0 MPFI, o que pode ser?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0002"
+          ],
+          "expected_value": "ordem certa",
+          "fact_id": "ordem-suspensao-motor",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Mexo na suspensão ou no motor primeiro?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "expected_value": "sob medida",
+          "fact_id": "escape-de-catalogo",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Escape 4x2x1 de catálogo encaixa direto?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0004"
+          ],
+          "expected_value": "mesa que virou sucata",
+          "fact_id": "arrependimento-swap",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Do que o autor se arrependeu no projeto?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0005"
+          ],
+          "expected_value": "gerenciamento programável",
+          "fact_id": "estado-atual-do-projeto",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Como o carro está hoje?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [],
+          "value_matched": false
+        }
+      ]
+    },
+    {
+      "configuration": {
+        "embedder": "baseline@37211055ebcf",
+        "k": 10,
+        "reranker": null,
+        "strategy": "dense",
+        "tiers": [
+          "A",
+          "B"
+        ]
+      },
+      "metrics": {
+        "mrr@10": 0.755738,
+        "ndcg@10": 0.790693,
+        "recall@1": 0.671053,
+        "recall@10": 0.894737,
+        "recall@10:keyword": 1.0,
+        "recall@10:natural": 0.809524,
+        "recall@5": 0.855263,
+        "value_match@1": 0.710526
+      },
+      "per_item": [
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "77",
+          "fact_id": "kw-torque-cabecote-estagio-2",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "cylinder head bolt stage 2 torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0010",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "parts-gsi-1994#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "M11",
+          "fact_id": "kw-torque-cabecote-rosca",
+          "hit_rank": 2,
+          "ndcg": 0.693426,
+          "question": "cylinder head bolt thread",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0004",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "owner-kadett-1993#0001",
+            "owner-kadett-1993#0002"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0003"
+          ],
+          "expected_value": "23",
+          "fact_id": "kw-torque-mancal-comando",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft bearing cap nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0010",
+            "parts-gsi-1994#0003",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0011"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0004"
+          ],
+          "expected_value": "19",
+          "fact_id": "kw-torque-coletor-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "intake manifold nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0007",
+            "blog-projetinho-de-rua#0000",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0014"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0005"
+          ],
+          "expected_value": "26",
+          "fact_id": "kw-torque-coletor-escape",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "exhaust manifold nut torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0014",
+            "parts-gsi-1994#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0006"
+          ],
+          "expected_value": "63",
+          "fact_id": "kw-torque-volante-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "flywheel bolt torque",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0005",
+            "parts-gsi-1994#0004",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0007"
+          ],
+          "expected_value": "0.18",
+          "fact_id": "kw-folga-valvula-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "valve clearance intake",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0004",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0001",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0009",
+            "parts-gsi-1994#0009"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0008"
+          ],
+          "expected_value": "0.31",
+          "fact_id": "kw-folga-valvula-escape",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "valve clearance exhaust",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0010",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0000",
+            "svc-kadett-1993#0006"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "3.9",
+          "fact_id": "kw-capacidade-oleo-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "engine oil capacity filter",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0017",
+            "parts-gsi-1994#0007",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0001",
+            "svc-kadett-1993#0018",
+            "parts-gsi-1994#0004",
+            "owner-kadett-1993#0003",
+            "owner-kadett-1993#0004",
+            "parts-gsi-1994#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0016"
+          ],
+          "expected_value": "6.4",
+          "fact_id": "kw-capacidade-arrefecimento",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "cooling system capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0016",
+            "svc-kadett-1993#0018",
+            "svc-kadett-1993#0017",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0008",
+            "owner-kadett-1993#0001",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0003",
+            "parts-gsi-1994#0008"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0017"
+          ],
+          "expected_value": "1.7",
+          "fact_id": "kw-capacidade-cambio",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "gearbox capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0017",
+            "svc-kadett-1993#0018",
+            "svc-kadett-1993#0016",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0000",
+            "owner-kadett-1993#0001",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0008",
+            "parts-gsi-1994#0010",
+            "owner-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0018"
+          ],
+          "expected_value": "52",
+          "fact_id": "kw-capacidade-tanque",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel tank capacity",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0018",
+            "parts-gsi-1994#0006",
+            "svc-kadett-1993#0017",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0016",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0007",
+            "parts-gsi-1994#0009",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0009"
+          ],
+          "expected_value": "ten minutes",
+          "fact_id": "kw-procedimento-bateria",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "battery negative lead camshaft",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0014",
+            "parts-gsi-1994#0003",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0003",
+            "parts-gsi-1994#0010",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0010"
+          ],
+          "expected_value": "cylinder one",
+          "fact_id": "kw-procedimento-pms",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "crankshaft top dead centre",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0009",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0008",
+            "svc-kadett-1993#0003",
+            "owner-kadett-1993#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0011"
+          ],
+          "expected_value": "camshaft sprocket",
+          "fact_id": "kw-procedimento-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt tensioner slacken",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0011",
+            "parts-gsi-1994#0005",
+            "owner-kadett-1993#0002",
+            "parts-gsi-1994#0004",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0012"
+          ],
+          "expected_value": "cap 5 to cap 1",
+          "fact_id": "kw-procedimento-ordem-mancais",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft bearing cap nuts quarter turn",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0011",
+            "parts-gsi-1994#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "28",
+          "fact_id": "kw-pressao-pneu",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "tyre pressure front rear",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0001",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0004",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0001",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "destroys valves",
+          "fact_id": "kw-correia-dentada-km",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt 60 000 km",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0002",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0006",
+            "forum-swap-250s#0001",
+            "owner-kadett-1993#0001",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0010",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "stop immediately",
+          "fact_id": "kw-luz-pressao-oleo",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "oil pressure lamp red",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0001",
+            "svc-kadett-1993#0015",
+            "parts-gsi-1994#0005",
+            "blog-projetinho-de-rua#0000",
+            "parts-gsi-1994#0010",
+            "parts-gsi-1994#0003",
+            "owner-kadett-1993#0001",
+            "forum-swap-250s#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "amber",
+          "fact_id": "kw-luz-injecao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "engine management lamp",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0001",
+            "owner-kadett-1993#0004",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0002",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0007",
+            "owner-kadett-1993#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0001"
+          ],
+          "expected_value": "90 511 402",
+          "fact_id": "kw-peca-vela-ignicao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "spark plug gap",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0001",
+            "svc-kadett-1993#0000",
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0010",
+            "blog-projetinho-de-rua#0003",
+            "owner-kadett-1993#0001",
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0003",
+            "forum-swap-250s#0001",
+            "svc-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0002"
+          ],
+          "expected_value": "90 511 418",
+          "fact_id": "kw-peca-bobina",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "ignition coil twin output",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0002",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0008",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0001",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0008",
+            "parts-gsi-1994#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0003"
+          ],
+          "expected_value": "90 512 007",
+          "fact_id": "kw-peca-sensor-comando",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "camshaft position sensor",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0003",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0014",
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0004"
+          ],
+          "expected_value": "90 512 113",
+          "fact_id": "kw-peca-correia-dentada",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "timing belt teeth",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0004",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0011",
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0005"
+          ],
+          "expected_value": "90 512 114",
+          "fact_id": "kw-peca-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "tensioner bearing part",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0005",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0012",
+            "parts-gsi-1994#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0006"
+          ],
+          "expected_value": "90 484 220",
+          "fact_id": "kw-peca-bomba-combustivel",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel pump in-tank",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006",
+            "parts-gsi-1994#0009",
+            "parts-gsi-1994#0007",
+            "parts-gsi-1994#0008",
+            "svc-kadett-1993#0018",
+            "parts-gsi-1994#0010",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0005",
+            "parts-gsi-1994#0002",
+            "owner-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0007"
+          ],
+          "expected_value": "90 484 231",
+          "fact_id": "kw-peca-filtro-combustivel",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "fuel filter inline",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0007",
+            "parts-gsi-1994#0009",
+            "svc-kadett-1993#0015",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0001",
+            "parts-gsi-1994#0002",
+            "parts-gsi-1994#0006",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "owner-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0008"
+          ],
+          "expected_value": "190",
+          "fact_id": "kw-peca-bico-injetor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "injector GSi",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0006",
+            "owner-kadett-1993#0001",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0011",
+            "parts-gsi-1994#0009",
+            "forum-swap-250s#0001",
+            "parts-gsi-1994#0002",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "150 cv",
+          "fact_id": "kw-cabecote-trabalhado",
+          "hit_rank": 4,
+          "ndcg": 0.430677,
+          "question": "cabeçote trabalhado comando",
+          "reciprocal_rank": 0.25,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0009"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "expected_value": "curta demais",
+          "fact_id": "kw-coroa-curta",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "coroa GSi motor bravo",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0007",
+            "parts-gsi-1994#0008",
+            "owner-kadett-1993#0001",
+            "parts-gsi-1994#0006",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0009",
+            "blog-projetinho-de-rua#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0009"
+          ],
+          "expected_value": "gasolina comum",
+          "fact_id": "kw-taxa-alta",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "pistao detonar taxa",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0010",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0004",
+            "blog-projetinho-de-rua#0005",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0001"
+          ],
+          "expected_value": "biela",
+          "fact_id": "kw-barulho-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "barulho tensionador correia dentada",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0005",
+            "blog-projetinho-de-rua#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0002"
+          ],
+          "expected_value": "ordem certa",
+          "fact_id": "kw-suspensao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "suspensao mola amortecedor coxim",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0002",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0003",
+            "blog-projetinho-de-rua#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "expected_value": "sob medida",
+          "fact_id": "kw-escape-travessa",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "escape 4x2x1 travessa",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0003",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0001"
+          ],
+          "expected_value": "41",
+          "fact_id": "torque-cabecote-estagio-1",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What torque should the cylinder head bolts be tightened to in stage 1?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0010",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0002"
+          ],
+          "expected_value": "77",
+          "fact_id": "torque-cabecote-estagio-2",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o torque do parafuso do cabeçote no segundo estágio?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0005",
+            "blog-projetinho-de-rua#0004"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0003"
+          ],
+          "expected_value": "23",
+          "fact_id": "torque-mancal-comando",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "How tight should the camshaft bearing cap nuts be?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0004",
+            "forum-swap-250s#0008",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0011"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0005"
+          ],
+          "expected_value": "26",
+          "fact_id": "torque-coletor-escape",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o torque das porcas do coletor de escape?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0002",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0004",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0005"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0006"
+          ],
+          "expected_value": "63",
+          "fact_id": "torque-volante-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What torque do the flywheel bolts need?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0000",
+            "blog-projetinho-de-rua#0000",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0017"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0007"
+          ],
+          "expected_value": "0.18",
+          "fact_id": "folga-valvula-admissao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What should the intake valve clearance be with the engine cold?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0008",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0004",
+            "owner-kadett-1993#0001",
+            "svc-kadett-1993#0000",
+            "svc-kadett-1993#0016",
+            "owner-kadett-1993#0003",
+            "owner-kadett-1993#0002",
+            "blog-projetinho-de-rua#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0008"
+          ],
+          "expected_value": "0.31",
+          "fact_id": "folga-valvula-escape",
+          "hit_rank": 9,
+          "ndcg": 0.30103,
+          "question": "Qual a folga das válvulas de escape com o motor frio?",
+          "reciprocal_rank": 0.111111,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0002",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0011",
+            "svc-kadett-1993#0007",
+            "svc-kadett-1993#0008",
+            "forum-swap-250s#0002"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "3.9",
+          "fact_id": "capacidade-oleo-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "How much oil does the engine take with a new filter?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0015",
+            "owner-kadett-1993#0004",
+            "owner-kadett-1993#0002",
+            "blog-projetinho-de-rua#0000",
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0007",
+            "svc-kadett-1993#0000",
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0017",
+            "svc-kadett-1993#0007"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0015"
+          ],
+          "expected_value": "SAE 20W-50",
+          "fact_id": "especificacao-oleo-motor",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Which oil grade should I use in the engine?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0015",
+            "owner-kadett-1993#0003",
+            "forum-swap-250s#0001",
+            "svc-kadett-1993#0008",
+            "parts-gsi-1994#0003",
+            "svc-kadett-1993#0007",
+            "owner-kadett-1993#0002",
+            "parts-gsi-1994#0001",
+            "parts-gsi-1994#0004"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0017"
+          ],
+          "expected_value": "1.7",
+          "fact_id": "capacidade-cambio-manual",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Quantos litros de óleo leva o câmbio manual?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0009",
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0006",
+            "svc-kadett-1993#0018",
+            "forum-swap-250s#0003"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0018"
+          ],
+          "expected_value": "52",
+          "fact_id": "capacidade-tanque",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "How big is the fuel tank?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006",
+            "svc-kadett-1993#0018",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0009",
+            "parts-gsi-1994#0007",
+            "owner-kadett-1993#0000",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0005",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0002"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0009"
+          ],
+          "expected_value": "battery negative lead",
+          "fact_id": "procedimento-bateria",
+          "hit_rank": 3,
+          "ndcg": 0.5,
+          "question": "What should I do first before removing the camshaft?",
+          "reciprocal_rank": 0.333333,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0014",
+            "owner-kadett-1993#0002",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0003",
+            "blog-projetinho-de-rua#0002"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0010"
+          ],
+          "expected_value": "top dead centre",
+          "fact_id": "procedimento-pms",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Where should the crankshaft be before I take the camshaft out?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0011",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0003",
+            "parts-gsi-1994#0003",
+            "owner-kadett-1993#0002",
+            "owner-kadett-1993#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0011"
+          ],
+          "expected_value": "Slacken the timing belt tensioner",
+          "fact_id": "procedimento-tensionador",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "How do I get the timing belt off the camshaft sprocket?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0011",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0014",
+            "parts-gsi-1994#0004",
+            "owner-kadett-1993#0004",
+            "parts-gsi-1994#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0012"
+          ],
+          "expected_value": "cap 5 to cap 1",
+          "fact_id": "procedimento-ordem-mancais",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "In what order should the camshaft bearing caps be undone?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "svc-kadett-1993#0014",
+            "svc-kadett-1993#0012",
+            "svc-kadett-1993#0013",
+            "svc-kadett-1993#0003",
+            "svc-kadett-1993#0010",
+            "svc-kadett-1993#0009",
+            "svc-kadett-1993#0011",
+            "parts-gsi-1994#0003",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "svc-kadett-1993#0013"
+          ],
+          "expected_value": "Lift the camshaft out squarely",
+          "fact_id": "procedimento-levantar-comando",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Como tirar o comando de válvulas sem danificar os mancais?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0006",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0011",
+            "owner-kadett-1993#0004",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0008"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "28",
+          "fact_id": "pressao-pneu-dianteiro",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What pressure should the front tyres be at when cold?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0001",
+            "svc-kadett-1993#0008",
+            "svc-kadett-1993#0007",
+            "blog-projetinho-de-rua#0000",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0006",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0005",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "32",
+          "fact_id": "pressao-pneu-carregado",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Preciso calibrar mais atrás com o carro cheio?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0005",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0002"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0001"
+          ],
+          "expected_value": "185/60 R14",
+          "fact_id": "medida-do-pneu",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Which tyre size did the GSi come with from new?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0001",
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0001",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0006",
+            "svc-kadett-1993#0000",
+            "forum-swap-250s#0001",
+            "owner-kadett-1993#0000",
+            "forum-swap-250s#0002",
+            "svc-kadett-1993#0006"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "10 000 km",
+          "fact_id": "intervalo-de-revisao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "How often does this car need servicing?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0002",
+            "owner-kadett-1993#0004",
+            "svc-kadett-1993#0000",
+            "owner-kadett-1993#0003",
+            "svc-kadett-1993#0004",
+            "svc-kadett-1993#0005",
+            "forum-swap-250s#0007",
+            "owner-kadett-1993#0001",
+            "svc-kadett-1993#0002",
+            "svc-kadett-1993#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0002"
+          ],
+          "expected_value": "60 000 km",
+          "fact_id": "troca-correia-dentada",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "De quanto em quanto tempo troca a correia dentada?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0001",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0009"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "stop immediately",
+          "fact_id": "luz-pressao-oleo",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What should I do if the red oil pressure light comes on?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0003",
+            "owner-kadett-1993#0004",
+            "blog-projetinho-de-rua#0000",
+            "forum-swap-250s#0001",
+            "svc-kadett-1993#0009",
+            "owner-kadett-1993#0002",
+            "forum-swap-250s#0007",
+            "svc-kadett-1993#0010",
+            "parts-gsi-1994#0000",
+            "svc-kadett-1993#0011"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0003"
+          ],
+          "expected_value": "reduced load",
+          "fact_id": "luz-injecao",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "A luz de injeção acendeu, posso continuar dirigindo?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0002",
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0002",
+            "blog-projetinho-de-rua#0003"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0004"
+          ],
+          "expected_value": "gasolina comum",
+          "fact_id": "combustivel-recomendado",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Which fuel does this car take?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006",
+            "owner-kadett-1993#0004",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0009",
+            "svc-kadett-1993#0018",
+            "parts-gsi-1994#0007",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0002",
+            "owner-kadett-1993#0003"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "owner-kadett-1993#0004"
+          ],
+          "expected_value": "25",
+          "fact_id": "tolerancia-alcool",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Can I run álcool in it?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "owner-kadett-1993#0004",
+            "blog-projetinho-de-rua#0000",
+            "forum-swap-250s#0001",
+            "forum-swap-250s#0000",
+            "owner-kadett-1993#0003",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0016",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0000",
+            "svc-kadett-1993#0007"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0006"
+          ],
+          "expected_value": "90 484 220",
+          "fact_id": "peca-bomba-combustivel",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What is the part number for the fuel pump?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0009",
+            "parts-gsi-1994#0007",
+            "parts-gsi-1994#0002",
+            "parts-gsi-1994#0001",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0005",
+            "parts-gsi-1994#0010"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0004"
+          ],
+          "expected_value": "90 512 113",
+          "fact_id": "peca-correia-dentada",
+          "hit_rank": null,
+          "ndcg": 0.0,
+          "question": "Qual o código da correia dentada?",
+          "reciprocal_rank": 0.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0006",
+            "blog-projetinho-de-rua#0005",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0008"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0001"
+          ],
+          "expected_value": "0.8 mm",
+          "fact_id": "peca-vela-ignicao",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "What spark plug does the 2.0 MPFI use, and what gap?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0001",
+            "forum-swap-250s#0008",
+            "parts-gsi-1994#0003",
+            "parts-gsi-1994#0002",
+            "parts-gsi-1994#0005",
+            "parts-gsi-1994#0004",
+            "parts-gsi-1994#0007",
+            "svc-kadett-1993#0000",
+            "owner-kadett-1993#0003",
+            "blog-projetinho-de-rua#0001"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0008"
+          ],
+          "expected_value": "190",
+          "fact_id": "peca-bico-injetor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "How much do the GSi injectors flow?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0008",
+            "owner-kadett-1993#0001",
+            "parts-gsi-1994#0006",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0001",
+            "forum-swap-250s#0011",
+            "svc-kadett-1993#0000",
+            "parts-gsi-1994#0009",
+            "owner-kadett-1993#0000",
+            "blog-projetinho-de-rua#0000"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0010"
+          ],
+          "expected_value": "90 484 209",
+          "fact_id": "peca-bomba-substituida",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Which older pump does the current fuel pump replace?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "parts-gsi-1994#0006",
+            "parts-gsi-1994#0010",
+            "owner-kadett-1993#0004",
+            "parts-gsi-1994#0008",
+            "parts-gsi-1994#0009",
+            "owner-kadett-1993#0003",
+            "parts-gsi-1994#0007",
+            "owner-kadett-1993#0002",
+            "svc-kadett-1993#0015",
+            "svc-kadett-1993#0000"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "parts-gsi-1994#0002"
+          ],
+          "expected_value": "90 511 418",
+          "fact_id": "peca-bobina",
+          "hit_rank": 8,
+          "ndcg": 0.315465,
+          "question": "Qual a peça da bobina de ignição?",
+          "reciprocal_rank": 0.125,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0004",
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0009",
+            "parts-gsi-1994#0002",
+            "forum-swap-250s#0008",
+            "parts-gsi-1994#0003"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0004"
+          ],
+          "expected_value": "não cabe bonito",
+          "fact_id": "swap-250s-cabe-no-cofre",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Será que cabe o swap 250-S no cofre do Kadett?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0006"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "não é pra Kadett",
+          "fact_id": "swap-250s-vale-a-pena",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Vale a pena fazer o swap 250-S num Kadett?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0004",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0002",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0003"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0004"
+          ],
+          "expected_value": "longarina reforçada",
+          "fact_id": "swap-250s-o-que-reforcar",
+          "hit_rank": 5,
+          "ndcg": 0.386853,
+          "question": "O que precisa reforçar pra colocar um motor em linha?",
+          "reciprocal_rank": 0.2,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0002",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0009",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0003"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0009"
+          ],
+          "expected_value": "comendo pistão",
+          "fact_id": "cabecote-plainado",
+          "hit_rank": 6,
+          "ndcg": 0.356207,
+          "question": "cabecote plainado demais estraga o pistao?",
+          "reciprocal_rank": 0.166667,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0006",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0002"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0008"
+          ],
+          "expected_value": "150 cv",
+          "fact_id": "potencia-cabecote-trabalhado",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Quanto de potência dá pra tirar de um 2.0 MPFI com cabeçote trabalhado?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0010",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0003",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0004",
+            "forum-swap-250s#0009"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "forum-swap-250s#0011"
+          ],
+          "expected_value": "curta demais",
+          "fact_id": "coroa-curta",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "A coroa original do GSi serve pra motor bravo?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0002",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0006",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0005"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0001"
+          ],
+          "expected_value": "tensionador",
+          "fact_id": "barulho-de-corrente",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Barulho de corrente no 2.0 MPFI, o que pode ser?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0001",
+            "forum-swap-250s#0008",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0009",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0011",
+            "blog-projetinho-de-rua#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0002"
+          ],
+          "expected_value": "ordem certa",
+          "fact_id": "ordem-suspensao-motor",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Mexo na suspensão ou no motor primeiro?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0002",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0010",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0009"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0003"
+          ],
+          "expected_value": "sob medida",
+          "fact_id": "escape-de-catalogo",
+          "hit_rank": 1,
+          "ndcg": 1.0,
+          "question": "Escape 4x2x1 de catálogo encaixa direto?",
+          "reciprocal_rank": 1.0,
+          "retrieved_chunk_ids": [
+            "blog-projetinho-de-rua#0003",
+            "forum-swap-250s#0008",
+            "blog-projetinho-de-rua#0004",
+            "forum-swap-250s#0007",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0005",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0009",
+            "forum-swap-250s#0004"
+          ],
+          "value_matched": true
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0004"
+          ],
+          "expected_value": "mesa que virou sucata",
+          "fact_id": "arrependimento-swap",
+          "hit_rank": 4,
+          "ndcg": 0.430677,
+          "question": "Do que o autor se arrependeu no projeto?",
+          "reciprocal_rank": 0.25,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0010",
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0002",
+            "forum-swap-250s#0006",
+            "blog-projetinho-de-rua#0003",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0007"
+          ],
+          "value_matched": false
+        },
+        {
+          "expected_chunk_ids": [
+            "blog-projetinho-de-rua#0005"
+          ],
+          "expected_value": "gerenciamento programável",
+          "fact_id": "estado-atual-do-projeto",
+          "hit_rank": 2,
+          "ndcg": 0.63093,
+          "question": "Como o carro está hoje?",
+          "reciprocal_rank": 0.5,
+          "retrieved_chunk_ids": [
+            "forum-swap-250s#0007",
+            "blog-projetinho-de-rua#0005",
+            "forum-swap-250s#0010",
+            "blog-projetinho-de-rua#0004",
+            "blog-projetinho-de-rua#0002",
+            "forum-swap-250s#0006",
+            "forum-swap-250s#0003",
+            "forum-swap-250s#0011",
+            "forum-swap-250s#0005",
+            "forum-swap-250s#0008"
+          ],
+          "value_matched": false
+        }
+      ]
+    }
+  ],
+  "duration_ms": 5761,
+  "facts_sha256": "3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632",
+  "layer": "deterministic",
+  "provenance": {
+    "corpus_hash": "21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6",
+    "corpus_id": "fixture",
+    "git_dirty": false,
+    "git_sha": "69ecf7d0bb69c1bfbc238b4efdea483dc8ee7816",
+    "ingest_version": 1,
+    "pg_trgm_version": "1.6",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)",
+    "python_version": "3.12.13",
+    "text_search_config": "pg_catalog.portuguese",
+    "text_search_dictionaries": "portuguese_stem, simple"
+  },
+  "run_id": "20260802T020612Z-69ecf7d0bb69",
+  "run_record_version": 2,
+  "sample_count": 76,
+  "started_at": "2026-08-02T02:06:12Z",
+  "suite": "facts"
+}
