@@ -118,3 +118,29 @@ def test_the_endpoint_serves_the_same_retrieval_end_to_end(retriever):
     assert body["chunks"][0]["chunk_id"] == "svc-kadett-1993#0006"
     assert body["chunks"][0]["tier"] == "A"
     assert body["trace"]["children"][0]["attributes"]["retrieval.strategy"] == "lexical"
+
+
+class RefusingGenerator:
+    """A generator that fails the test if it is ever called. No provider, no network, no key."""
+
+    name = "must-not-be-called"
+    model = "must-not-be-called"
+
+    def generate(self, query, *, context, contract=None):
+        raise AssertionError(f"the model was asked {query!r} with {len(context)} chunks")
+
+
+def test_a_question_the_corpus_does_not_cover_abstains_against_the_real_database(retriever):
+    # The unit tests prove the endpoint abstains when handed zero candidates. This proves the real
+    # retriever hands it zero for a real question: the trigram floor and the abstention are one
+    # mechanism, and testing the halves separately would let them drift apart.
+    settings = Settings(database_url=DATABASE_URL, corpus_dir=FIXTURE_CORPUS)
+
+    with TestClient(create_app(settings, generator=RefusingGenerator())) as client:
+        body = client.post("/query", json={"question": "receita de brigadeiro de colher"}).json()
+
+    assert body["chunks"] == []
+    assert body["answer"]["abstained"] is True
+    assert body["answer"]["degraded"] is False
+    # Zero cost and no stage: the model was never asked, so there is no `generate` span to show.
+    assert [child["name"] for child in body["trace"]["children"]] == ["retrieve"]

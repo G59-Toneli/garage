@@ -1,13 +1,25 @@
-"""The read-only HTTP service: one question in, the chunks and the trace out.
+"""The read-only HTTP service: one question in, the chunks, the answer and the trace out.
 
-There is no language model here, and that is the shape of the product rather than a stage of it.
-Retrieval is what decides whether an answer *can* be right; a generator only decides how it reads.
-So the retrieval layer is served, scored and traced on its own first, and stays separately
-measurable after a generator lands on top of it (ADR-0004).
+The chunks come first in that list and in the response, because retrieval is what decides whether an
+answer *can* be right while a generator only decides how it reads. The retrieval layer was served,
+scored and traced on its own before generation existed, and it stays separately measurable now that
+a generator sits on top of it (ADR-0004): the fields generation added are *additional*, and the
+deterministic gate scores the same response it always scored.
 
-Two things the endpoint deliberately does not know: which `Retriever` it is holding (strategy is a
-runtime axis — design §9 — so a dense or hybrid implementation must drop in with no change here),
-and whether the database is the right one. The second is answered once, at boot: the service checks
+Generation is optional at every level. No `Generator` configured means no `answer` and no `generate`
+span, and the service is entirely usable that way. That is not a fallback path bolted on — it is the
+same absence the trace already expresses for any stage that did not run.
+
+Two policies live here rather than in `generation.py`, both deliberately. **Degradation**: the
+adapter raises honestly and this endpoint decides what a visitor sees, which is 200 with the chunks
+intact and an answer marked `degraded` — never a blank error page, and never confused with an
+abstention. **The zero-cost abstention**: no candidates means the model is not called at all, so
+there is no `generate` span to show.
+
+Three things the endpoint deliberately does not know: which `Retriever` it is holding, which
+`Generator` it is holding (both are runtime axes — design §9 — so a dense retriever or a different
+provider must drop in with no change here), and whether the database is the right one. The last is
+answered once, at boot: the service checks
 `corpus_hash` and refuses to start on a mismatch (ADR-0002), because a per-request check would be a
 service willing to run against the wrong artifact as long as nobody asks it anything.
 """
@@ -15,6 +27,7 @@ service willing to run against the wrong artifact as long as nobody asks it anyt
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from typing import Any, AsyncIterator, Literal
 
 from fastapi import FastAPI, Request
@@ -22,6 +35,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from garage import __version__
 from garage.config import Settings
+from garage.generation import (
+    Answer,
+    Contract,
+    Generator,
+    abstain_without_asking,
+    degrade,
+)
 from garage.ingest import verify_artifact
 from garage.retrieval import (
     DEFAULT_K,
@@ -35,6 +55,7 @@ from garage.retrieval import (
 from garage.tracing import Tracer
 
 Tier = Literal["A", "B"]
+PromptContract = Literal["cited", "free"]
 
 
 class QueryRequest(BaseModel):
@@ -46,6 +67,12 @@ class QueryRequest(BaseModel):
     # thread holds knowledge that exists nowhere else; narrowing to A is what makes the contrast
     # between the two visible.
     tiers: tuple[Tier, ...] = Field(default=TIERS, min_length=1)
+    # The prompt contract, a runtime axis (ADR-0005, design §9). `cited` is the default here and in
+    # `generation.Contract`, and both defaults are asserted by tests: `free` exists only so the demo
+    # can show what the citation contract is buying, and a system whose central property could be
+    # switched off by omitting a field would not have that property. A `Literal` rather than a plain
+    # string so that `extra="forbid"` and an unknown value both produce a 422 rather than a guess.
+    contract: PromptContract = "cited"
 
 
 class RetrievedChunk(BaseModel):
@@ -71,6 +98,63 @@ class RetrievedChunk(BaseModel):
         return cls(**vars(candidate))
 
 
+class CitedChunk(BaseModel):
+    """A citation as the wire sees it: the number the prose reads, and the chunk it resolved to.
+
+    Both, always. The number is what `[2]` in the answer means to a reader; the `chunk_id` is what
+    the interface links to and what makes a stored run record replayable. Every one of these was
+    checked against the chunks in this same response — the model is never taken at its word.
+    """
+
+    index: int
+    chunk_id: str
+
+
+class AnsweredClaim(BaseModel):
+    text: str
+    citations: tuple[CitedChunk, ...]
+    # False when every citation offered for this claim was discarded as invalid. Shown, marked,
+    # rather than deleted: hiding it would hide the failure, and the ADR-0004 judge is better served
+    # by a flagged sentence than by a silently shorter answer.
+    supported: bool
+
+
+class GeneratedAnswer(BaseModel):
+    """The generation result, present whenever generation was attempted — including when it refused.
+
+    `abstained` and `degraded` are separate booleans because they are separate facts, and the whole
+    abstention metric depends on not adding them together: the first says the corpus does not cover
+    the question, the second says the model could not be asked.
+    """
+
+    text: str
+    claims: tuple[AnsweredClaim, ...]
+    abstained: bool
+    abstention_reason: str | None
+    degraded: bool
+    degradation_reason: str | None
+    support: str
+    provider: str | None
+    model: str | None
+    contract: str
+    tokens_in: int
+    tokens_out: int
+    # Null for a model with no published price, never a zero: a free-looking row in a cost
+    # comparison is worse than a missing one. `pricing_as_of` dates the table it came from.
+    cost_usd: float | None
+    cost_estimated: bool
+    pricing_as_of: str | None
+    invalid_citations: int
+    unsupported_claims: int
+    contradictory: bool
+
+    @classmethod
+    def of(cls, answer: Answer) -> GeneratedAnswer:
+        # `asdict` recurses through the nested claim and citation dataclasses, so the wire shape is
+        # derived from the domain object rather than restated field by field beside it.
+        return cls(**asdict(answer))
+
+
 class QueryResponse(BaseModel):
     question: str
     # Echoed on every response, not only checked at boot: an answer kept without the identity of the
@@ -80,16 +164,34 @@ class QueryResponse(BaseModel):
     k: int
     tiers: tuple[Tier, ...]
     chunks: tuple[RetrievedChunk, ...]
+    # Added beside the existing fields, never in place of them: the ADR-0004 gate scores this exact
+    # response and a retrieval-only deployment must still produce the shape it was written against.
+    contract: PromptContract
+    # Null when no generator is configured at all — the honest shape for a stage that did not run,
+    # matching the trace, which has no `generate` span either.
+    answer: GeneratedAnswer | None
     trace: dict[str, Any]
 
 
-def create_app(settings: Settings | None = None, retriever: Retriever | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    retriever: Retriever | None = None,
+    generator: Generator | None = None,
+) -> FastAPI:
     # Reading settings here is the boot gate: a container with no GARAGE_DATABASE_URL dies at
     # startup rather than serving requests against a database it never had.
     settings = settings or Settings()
     # Constructing a retriever opens nothing. `retriever` is injectable so the endpoint's own
     # behaviour — shape, trace, filters — can be tested without a database standing behind it.
     retriever = retriever or LexicalRetriever(settings.database_url)
+    # No key, no generator, and no failure: generation is the optional layer and the service is
+    # complete without it. The construction is guarded rather than attempted-and-caught because
+    # `GeminiGenerator` imports an optional dependency, and a machine with neither the package nor a
+    # key must not have to pay for a traceback to find that out.
+    if generator is None and settings.gemini_api_key:
+        from garage.generation import GeminiGenerator
+
+        generator = GeminiGenerator(api_key=settings.gemini_api_key, model=settings.gemini_model)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -101,6 +203,7 @@ def create_app(settings: Settings | None = None, retriever: Retriever | None = N
     app = FastAPI(title="Garage", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.retriever = retriever
+    app.state.generator = generator
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -130,9 +233,16 @@ def create_app(settings: Settings | None = None, retriever: Retriever | None = N
                     filters=Filters(tiers=tuple(query_request.tiers)),
                 )
                 retrieve.set(**{"retrieval.candidates": len(candidates)})
-            # `rerank` and `generate` are the other two stages the design names (§12). They are
-            # absent rather than empty: a span reporting zero milliseconds for a stage that does not
-            # exist would be a trace lying about the pipeline it describes.
+            # `rerank` is the other stage the design names (§12), and it is absent rather than
+            # empty: a span reporting zero milliseconds for a stage that does not exist would be a
+            # trace lying about the pipeline it describes. `generate` obeys the same rule below.
+            answer = _answer(
+                tracer,
+                generator=generator,
+                question=query_request.question,
+                candidates=candidates,
+                contract=Contract(mode=query_request.contract),
+            )
             root.set(**{"query.candidates": len(candidates)})
 
         return QueryResponse(
@@ -142,10 +252,81 @@ def create_app(settings: Settings | None = None, retriever: Retriever | None = N
             k=query_request.k,
             tiers=query_request.tiers,
             chunks=tuple(RetrievedChunk.of(candidate) for candidate in candidates),
+            contract=query_request.contract,
+            answer=None if answer is None else GeneratedAnswer.of(answer),
             trace=tracer.tree(),
         )
 
     return app
+
+
+def _answer(
+    tracer: Tracer,
+    *,
+    generator: Generator | None,
+    question: str,
+    candidates: tuple[Candidate, ...],
+    contract: Contract,
+) -> Answer | None:
+    """Run generation, or say honestly why it did not run.
+
+    Three exits, and the trace differs in each. No generator: nothing happened, no span, no answer.
+    No candidates: an abstention that cost nothing and asked nobody, and still no span — the
+    retriever's similarity floor is what makes this reachable (`docs/retrieval.md`), and inventing a
+    zero-millisecond `generate` here would claim a model call that never occurred. A provider
+    failure: the span *does* exist, carrying its duration and its error, because the attempt is a
+    real thing that happened and a trace which goes quiet exactly when something broke is worth
+    little.
+    """
+    if generator is None:
+        return None
+    if not candidates:
+        return abstain_without_asking(
+            "nenhum trecho do Corpus passou o piso de similaridade para esta pergunta"
+        )
+
+    model = getattr(generator, "model", None)
+    span = None
+    try:
+        with tracer.span(
+            "generate",
+            **{
+                "generation.provider": generator.name,
+                "generation.model": model,
+                "generation.contract": contract.mode,
+                "generation.context.chunks": len(candidates),
+            },
+        ) as span:
+            answer = generator.generate(question, context=candidates, contract=contract)
+            span.set(
+                **{
+                    "generation.tokens.input": answer.tokens_in,
+                    "generation.tokens.output": answer.tokens_out,
+                    "generation.tokens.total": answer.tokens_total,
+                    "generation.cost.usd_estimated": answer.cost_usd,
+                    "generation.cost.estimated": answer.cost_estimated,
+                    "generation.pricing.as_of": answer.pricing_as_of,
+                    "generation.abstained": answer.abstained,
+                    "generation.support": answer.support,
+                    "generation.citations": sum(len(claim.citations) for claim in answer.claims),
+                    "generation.citations.invalid": answer.invalid_citations,
+                    "generation.claims.unsupported": answer.unsupported_claims,
+                    "generation.contradictory": answer.contradictory,
+                    "generation.degraded": False,
+                }
+            )
+            return answer
+    except Exception as failure:
+        # Caught outside the span, so the exception passes *through* it: the span already recorded
+        # `error`, `exception.type` and its real duration on the way out. Marking the degradation
+        # afterwards only adds an attribute; the timing was sealed when the span closed.
+        if span is not None:
+            span.set(**{"generation.degraded": True})
+        return degrade(
+            f"o provedor de geração falhou: {type(failure).__name__}: {failure}",
+            provider=generator.name,
+            model=model,
+        )
 
 
 def main() -> None:

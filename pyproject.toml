@@ -15,6 +15,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3", "httpx>=0.28"]
+# Optional on purpose. Generation is the layer the service is complete without, and the whole test
+# suite runs with neither this package nor an API key present — no test may import `google.genai`.
+gemini = ["google-genai>=1.0"]
 
 [build-system]
 requires = ["hatchling"]

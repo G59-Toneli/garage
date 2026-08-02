@@ -42,3 +42,14 @@ interface everything else drops in behind; the endpoint must never learn which i
 holds. The lexical strategy, the rank fusion, the trace format and the boot gate are documented in
 `docs/retrieval.md`. The service refuses to start against a database that is not this commit's
 artifact, so `ingest` runs before `serve`.
+
+## Generation
+
+`POST /query` also returns an `answer` when a `Generator` is configured — prose assembled from
+claims, every one of them citing chunks by number, every citation validated against the chunks that
+were actually retrieved before it reaches the wire. Abstention is a first-class result served with
+200, degradation is a separate flag from it, and neither is ever an error page. The citation
+contract, the validation rules, the dated price table and what is deliberately **not** covered by
+tests are documented in `docs/generation.md`. Generation is optional at every level: `google-genai`
+is an optional extra imported late, no key means no generator and no `generate` span, and no test in
+`tests/` may import the SDK or touch the network.

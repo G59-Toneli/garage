@@ -8,9 +8,11 @@ working directory cannot change how a test or a container behaves.
 
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from garage.corpus import FIXTURE_CORPUS
+from garage.generation import DEFAULT_MODEL
 
 
 class Settings(BaseSettings):
@@ -23,6 +25,20 @@ class Settings(BaseSettings):
     # read, so pointing this at a real Corpus does not require the operator's material to be
     # mounted into the serving container (ADR-0003).
     corpus_dir: Path = FIXTURE_CORPUS
+
+    # Absent by default, and absence is a supported configuration rather than a misconfiguration:
+    # the service boots, retrieves, traces and abstains-by-degradation without ever holding one. The
+    # boot gate is the `corpus_hash` alone (ADR-0002) — retrieval is the measurable layer and must
+    # not be held hostage to a hosted model's credentials.
+    # Two accepted names, and the alias is not indulgence: `GEMINI_API_KEY` is what the SDK's own
+    # documentation tells an operator to export and what is actually sitting in the environment,
+    # while `GARAGE_GEMINI_API_KEY` is this project's prefix convention. The project's own name wins
+    # when both are set, so a machine can hold one key for Garage and another for anything else.
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GARAGE_GEMINI_API_KEY", "GEMINI_API_KEY"),
+    )
+    gemini_model: str = DEFAULT_MODEL
 
     host: str = "0.0.0.0"
     port: int = 8000
