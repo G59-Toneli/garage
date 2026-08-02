@@ -19,8 +19,21 @@ from pathlib import Path
 import psycopg
 
 from garage.chunking import INGEST_VERSION, Chunk, chunk_document
-from garage.corpus import SOURCES_DIRNAME, Document, Manifest, load_manifest, validate_corpus
-from garage.database import CREATE_SCHEMA, CREATE_WRITE_GUARD, DROP_SCHEMA, INGESTING_FLAG
+from garage.corpus import (
+    SOURCES_DIRNAME,
+    Document,
+    Manifest,
+    corpus_hash,
+    load_manifest,
+    validate_corpus,
+)
+from garage.database import (
+    CREATE_EXTENSIONS,
+    CREATE_SCHEMA,
+    CREATE_WRITE_GUARD,
+    DROP_SCHEMA,
+    INGESTING_FLAG,
+)
 from garage.jargon import JargonTerm, load_vocabulary
 
 
@@ -135,6 +148,7 @@ def build(
             # Declares this session an ingestion, unlocking the write guard for this transaction
             # only. Every other connection — the server included — stays read-only.
             cursor.execute(f"SET LOCAL {INGESTING_FLAG} = 'on'")
+            cursor.execute(CREATE_EXTENSIONS)
             cursor.execute(DROP_SCHEMA)
             cursor.execute(CREATE_SCHEMA)
             cursor.execute(CREATE_WRITE_GUARD)
@@ -164,16 +178,73 @@ def build(
     )
 
 
-def stored_corpus_hash(database_url: str) -> str | None:
-    """The `corpus_hash` this database was built from, or None if it was never ingested.
+@dataclass(frozen=True)
+class Artifact:
+    """What a database says about itself: which Corpus it holds and which rules built it."""
 
-    This is the boot check the service will hang off (ADR-0002): a database that does not match the
-    commit is the wrong database, and serving from it silently is worse than not serving.
-    """
+    corpus_id: str
+    corpus_hash: str
+    ingest_version: int
+
+
+class ArtifactMismatch(Exception):
+    """The database is not the artifact this commit describes. A boot failure, never a warning."""
+
+
+def stored_artifact(database_url: str) -> Artifact | None:
+    """What this database was built from, or None if it was never ingested."""
     with psycopg.connect(database_url) as connection:
         # `to_regclass` rather than catching the error: a database that was never ingested is an
         # ordinary state at boot, not an exception to be recovered from.
         if connection.execute("SELECT to_regclass('corpus_meta')").fetchone()[0] is None:
             return None
-        row = connection.execute("SELECT corpus_hash FROM corpus_meta").fetchone()
-    return row[0] if row else None
+        row = connection.execute(
+            "SELECT corpus_id, corpus_hash, ingest_version FROM corpus_meta"
+        ).fetchone()
+    return Artifact(*row) if row else None
+
+
+def stored_corpus_hash(database_url: str) -> str | None:
+    """The `corpus_hash` this database was built from, or None if it was never ingested."""
+    artifact = stored_artifact(database_url)
+    return artifact.corpus_hash if artifact else None
+
+
+def verify_artifact(database_url: str, corpus_dir: Path) -> Artifact:
+    """The boot gate (ADR-0002): refuse to serve a database that is not this commit's artifact.
+
+    Two numbers have to agree, and they fail differently (ADR-0007). A wrong `corpus_hash` means the
+    database holds *different material* than the manifest in this checkout describes — every
+    citation it produces would name a document the reader cannot check. A wrong `ingest_version`
+    means the same material processed by *rules this code no longer implements* — the chunks are
+    real but they are not the chunks this code would build, so a `chunk_id` in an evaluation set
+    quietly points somewhere else.
+
+    Only the manifest is read, never the source documents: a real Corpus keeps its material on the
+    operator's disk and the serving container has none of it (ADR-0003). That is sound because the
+    hash is taken over the catalogue, and ingestion verified the material against that catalogue
+    before it wrote a single row.
+    """
+    expected = corpus_hash(load_manifest(corpus_dir))
+    found = stored_artifact(database_url)
+
+    if found is None:
+        raise ArtifactMismatch(
+            "the database was never ingested: no corpus_meta row.\n"
+            "Run `python -m garage ingest` before serving."
+        )
+    if found.corpus_hash != expected:
+        raise ArtifactMismatch(
+            "the database holds a different Corpus than this checkout describes.\n"
+            f"  database: corpus_hash {found.corpus_hash} (corpus_id {found.corpus_id})\n"
+            f"  manifest: corpus_hash {expected} (from {corpus_dir})\n"
+            "Run `python -m garage ingest` to rebuild it."
+        )
+    if found.ingest_version != INGEST_VERSION:
+        raise ArtifactMismatch(
+            "the database was built by chunking rules this code no longer implements.\n"
+            f"  database: ingest_version {found.ingest_version}\n"
+            f"  code:     ingest_version {INGEST_VERSION}\n"
+            "Run `python -m garage ingest` to rebuild it."
+        )
+    return found

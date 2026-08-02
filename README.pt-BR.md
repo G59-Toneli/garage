@@ -45,12 +45,15 @@ O projeto entrega em cinco fatias verticais, cada uma terminando em um write-up 
 | 5 | Série histórica e fechamento — dashboard, README consolidado, retrospectiva. | planejada |
 
 **Pronto até aqui:** o documento de design, o vocabulário do domínio, as decisões de arquitetura, o
-esqueleto do projeto — um serviço FastAPI com endpoint `/health`, Postgres com pgvector no Compose e
-CI rodando os testes mais um build de imagem multi-arquitetura — e a ingestão: um comando reconstrói
-o banco inteiro a partir de um corpus verificado, com chunking consciente de estrutura
-([docs/ingestion.md](docs/ingestion.md)).
+esqueleto do projeto — um serviço FastAPI, Postgres com pgvector no Compose e CI rodando os testes
+mais um build de imagem multi-arquitetura; a ingestão — um comando reconstrói o banco inteiro a
+partir de um corpus verificado, com chunking consciente de estrutura
+([docs/ingestion.md](docs/ingestion.md)); e o primeiro caminho ponta a ponta — `POST /query` devolve
+chunks ranqueados com score, tier, documento e página, mais a árvore de spans por trás deles, servido
+por recuperação lexical sem nenhum modelo de linguagem no caminho
+([docs/retrieval.md](docs/retrieval.md)).
 
-**Ainda não construído:** nenhuma das estratégias de recuperação, o gate de avaliação, a UI
+**Ainda não construído:** recuperação densa e híbrida, o gate de avaliação, a UI
 comparativa e o deploy público. Não há números de benchmark neste README porque ainda não existe
 registro de corrida de onde derivá-los. Quando existir, cada número vai linkar para a corrida que o
 produziu.
@@ -203,11 +206,16 @@ mesmo modelo que produz dados de treino.** A procedência fica registrada no pr�
 ## Rodando localmente
 
 ```sh
+docker compose up -d postgres
+docker compose run --rm serve python -m garage ingest   # construa o artefato primeiro
 docker compose up --wait
 ```
 
-Essa é a instalação inteira: Postgres com pgvector instalado, dependências construídas e o serviço
-respondendo em <http://localhost:8000/health>. Rode a suíte com `docker compose exec serve pytest`.
+Postgres com pgvector instalado, o corpus fixture ingerido e o serviço respondendo em
+<http://localhost:8000/health> e <http://localhost:8000/query>
+([docs/retrieval.md](docs/retrieval.md)). O passo de ingestão não é opcional: o serviço valida o
+`corpus_hash` no boot e recusa subir contra um banco que não seja o artefato deste commit.
+Rode a suíte com `docker compose exec serve pytest`.
 Toda configuração é lida do ambiente e todas têm um default que funciona; copie `.env.example` para
 `.env` apenas quando quiser mudar alguma. Nada secreto é commitado.
 

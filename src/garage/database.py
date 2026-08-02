@@ -30,6 +30,13 @@ INGESTED_TABLES = ("documents", "chunks", "jargon", "corpus_meta")
 # takes the dependent triggers and indexes with them.
 DROP_SCHEMA = "\n".join(f"DROP TABLE IF EXISTS {table} CASCADE;" for table in INGESTED_TABLES)
 
+# `pg_trgm` backs the trigram half of lexical retrieval. It is created here rather than in
+# `docker/initdb/` — where `vector` lives — because initdb runs once, when the data directory is
+# empty: a developer whose volume predates this line would get a database the server cannot query.
+# Ingestion is the one step that already owns DDL and is always re-run, so requiring it here is what
+# makes every built artifact complete.
+CREATE_EXTENSIONS = "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
 CREATE_SCHEMA = f"""
 CREATE TABLE documents (
     doc_id      text PRIMARY KEY,
@@ -65,6 +72,10 @@ CREATE TABLE chunks (
 );
 
 CREATE INDEX chunks_tsv_idx ON chunks USING gin (tsv);
+-- Unused by today's query, which computes `word_similarity` per row and scans: at fixture scale
+-- that is free. It is here because the corpus this is built for is a shelf of scanned manuals, and
+-- the rewrite to an indexable word-similarity operator must not also be a rebuild of every database.
+CREATE INDEX chunks_text_trgm_idx ON chunks USING gin (text gin_trgm_ops);
 CREATE INDEX chunks_tier_idx ON chunks (tier);
 CREATE INDEX chunks_jargon_idx ON chunks USING gin (jargon_terms);
 

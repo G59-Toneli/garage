@@ -42,11 +42,14 @@ The project ships as five vertical slices, each ending in a public write-up.
 | 5 | Historical series and close-out — dashboard, consolidated README, retrospective. | planned |
 
 **Built so far:** the design spec, the domain vocabulary, the architectural decisions, the project
-skeleton — a FastAPI service with a `/health` endpoint, Postgres with pgvector in Compose, and CI
-running tests plus a multi-arch image build — and ingestion: one command rebuilds the whole database
-from a verified corpus with structure-aware chunking ([docs/ingestion.md](docs/ingestion.md)).
+skeleton — a FastAPI service, Postgres with pgvector in Compose, and CI running tests plus a
+multi-arch image build; ingestion — one command rebuilds the whole database from a verified corpus
+with structure-aware chunking ([docs/ingestion.md](docs/ingestion.md)); and the first end-to-end
+path — `POST /query` returns ranked chunks with score, tier, document and page, plus the span tree
+behind them, served by lexical retrieval with no language model anywhere
+([docs/retrieval.md](docs/retrieval.md)).
 
-**Not built yet:** either retrieval strategy, the evaluation gate, the comparison UI, and the public
+**Not built yet:** dense and hybrid retrieval, the evaluation gate, the comparison UI, and the public
 deployment. There are no benchmark numbers in this README, because there is no run record
 to derive them from. When there are, each will link to the run that produced it.
 
@@ -197,11 +200,16 @@ same model that produces training data.** Provenance is recorded in the file its
 ## Running it locally
 
 ```sh
+docker compose up -d postgres
+docker compose run --rm serve python -m garage ingest   # build the artifact first
 docker compose up --wait
 ```
 
-That is the whole setup: Postgres with pgvector installed, dependencies built, and the service
-answering on <http://localhost:8000/health>. Run the suite with `docker compose exec serve pytest`.
+Postgres with pgvector installed, the fixture corpus ingested, and the service answering on
+<http://localhost:8000/health> and <http://localhost:8000/query>
+([docs/retrieval.md](docs/retrieval.md)). The ingest step is not optional: the service verifies
+`corpus_hash` at boot and refuses to start against a database that is not this commit's artifact.
+Run the suite with `docker compose exec serve pytest`.
 Every setting is read from the environment and every one has a working default; copy `.env.example`
 to `.env` only when you want to change one. Nothing secret is committed.
 

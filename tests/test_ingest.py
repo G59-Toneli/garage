@@ -13,7 +13,7 @@ import pytest
 
 from garage.chunking import INGEST_VERSION
 from garage.corpus import FIXTURE_CORPUS, CorpusError
-from garage.ingest import build, stored_corpus_hash
+from garage.ingest import ArtifactMismatch, build, stored_corpus_hash, verify_artifact
 
 DATABASE_URL = os.environ.get("GARAGE_DATABASE_URL")
 
@@ -114,3 +114,37 @@ def test_a_corpus_that_fails_verification_never_reaches_the_database(ingested, c
     # Not merely refused: the database an operator was already serving from is untouched.
     assert _query("SELECT chunk_id FROM chunks ORDER BY chunk_id") == before
     assert stored_corpus_hash(DATABASE_URL) == ingested.corpus_hash
+
+
+def test_the_boot_gate_accepts_the_database_it_just_built(ingested):
+    artifact = verify_artifact(DATABASE_URL, FIXTURE_CORPUS)
+
+    assert artifact.corpus_hash == ingested.corpus_hash
+    assert artifact.ingest_version == INGEST_VERSION
+
+
+def test_the_boot_gate_refuses_a_database_holding_a_different_corpus(ingested, corpus_copy: Path):
+    manifest = corpus_copy / "manifest.yaml"
+    # Only the catalogue changes, and only in a way that changes the Corpus identity. The material
+    # on disk still verifies — this is the wrong-database failure, not the tampered-source one.
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("corpus_id: fixture", "corpus_id: other"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactMismatch) as refusal:
+        verify_artifact(DATABASE_URL, corpus_copy)
+
+    assert ingested.corpus_hash in str(refusal.value)
+
+
+def test_the_boot_gate_refuses_a_database_that_was_never_ingested(ingested):
+    # Nothing here is a rebuild, so the tables stay dropped only for as long as this test.
+    with psycopg.connect(DATABASE_URL) as connection:
+        connection.execute("DROP TABLE corpus_meta CASCADE")
+
+    try:
+        with pytest.raises(ArtifactMismatch):
+            verify_artifact(DATABASE_URL, FIXTURE_CORPUS)
+    finally:
+        build(DATABASE_URL, FIXTURE_CORPUS)

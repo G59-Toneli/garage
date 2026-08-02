@@ -33,3 +33,12 @@ never depend on copyrighted material or on which PDFs happen to be on a given ma
 rebuild, always safe to re-run, and nothing writes to the ingested tables at runtime (ADR-0002; the
 schema enforces it). Structure-aware chunking, the Jargon vocabulary and the stored `corpus_hash`
 are documented in `docs/ingestion.md`.
+
+## Serving
+
+`python -m garage serve` answers `POST /query` with ranked chunks and the span tree behind them —
+no language model anywhere, so retrieval stays measurable on its own (ADR-0004). `Retriever` is the
+interface everything else drops in behind; the endpoint must never learn which implementation it
+holds. The lexical strategy, the rank fusion, the trace format and the boot gate are documented in
+`docs/retrieval.md`. The service refuses to start against a database that is not this commit's
+artifact, so `ingest` runs before `serve`.
