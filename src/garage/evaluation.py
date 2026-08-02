@@ -598,12 +598,19 @@ def is_ancestor_of_head(sha: str) -> bool:
 # shares its name.
 _TEXT_SEARCH_DICTIONARIES = """
 SELECT
-    %(config)s::regconfig::text AS config,
+    -- Always schema-qualified, unlike `regconfig::text`, which drops the schema whenever the
+    -- configuration happens to sit on the search_path. A record saying `portuguese` would not say
+    -- *which* `portuguese`, and a configuration of that name in another schema is exactly the kind
+    -- of shadowing this field exists to make visible.
+    namespaces.nspname || '.' || configurations.cfgname AS config,
     coalesce(string_agg(DISTINCT dictionaries.dictname, ', ' ORDER BY dictionaries.dictname), 'none')
         AS dictionaries
-FROM pg_ts_config_map AS mapping
-JOIN pg_ts_dict AS dictionaries ON dictionaries.oid = mapping.mapdict
-WHERE mapping.mapcfg = %(config)s::regconfig
+FROM pg_ts_config AS configurations
+JOIN pg_namespace AS namespaces ON namespaces.oid = configurations.cfgnamespace
+LEFT JOIN pg_ts_config_map AS mapping ON mapping.mapcfg = configurations.oid
+LEFT JOIN pg_ts_dict AS dictionaries ON dictionaries.oid = mapping.mapdict
+WHERE configurations.oid = %(config)s::regconfig
+GROUP BY namespaces.nspname, configurations.cfgname
 """
 
 
