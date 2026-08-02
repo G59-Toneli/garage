@@ -181,7 +181,7 @@ depois do `ingest`; o formato dos facts, o do registro de corrida e o procedimen
 em [docs/evaluation.md](docs/evaluation.md).
 
 O baseline `lexical` sobre o Corpus fixture, tirado de
-[`eval/runs/20260802T011346Z-d8dcb021b722.json`](eval/runs/20260802T011346Z-d8dcb021b722.json):
+[`eval/runs/20260802T012113Z-83bfb8a3e75a.json`](eval/runs/20260802T012113Z-83bfb8a3e75a.json):
 
 | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
 |---|---|---|---|---|

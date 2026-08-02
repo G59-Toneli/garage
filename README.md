@@ -176,7 +176,7 @@ it needs no API call to run. `python -m garage eval gate` is that gate, and it r
 [docs/evaluation.md](docs/evaluation.md).
 
 The `lexical` baseline over the fixture corpus, from
-[`eval/runs/20260802T011346Z-d8dcb021b722.json`](eval/runs/20260802T011346Z-d8dcb021b722.json):
+[`eval/runs/20260802T012113Z-83bfb8a3e75a.json`](eval/runs/20260802T012113Z-83bfb8a3e75a.json):
 
 | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
 |---|---|---|---|---|

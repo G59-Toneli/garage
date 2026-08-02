@@ -163,13 +163,13 @@ every single time. The history is the directory listing.
 ```jsonc
 {
   "run_record_version": 2,
-  "run_id": "20260802T011346Z-d8dcb021b722",
-  "started_at": "2026-08-02T01:13:46Z",
+  "run_id": "20260802T012113Z-83bfb8a3e75a",
+  "started_at": "2026-08-02T01:21:13Z",
   "duration_ms": 1204,
   "layer": "deterministic",
   "suite": "facts",
   "provenance": {
-    "git_sha": "d8dcb021b722…", "git_dirty": false,
+    "git_sha": "83bfb8a3e75a…", "git_dirty": false,
     "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 1,
     "python_version": "3.12.13", "platform": "Windows-11-…",
     "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
@@ -247,7 +247,7 @@ someone can go and check.
 ```jsonc
 {
   "baseline_version": 2,
-  "run_id": "20260802T011346Z-d8dcb021b722",
+  "run_id": "20260802T012113Z-83bfb8a3e75a",
   "sample_count": 76,
   "facts_sha256": "d44c3af4af84…",
   "arms": [
@@ -355,7 +355,7 @@ Two checks, not one:
 2. **The measurement.** Everything the run must reproduce, compared field by field.
 
 ```
-the newest run record in the tree (20260802T011346Z-d8dcb021b722.json) does not match what this
+the newest run record in the tree (20260802T012113Z-83bfb8a3e75a.json) does not match what this
 build measures. It was committed against a different corpus, engine, Configuration or retrieval
 behaviour.
 ```
