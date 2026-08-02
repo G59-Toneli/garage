@@ -53,14 +53,30 @@ def test_a_specification_arrives_with_the_heading_its_number_belongs_to(retrieve
 
 
 def test_an_unaccented_question_still_finds_the_accented_chunk(retriever):
-    # `cabecote` is not a Portuguese word and stemming cannot reach `cabeçote` from it. Forum
-    # Portuguese drops accents constantly, so trigram matching is what keeps the thread reachable.
+    """Forum Portuguese drops accents constantly, and the thread has to stay reachable.
+
+    This asserted that full text contributed **zero** and that trigram alone rescued the chunk. The
+    second half was true for *this* query and is not a property of dropped accents, which is what the
+    test was taken to prove. `word_similarity` peaks at 0.714 here and clears the 0.6 floor, but the
+    bare word `cabecote` peaks at 0.500 and the sentence `torque do parafuso do cabeçote` peaks at
+    0.357 — same misspelling, opposite outcomes, decided by how much of the rest of the query
+    happens to match.
+
+    ADR-0010 put `unaccent` in front of the stemmer, so the accented and unaccented spellings are one
+    lexeme and full text finds it in all three cases. What is asserted now is that **both** signals
+    fire: the full-text one because that is the new guarantee, and the trigram one because it did
+    before and losing it would be a regression this test should catch rather than absorb.
+    """
     found = retriever.retrieve("cabecote plainado", k=5)
 
     assert "forum-swap-250s#0010" in {candidate.chunk_id for candidate in found}
     top = found[0]
-    assert top.components["trigram"] > 0
-    assert top.components["lexical"] == 0  # Full text contributed nothing at all here.
+    # The new guarantee: this is a full-text hit, not a threshold that happened to be cleared.
+    assert top.components["lexical"] > 0, "unaccent should make this a full-text hit"
+    assert top.components["lexical_rank"] is not None
+    # And the old behaviour is still there rather than displaced by the new one.
+    assert top.components["trigram"] >= 0.6
+    assert top.components["trigram_rank"] is not None
 
 
 def test_every_candidate_carries_what_a_citation_needs(retriever):
@@ -77,13 +93,29 @@ def test_every_candidate_carries_what_a_citation_needs(retriever):
 
 
 def test_the_tier_filter_excludes_community_sources(retriever):
+    """The filter, and a consequence of ADR-0010 that is worth stating rather than hiding.
+
+    The unfiltered query is Tier B material and nothing else, which is the assertion this test is
+    for. What it used to assert as well — that narrowing to Tier A returns an *empty hand*, because
+    no manual discusses an engine swap — is no longer true and should not be. `Kadett` is in the
+    parts catalogue, and under the disjunctive fallback one matching term is enough, so the filtered
+    query comes back with a Tier A chunk about the right car and the wrong subject.
+
+    That is the trade the ADR names: the fallback fires exactly when the strict reading found
+    nothing, and here it does. The filter is still doing its job and the honest way to say so is
+    that every result respects it — not that the answer is empty, which was a property of the bug.
+    Genuine abstention is asserted below, on a question with no term in the corpus at all.
+    """
     both = retriever.retrieve("swap 250-S no Kadett", k=10)
     tier_a_only = retriever.retrieve("swap 250-S no Kadett", k=10, filters=Filters(tiers=("A",)))
 
     assert {candidate.tier for candidate in both} == {"B"}
-    # Nothing in the Tier A material discusses the swap, so filtering to A is an honest empty hand
-    # rather than a worse answer.
-    assert tier_a_only == ()
+    assert {candidate.tier for candidate in tier_a_only} == {"A"}
+    # No chunk crosses the filter in either direction, which is the property that makes a
+    # tier-narrowed comparison mean anything.
+    assert not {candidate.chunk_id for candidate in both} & {
+        candidate.chunk_id for candidate in tier_a_only
+    }
 
 
 def test_a_question_the_corpus_does_not_cover_retrieves_nothing(retriever):

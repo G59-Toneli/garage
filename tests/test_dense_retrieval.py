@@ -338,6 +338,40 @@ def test_dense_does_not_abstain_and_lexical_does(retriever, artifact):
     assert len(retriever.retrieve(uncovered, k=10)) == 10
 
 
+def test_lexical_still_abstains_on_an_english_question_about_a_part_the_corpus_lacks(
+    retriever, artifact
+):
+    """The abstention under the OR fallback, exercised deliberately rather than inherited.
+
+    #12 changed what abstention *means* here and the test above no longer covers the interesting
+    case. Its query is Portuguese dessert vocabulary, which the corpus was never going to contain in
+    any grammatical form; it would pass under a retriever with no full-text arm at all. The case
+    worth holding after the fallback is a question in the corpus's own register, about the corpus's
+    own subject, using words the corpus happens not to contain — because that is where the bar moved.
+    It used to be "not every term matched", which the whole issue was about, and it is now "not one
+    term matched", which is much harder to clear.
+
+    `turbocharger`, `wastegate` and `actuator` appear in no chunk of a naturally aspirated 2.0 MPFI
+    corpus; `how`, `do`, `I` and `the` are stop words under `garage_bi` in either language and
+    contribute no lexeme. So the disjunction has nothing to match, the strict conjunction had
+    nothing to match, and the honest answer is nothing at all.
+
+    This is the property `app._answer` builds its zero-cost abstention on, so it is load bearing
+    beyond retrieval: if this ever returns candidates, the demo starts paying a provider to say "I
+    don't know" about a turbocharger.
+    """
+    uncovered = "how do I replace the turbocharger wastegate actuator"
+
+    assert LexicalRetriever(artifact).retrieve(uncovered, k=10) == ()
+    # And the contrast that makes it a measurement rather than a tautology: the same question shape,
+    # about a part the corpus *does* cover, comes back full. The retriever is not simply broken for
+    # sentences any more — that was the bug, and it is the thing this test must not pass because of.
+    assert LexicalRetriever(artifact).retrieve(
+        "how do I replace the timing belt", k=10
+    ), "sentences must work; only the missing subject may abstain"
+    assert len(retriever.retrieve(uncovered, k=10)) == 10
+
+
 # ------------------------------------------------------------------------------------------------
 # End to end.
 # ------------------------------------------------------------------------------------------------
