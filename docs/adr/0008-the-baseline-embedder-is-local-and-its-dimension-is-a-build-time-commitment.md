@@ -36,9 +36,22 @@ motor` to `flywheel`. Small because the deployment target is an Oracle Ampere VM
   inside a padded batch. Ingestion embeds in bulk and the server embeds one query at a time, which
   is exactly the pair that would diverge, and ADR-0004's `measurement()` compares per-item retrieved
   order across machines. Revisit with a measurement when the corpus is large, not before.
-- Embeddings were checked to be **bit-identical across Windows x86-64 and Linux x86-64** — all
-  20,352 passage components and 1,920 query components — with the smallest adjacent cosine gap in
-  any top-10 around 2e-4, twelve orders of magnitude above float32 epsilon. arm64 is untested.
+- Embeddings are **bit-identical across x86-64 and not across architectures**, and both halves of
+  that were measured rather than assumed.
+  - Windows x86-64 against Linux x86-64: all 20,352 passage components and all 1,920 query
+    components identical. This is the pair that matters for the gate — records are generated on a
+    developer's Windows machine and re-measured by CI on Ubuntu — so `measurement()`, which compares
+    per-item retrieved order, is safe as the pipeline is configured.
+  - Emulated linux/arm64 against x86-64: **1,756 of 1,920 query components differ**, by at most
+    9.7e-08. Ranking is very unlikely to move — the smallest adjacent cosine gap observed in any
+    top-10 is around 2e-4, some two orders of magnitude above the worst cosine perturbation that
+    delta can produce — but bit-identity does **not** hold and must not be relied on.
+  - The operational rule that follows: **run records are generated and re-measured on x86-64.** The
+    ARM VM is a deployment target, not a measurement machine. A record regenerated there would very
+    probably still match and is not guaranteed to, and "probably" is not what a reproducibility
+    claim is worth. If the ARM VM ever has to produce records, the fix is to round the score before
+    `ORDER BY` (the `chunk_id` tie-break then settles it) or to exclude `retrieved_chunk_ids` from
+    `measurement()` for the dense arm — decided then, with the failure in hand.
 - The 384-dimension promise constrains Phase 4 and is worth restating: a fine-tuned embedder that
   changes the width is not a second `model_key`, it is a schema migration and a new baseline.
 - `fingerprint` (`embedding.EmbedderSpec`) is a **fourth identity number** beside `corpus_hash`,
