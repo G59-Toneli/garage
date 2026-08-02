@@ -9,8 +9,8 @@ project. The baseline therefore has to be a model this project can actually fine
 A hosted embedding API was the obvious first choice — no weights to ship, no inference to run, no
 470 MB in the image. **Cohere was evaluated and rejected**: they have retired fine-tuning for Embed
 models. A baseline that cannot be fine-tuned deletes Phase 4 and reduces ADR-0005 to a column
-nobody writes a second value into. A `COHERE_API_KEY` is in the environment and is reserved for the Phase 2
-reranker, which is a *runtime* axis and cacheable, and is not used here.
+nobody writes a second value into. A `COHERE_API_KEY` is in the environment and is reserved for the
+Phase 2 reranker, which is a *runtime* axis and cacheable, and is not used here.
 
 We run **`intfloat/multilingual-e5-small`, 384 dimensions, locally, under ONNX Runtime** — never
 torch, never sentence-transformers. 384 becomes a **build-time commitment**: the schema declares
@@ -51,8 +51,9 @@ architecture is the constraint, not the capacity — see the determinism consequ
   - The wrong conclusion drawn from that: "the smallest adjacent top-10 cosine gap is ~2e-4, two
     orders of magnitude above the perturbation, so ranking is safe." Two errors. **2e-4 is the
     median** of the per-question smallest gaps; the actual minimum over the fact suite is
-    **1.414e-06** (`kw-cabecote-trabalhado`, positions 8 and 9) — 145× smaller. And 9.7e-08 is a
-    *per-component* delta compared directly against a *cosine* gap, where the honest bound is
+    **1.414e-06** (`kw-cabecote-trabalhado`, positions 8 and 9; an independent float32
+    recomputation puts it at 1.311e-06) — 145× smaller. And 9.7e-08 is a *per-component* delta
+    compared directly against a *cosine* gap, where the honest bound is
     `|Δcos| ≤ ‖Δq‖₂`: **1.90e-06** worst case over 384 components, 1.05e-06 RMS, with the passage
     side drifting too. The real gap sits **inside** the envelope. Order was never safe across
     architectures.

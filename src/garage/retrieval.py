@@ -209,12 +209,14 @@ scored AS (
 # out: the Phase 4 fine-tuned embedder is a different value bound here and not one line of new SQL
 # (ADR-0005).
 #
-# The score is **rounded before anything orders by it**, and this is the single most consequential
-# line in the module. ONNX Runtime is not bit-reproducible across instruction sets: the same weights
+# The score is **rounded before anything orders by it**, and the paragraphs below are long because
+# the reasoning is easy to get wrong — an earlier version of this comment did, by two orders of
+# magnitude. ONNX Runtime is not bit-reproducible across instruction sets: the same weights
 # and the same text give query vectors whose components differ by up to 9.7e-08 between x86-64 and
 # arm64 (measured, ADR-0008), which bounds the cosine difference by ‖Δq‖₂ — about 1.9e-06 worst case
 # over 384 components, and the passage side drifts too. The smallest adjacent gap between two
-# top-ten cosines in the real fact suite is 1.4e-06. That is *inside* the envelope, so raw ordering
+# top-ten cosines in the real fact suite is 1.3–1.4e-06 (two independent measurements). That is
+# *inside* the envelope, so raw ordering
 # is not stable across architectures, and ADR-0001 names an ARM VM as the deployment target: a
 # reproducibility claim that holds only where the project does not run is not a claim worth making.
 #
