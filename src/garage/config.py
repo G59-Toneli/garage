@@ -65,3 +65,41 @@ class Settings(BaseSettings):
 
     host: str = "0.0.0.0"
     port: int = 8000
+
+    # --- the public deployment (issue #11) -------------------------------------------------------
+    #
+    # Every value below has a default that is correct for a laptop, so nothing here has to be set to
+    # run the project. They exist because the ARM VM puts a paid provider's free tier behind a URL
+    # anyone can open, and the numbers that protect it are a property of *that* deployment rather
+    # than of this code. `docs/deploy.md` is where they are argued; `garage/limits.py` is where they
+    # are enforced.
+
+    # Whether `X-Forwarded-For` may be believed. **Off by default and on only behind the reverse
+    # proxy that sets it.** Direct on the internet, that header is a string the client chose, so
+    # honouring it would let one address present as a new visitor on every request and walk through
+    # both per-IP limiters. The production overlay turns it on beside the Caddy that makes it true.
+    trust_forwarded_for: bool = False
+
+    # The anti-abuse bucket, the only limiter in this system that produces a 429. Zero disables it.
+    requests_per_minute: int = 10
+
+    # The two generation budgets. Neither ever produces an error: over either one the request is
+    # rebased onto retrieval, which is local and free, and the answer is marked `degraded` with a
+    # reason of its own (`app.query`). A 429 here would throw away the free half of the product to
+    # punish a visitor for the paid half.
+    generations_per_day_per_client: int = 60
+    # Around 250 requests a day is what the free tier publishes for `gemini-2.5-flash`. Two hundred
+    # leaves headroom for retries, for the operator's own `showcase build`, and for the fact that
+    # the provider's day boundary need not be ours. Configurable because that number is not ours to
+    # promise and has moved before.
+    generation_budget_per_day: int = 200
+
+    cache_max_entries: int = 512
+    cache_ttl_seconds: int = 86400
+
+    # The commit this container was built from, baked in by the Dockerfile. It is a *cache key
+    # component* first and a display string second: without it, a deploy that changes the prompt
+    # keeps serving answers the previous build produced, under this build's version stamp. Empty
+    # means "ask git", which works in a checkout and returns `unknown` in an image built from a
+    # tarball — and `unknown` is stated on screen rather than hidden.
+    git_sha: str = ""
