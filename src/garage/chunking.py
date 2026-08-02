@@ -32,7 +32,12 @@ from garage.jargon import JargonTerm, detect
 # Goes up whenever these rules change — including an edit to `corpus/jargon.yaml`, whose detected
 # terms are stored on the chunk (ADR-0007). Stored alongside the corpus hash so a database can be
 # recognised as built by rules this code no longer implements.
-INGEST_VERSION = 1
+#
+# 2 with #12: the chunk *text* is unchanged, but `chunks.tsv` is a stored generated column and the
+# text search configuration behind it went from `portuguese` to `garage_bi` (ADR-0010). What is
+# stored changed, so a database built by version 1 holds a `tsvector` this code would never produce
+# and must not be served — which is exactly the case ADR-0007 gives this number to catch.
+INGEST_VERSION = 2
 
 ChunkKind = Literal["spec", "procedure", "prose"]
 

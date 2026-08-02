@@ -33,6 +33,7 @@ from garage.database import (
     CREATE_EMBEDDING_INDEX,
     CREATE_EXTENSIONS,
     CREATE_SCHEMA,
+    CREATE_TEXT_SEARCH_CONFIG,
     CREATE_WRITE_GUARD,
     DROP_SCHEMA,
     INGESTING_FLAG,
@@ -222,6 +223,13 @@ def build(
             cursor.execute(f"SET LOCAL {INGESTING_FLAG} = 'on'")
             cursor.execute(CREATE_EXTENSIONS)
             cursor.execute(DROP_SCHEMA)
+            # Between the drop and the create, and it cannot be anywhere else. `chunks.tsv` is a
+            # generated column that references `garage_bi` by OID, so the configuration cannot be
+            # dropped while the old `chunks` still stands — and `CREATE_SCHEMA` cannot run before
+            # the configuration exists. Exactly one ordering satisfies both, which is why the two
+            # statements are separate constants with this comment between them rather than one
+            # convenient blob somebody reorders while tidying.
+            cursor.execute(CREATE_TEXT_SEARCH_CONFIG)
             cursor.execute(CREATE_SCHEMA)
             cursor.execute(CREATE_WRITE_GUARD)
 
