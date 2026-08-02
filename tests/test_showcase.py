@@ -28,6 +28,7 @@ from garage.ingest import Artifact
 from garage.retrieval import Candidate, StoredChunk
 from garage.showcase import (
     DISPLAY_RULE,
+    VERBATIM_SUBSEQUENCE_LIMIT,
     VERBATIM_TOKEN_LIMIT,
     Sample,
     ShowcaseArm,
@@ -40,6 +41,7 @@ from garage.showcase import (
     load_questions,
     load_showcase_record,
     longest_common_run,
+    longest_common_subsequence,
     spread_of,
     spreads_from,
     tokens,
@@ -301,12 +303,68 @@ def test_the_chunk_model_refuses_a_text_field_outright():
     assert not hasattr(ShowcaseChunk.of(candidate()), "text")
 
 
-def test_every_committed_showcase_record_holds_no_corpus_text():
-    """The same check, against whatever is actually in `eval/showcase/` in this checkout.
+# How long a shared run of tokens stops being a coincidence. Seven, and the number was swept rather
+# than guessed — the whole point of this guard is that the last one was chosen by eye and had a
+# blind spot. Against the five fixture sources, the manifest, and the committed record:
+#
+#   n    exempt (also in manifest)   false positives   catches `Section 3.2 — Cylinder head,
+#                                    on the record     tightening specifications` (7 tokens folded)
+#   5            16                        15                        yes
+#   6            11                         0                        yes
+#   7             8                         0                        yes
+#   8             5                         0                        no
+#   12            0                         0                        no
+#
+# Twelve — the first choice — was too loose in the direction that matters: it cannot see a short
+# Tier A heading, which is exactly the string a real service manual's `section` will hold. Five is
+# too strict; it flags `doc_title` against its own document's H1 beyond what the manifest exempts.
+# Six and seven are both clean, and seven is taken for the extra token of headroom over the
+# strictest clean value.
+#
+# Note the `exempt` column: at twelve it is zero, so the manifest subtraction was inert and
+# `doc_title` was passing on length alone. At seven it removes eight real n-grams and is doing work.
+LEAK_NGRAM = 7
 
-    The test above proves the builder does not write text. This one proves nothing in the repository
-    *has* text — including records committed by a future version of the builder, and including one
-    edited by hand. It is the check that keeps being true after this file stops being read.
+
+def _ngrams(text: str, n: int = LEAK_NGRAM) -> set[tuple[str, ...]]:
+    words = tokens(text)
+    return {tuple(words[start : start + n]) for start in range(len(words) - n + 1)}
+
+
+def _strings(node) -> list[tuple[str, str]]:
+    """Every string in a parsed JSON document, with the path that reaches it."""
+
+    def walk(value, path):
+        if isinstance(value, str):
+            yield (path, value)
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                yield from walk(child, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                yield from walk(child, f"{path}[{index}]")
+
+    return list(walk(node, "$"))
+
+
+def test_no_ngram_of_any_source_document_reaches_a_committed_record():
+    """The guard that actually holds ADR-0003, replacing one that had a demonstrated blind spot.
+
+    The test this replaces matched whole markdown **lines** against the record. It never fired,
+    because a heading is stored without its `## ` prefix and `line in written` was therefore false
+    every time — sixteen fields of the committed record were carrying twelve-token runs of the
+    fixture while the suite stayed green. `section` was the field, `chunking` sets it from
+    `heading.group(2)`, and no gate in this module looked at it: the verbatim gate reads
+    `claim.text` against cited Tier A chunks, and `extra="forbid"` only catches fields nobody
+    enumerated.
+
+    So this one knows nothing about fields, lines or prefixes. It tokenises every string in the
+    record and rejects any `LEAK_NGRAM`-token run that appears in a source document.
+
+    **Minus the manifest.** `doc_title` is the manifest's own `title`, which is committed by hand as
+    the catalogue entry ADR-0002 says a Corpus is, and several titles are also the first heading of
+    their document. Subtracting the manifest's own n-grams is what distinguishes "this text is
+    already in git on purpose" from "this text escaped", and it is the only exemption.
     """
     from garage.corpus import FIXTURE_CORPUS
     from garage.showcase import SHOWCASE_DIR
@@ -315,19 +373,83 @@ def test_every_committed_showcase_record_holds_no_corpus_text():
     if not records:
         pytest.skip("no showcase record is committed in this checkout")
 
-    # Every distinct non-trivial line of the fixture Corpus. Long lines only: "GSi" appears in a
-    # question and in a document title and proves nothing, while a whole table row does not occur by
-    # coincidence.
-    lines = {
-        line.strip()
-        for source in (FIXTURE_CORPUS / "sources").glob("*.md")
-        for line in source.read_text(encoding="utf-8").splitlines()
-        if len(line.strip()) > 40
-    }
+    from_sources: set[tuple[str, ...]] = set()
+    for source in sorted((FIXTURE_CORPUS / "sources").glob("*.md")):
+        from_sources |= _ngrams(source.read_text(encoding="utf-8"))
+    forbidden = from_sources - _ngrams((FIXTURE_CORPUS / "manifest.yaml").read_text(encoding="utf-8"))
+    assert forbidden, "the fixture is too small to make this check mean anything"
+
+    leaks: list[str] = []
     for path in records:
-        written = path.read_text(encoding="utf-8")
-        leaked = sorted(line for line in lines if line in written)
-        assert leaked == [], f"{path.name} carries corpus text: {leaked[:3]}"
+        for where, value in _strings(json.loads(path.read_text(encoding="utf-8"))):
+            shared = _ngrams(value) & forbidden
+            if shared:
+                leaks.append(f"{path.name}{where}: {' '.join(sorted(shared)[0])!r}")
+    assert leaks == [], (
+        f"{len(leaks)} committed field(s) carry a {LEAK_NGRAM}-token run of a source document "
+        f"(ADR-0003):\n  " + "\n  ".join(leaks[:8])
+    )
+
+
+def test_the_ngram_guard_catches_the_leak_that_the_line_based_one_missed():
+    """The guard, proved against the exact defect it was written for.
+
+    A guard that has only ever passed is a guard nobody can trust, and the one this replaces passed
+    for its whole life while sixteen fields leaked. So this reconstructs the leaks that were really
+    on disk, plus the one that would matter on a real Corpus, and asserts all three are rejected —
+    and that the manifest exemption is genuinely load-bearing rather than decoration.
+    """
+    from garage.corpus import FIXTURE_CORPUS
+
+    sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((FIXTURE_CORPUS / "sources").glob("*.md"))
+    )
+    manifest = (FIXTURE_CORPUS / "manifest.yaml").read_text(encoding="utf-8")
+    forbidden = _ngrams(sources) - _ngrams(manifest)
+
+    # 1. The short Tier A heading. This is the one that matters on the day #10 lands — a real
+    #    manual's `section` looks exactly like this — and it is the case an n of twelve could not
+    #    see, because folded it is only seven tokens long.
+    tier_a_heading = "Section 3.2 — Cylinder head, tightening specifications"
+    assert f"## {tier_a_heading}" in sources
+    assert _ngrams(tier_a_heading) & forbidden, "the short heading must be caught"
+
+    # 2. What the old check could not see, spelled out: the record stores a heading without its
+    #    markdown prefix, so matching whole lines never matched anything.
+    lines = {line.strip() for line in sources.splitlines() if len(line.strip()) > 40}
+    assert tier_a_heading not in lines
+
+    # 3. A whole numbered step — prose rather than a heading.
+    step = "Loosen the five camshaft bearing cap nuts a quarter turn at a time, working from cap 5 to cap 1."
+    assert _ngrams(step) & forbidden
+
+    # 4. And the exemption is real work, not decoration. This `doc_title` is a manifest entry *and*
+    #    its document's own first heading, so without the subtraction it would be a false positive.
+    catalogued = "Catálogo de Peças — Kadett / Ipanema, grupo 12 e 18"
+    assert _ngrams(catalogued) & _ngrams(sources), "it is in a document, verbatim"
+    assert not (_ngrams(catalogued) & forbidden), "and it is exempt, because it is in the manifest"
+
+
+def test_the_record_stores_no_section_because_a_section_is_the_document_s_own_heading(offline):
+    """`section` comes from `chunking.heading.group(2)`. It is the operator's prose, and it left.
+
+    `doc_title` stays, and the pair is the whole rule: the manifest is a catalogue somebody wrote and
+    committed, the headings are the document.
+    """
+    from garage.showcase import _SOURCE_TEXT_FIELDS
+
+    assert set(_SOURCE_TEXT_FIELDS) == {"text", "section"}
+    assert "section" not in set(ShowcaseChunk.model_fields)
+    assert "doc_title" in set(ShowcaseChunk.model_fields)
+
+    sectioned = candidate()
+    assert sectioned.section, "the fixture candidate must carry one, or this proves nothing"
+    assert not hasattr(ShowcaseChunk.of(sectioned), "section")
+
+    record = build(CountingGenerator(), retrievers=[FakeRetriever([sectioned])])
+    written = json.dumps(record.model_dump(mode="json"), ensure_ascii=False)
+    assert sectioned.section not in written
 
 
 # --- ADR-0003, part two: the verbatim gate ------------------------------------------------------------
@@ -408,17 +530,91 @@ def test_a_hand_edited_record_over_the_limit_will_not_load(offline, tmp_path):
         load_showcase_record(path)
 
 
-def test_the_longest_common_run_is_contiguous_and_not_a_scattered_subsequence():
-    """The documented deviation from the issue text, asserted so it cannot be undone by accident.
-
-    A scattered subsequence is two sentences about the same torque figure sharing articles and
-    prepositions, which every correct answer does. A contiguous run is a copy.
-    """
+def test_the_two_measures_measure_different_things():
     chunk = tokens("aperte o parafuso do cabeçote a quarenta e um newton metro no primeiro estágio")
     scattered = tokens("o parafuso a um metro no estágio")
+
+    # Contiguous: a scattered match is worth almost nothing.
     assert longest_common_run(scattered, chunk) < 3
     assert longest_common_run(tokens("do cabeçote a quarenta e um"), chunk) == 6
     assert longest_common_run((), chunk) == 0
+
+    # In order with gaps: the same scattered match is worth all of it.
+    assert longest_common_subsequence(scattered, chunk) == len(scattered)
+    assert longest_common_subsequence((), chunk) == 0
+    # And the subsequence is never shorter than the run, by construction.
+    assert longest_common_subsequence(scattered, chunk) >= longest_common_run(scattered, chunk)
+
+
+def test_the_subsequence_gate_catches_the_paragraph_a_run_gate_lets_through(offline):
+    """The hole the QA round found, closed and pinned.
+
+    A contiguous-run gate alone is evadable with one edit. Copy a Tier A paragraph in order and drop
+    a linking word in every twenty tokens — "ou seja", "segundo o manual", which is *ordinary* model
+    behaviour over a manual rather than an attack — and the run never exceeds twenty while the whole
+    paragraph is redistributed word for word, in order.
+
+    This asserts both halves: that the run measure genuinely does not fire, and that the build fails
+    anyway.
+    """
+    paragraph = " ".join(f"palavra{index}" for index in range(44))
+    padded = []
+    for index, word in enumerate(paragraph.split()):
+        if index and index % 20 == 0:
+            padded.append("ou seja")
+        padded.append(word)
+    evasive = " ".join(padded)
+
+    chunk = candidate()
+    object.__setattr__(chunk, "text", paragraph)
+    object.__setattr__(chunk, "tier", "A")
+
+    # The run measure, on its own, does not fire. This is the defect, stated as a measurement.
+    assert longest_common_run(tokens(evasive), tokens(paragraph)) <= VERBATIM_TOKEN_LIMIT
+    # The subsequence measure recovers the entire paragraph.
+    assert longest_common_subsequence(tokens(evasive), tokens(paragraph)) == 44
+
+    copying = CountingGenerator([_answer(text=evasive, chunk_id=chunk.chunk_id)])
+    with pytest.raises(VerbatimLeak) as leak:
+        build(copying, retrievers=[FakeRetriever([chunk])])
+
+    message = str(leak.value)
+    assert "in order, gaps allowed" in message
+    assert QUESTION.question_id in message
+    # It says *which* measure fired, because a long run is a quotation and a long subsequence with a
+    # short run is a paraphrase-shaped copy, and the two have different fixes.
+    assert "consecutive tokens" not in message
+    assert copying.calls == 1
+
+
+def test_both_worst_values_are_recorded_even_when_neither_gate_fired(offline):
+    record = build(CountingGenerator())
+    redistribution = record.redistribution
+    assert redistribution.verbatim_token_limit == VERBATIM_TOKEN_LIMIT
+    assert redistribution.verbatim_subsequence_limit == VERBATIM_SUBSEQUENCE_LIMIT
+    # A threshold with no observed value beside it is a policy nobody can calibrate.
+    assert redistribution.worst_verbatim.tokens >= 0
+    assert redistribution.worst_verbatim_subsequence.tokens >= 0
+    assert redistribution.worst_verbatim_subsequence.tokens >= redistribution.worst_verbatim.tokens
+
+
+def test_the_worst_of_each_measure_is_kept_separately_not_the_worst_answer_s_pair():
+    """Per measure, not per answer. The answer with the longest run is frequently not the one with
+    the longest subsequence, and keeping one answer's pair discards the other's worse half — which
+    is the half somebody calibrating a threshold needs."""
+    from garage.showcase import VerbatimFinding, VerbatimReading
+
+    quoting = VerbatimReading(
+        run=VerbatimFinding(tokens=18, question_id="a", chunk_id="c1"),
+        subsequence=VerbatimFinding(tokens=18, question_id="a", chunk_id="c1"),
+    )
+    paraphrasing = VerbatimReading(
+        run=VerbatimFinding(tokens=4, question_id="b", chunk_id="c2"),
+        subsequence=VerbatimFinding(tokens=40, question_id="b", chunk_id="c2"),
+    )
+    merged = quoting.merge(paraphrasing)
+    assert (merged.run.tokens, merged.run.question_id) == (18, "a")
+    assert (merged.subsequence.tokens, merged.subsequence.question_id) == (40, "b")
 
 
 def test_tokenising_folds_accents_so_a_copy_without_a_cedilla_is_still_a_copy():
@@ -588,6 +784,38 @@ def test_the_showcase_id_has_the_same_shape_as_a_run_id(offline):
     stamp, sha = record.showcase_id.split("-")
     assert len(stamp) == 16 and stamp.endswith("Z")
     assert sha == PROVENANCE.git_sha[:12]
+
+
+def test_a_dirty_tree_is_refused_because_showcase_id_promises_the_sha_identifies_the_build(
+    monkeypatch,
+):
+    """The promise `showcase_id` makes, enforced rather than imitated.
+
+    `<timestamp>-<git_sha[:12]>` is `run_id`'s format and `run_id` keeps its guarantee. Built from a
+    dirty tree the sha names the last commit and the code that produced the numbers exists nowhere,
+    so the id looks like a `run_id` without being one.
+
+    `eval run` only warns about this, and the asymmetry is deliberate rather than an inconsistency:
+    a run record is regenerated by one free local command, and this one costs 160 provider calls and
+    is then cited for months. So the default is a refusal, `--allow-dirty` is the deliberate
+    exception, and the record carries `git_dirty` either way — which the screen reads and prints
+    beside the id.
+    """
+    import garage.ingest
+
+    monkeypatch.setattr(garage.ingest, "verify_artifact", lambda *_, **__: ARTIFACT)
+    dirty = PROVENANCE.model_copy(update={"git_dirty": True})
+    monkeypatch.setattr(showcase_module, "local_provenance", lambda *_: dirty)
+
+    generator = CountingGenerator()
+    with pytest.raises(ShowcaseError, match="working tree is dirty"):
+        build(generator)
+    # Refused before a single call, so a mistake costs nothing.
+    assert generator.calls == 0
+
+    record = build(CountingGenerator(), allow_dirty=True)
+    # Not hidden once allowed: the record says it, and that is what the banner renders.
+    assert record.provenance.git_dirty is True
 
 
 def test_the_record_refuses_to_claim_a_sampling_n_its_arms_do_not_hold(offline, tmp_path):

@@ -305,17 +305,31 @@ approximate. Two implementations of the overlap arithmetic, the shared `corpus_h
 floor note and the millisecond scale would drift, and the drift would show up as a demo that
 disagrees with the live page about which chunks the two strategies share.
 
-### The one component that did change
+### The absence branch in `chunkCard`, and why it is not a breach of the boundary
 
-`render.chunkCard` gained an absence branch, and it is the only component edit the showcase required.
+`render.chunkCard` gained a branch for a chunk whose paragraph this artifact does not hold. An
+earlier draft of this document described that as "the one component that had to change, against the
+boundary's promise". **That was wrong, and the wording mattered enough to correct rather than
+soften: as written it would license a real breach later.**
 
-A showcase record commits `chunk_id`s and never the words (ADR-0003), so a clone without the
-operator's Corpus reaches a chunk with a rank, a score, a tier, a document, an identifier and no
-paragraph. The adapter says *what* is missing and is forbidden from formatting; `dom.js` says how
-missing looks; so somebody has to draw it, and that somebody is the component. Rendering `null` as a
-string would produce an empty `<p>`, and a blank card is an absence pretending to be a short chunk.
+The boundary's rule is that no component reads a *server payload*. `adapt.js` emits `textAbsent` as
+a boolean — a datum, decided by the adapter, in the view object — and `render.js` consumes it. That
+is precisely the contract, and it has abundant precedent in this very interface: `failed`, `ran`,
+`fired`, `zeroCost` and the five-state enum are all the same shape. What the component added is copy
+and structure, which is formatting, which is the component's job.
 
-It is dashed, quiet, and never red: nothing failed, and everything around it is still the product.
+The division still holds and is worth restating: the adapter decides *what is missing*, `dom.js`
+decides *how an absence is spelled*, and the component decides *what an absence looks like as
+markup*. Rendering `null` through `el({text})` would produce an empty `<p>`, and a blank card is an
+absence pretending to be a short chunk.
+
+Dashed, quiet, and never red: nothing failed, and everything around it is still the product.
+
+The same hydration path carries `section`, and for a reason that is not cosmetic. A `section` is set
+by `chunking` from the source document's own heading, so it is the operator's prose and it does not
+go into a committed record (ADR-0003) — it comes back from `GET /chunks` exactly as `text` does.
+`doc_title` is the exception that stays in the record, because it is the manifest's catalogue entry
+and is in git already.
 
 ### Saying "precomputed" on four channels
 
@@ -323,10 +337,20 @@ A visitor who reads these as live numbers has been misled, so the claim is carri
 tier is (see above), and for the same reason — colour alone fails WCAG 1.4.1 and fails in print:
 
 1. **Text** — a banner naming the `showcase_id`, the scope, the date the samples were drawn, the
-   provider, the model, the temperature and n.
-2. **A stamp on every panel of numbers**, each carrying the `showcase_id`, so a screenshot of one
-   panel taken out of context still says where it came from. Beside every *group* of numbers rather
-   than every numeral, which would be unreadable.
+   provider, the model, the temperature, n, and both verbatim-gate readings. When the record was
+   built from a dirty tree the banner says so *inline beside the id*: `showcase_id` has `run_id`'s
+   format and therefore appears to make `run_id`'s promise, and a sha that does not identify the
+   code which produced the numbers has to be marked where the sha is read, not in a footnote.
+2. **A stamp on every panel of numbers**, each carrying the `showcase_id` **and which draw it is** —
+   `PRÉ-COMPUTADO · amostra 2 de 3 · 20260802T…`. Beside every *group* of numbers rather than every
+   numeral, which would be unreadable, and a screenshot of one panel out of context still says both
+   where it came from and that it is one sample of several.
+
+   The draw qualifier used to live only in the spread panel at the bottom of the column, several
+   hundred pixels below the cost figures it qualified. That does not break ADR-0004's letter — the
+   file holds no scalar and the spread is right there — but a reader who never scrolls has read a
+   point value off the screen, which is the thing ADR-0004 exists to prevent. The spread panel's own
+   stamp reads `todas as N amostras`, because it is the one panel whose numbers are not a draw.
 3. **Texture, not tone** — a repeating diagonal hatch behind the whole region, plus a 2px border so
    the edge of "what is precomputed" is a line and not a gradient. A lighter shade of grey says
    nothing in monochrome.

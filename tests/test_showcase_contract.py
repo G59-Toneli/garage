@@ -72,14 +72,16 @@ ARM_KEYS = {
 
 SAMPLE_KEYS = {"index", "answer", "trace"}
 
-# `RetrievedChunk` minus `text`, and the omission is the whole point of the class (ADR-0003).
+# `RetrievedChunk` minus every field that carries the source document's own words, which is the
+# whole point of the class (ADR-0003). `section` is on that list and was not on it at first: it is
+# `chunking`'s `heading.group(2)`, so it is the document's heading text, and it leaked twelve-token
+# runs of the fixture into a committed record.
 SHOWCASE_CHUNK_KEYS = {
     "chunk_id",
     "doc_id",
     "doc_title",
     "tier",
     "page",
-    "section",
     "kind",
     "score",
     "components",
@@ -89,7 +91,13 @@ SPREAD_KEYS = {"values", "n", "minimum", "maximum", "distinct"}
 
 SAMPLING_KEYS = {"n", "generator", "model", "temperature", "measured_on"}
 
-REDISTRIBUTION_KEYS = {"chunk_text_stored", "verbatim_token_limit", "worst_verbatim"}
+REDISTRIBUTION_KEYS = {
+    "chunk_text_stored",
+    "verbatim_token_limit",
+    "verbatim_subsequence_limit",
+    "worst_verbatim",
+    "worst_verbatim_subsequence",
+}
 
 
 @pytest.fixture
@@ -160,7 +168,8 @@ def test_the_record_carries_exactly_the_keys_the_screen_reads(written):
     assert set(written) == SHOWCASE_RECORD_KEYS
     assert set(written["sampling"]) == SAMPLING_KEYS
     assert set(written["redistribution"]) == REDISTRIBUTION_KEYS
-    assert set(written["redistribution"]["worst_verbatim"]) == {"tokens", "question_id", "chunk_id"}
+    for finding in ("worst_verbatim", "worst_verbatim_subsequence"):
+        assert set(written["redistribution"][finding]) == {"tokens", "question_id", "chunk_id"}
 
     item = written["items"][0]
     assert set(item) == ITEM_KEYS
@@ -171,14 +180,21 @@ def test_the_record_carries_exactly_the_keys_the_screen_reads(written):
     assert set(arm["samples"][0]) == SAMPLE_KEYS
 
 
-def test_the_stored_chunk_is_the_retrieved_chunk_minus_its_words(written):
+def test_the_stored_chunk_is_the_retrieved_chunk_minus_the_document_s_own_words(written):
     """Stated as a relation rather than as two independent lists, so it cannot quietly become a
-    different set of fields with the same size."""
+    different set of fields with the same size.
+
+    The subtracted set is `showcase._SOURCE_TEXT_FIELDS`, read from the module rather than restated,
+    because that tuple is the answer to "which `Candidate` fields carry the operator's prose" and a
+    second copy of it here is exactly how `section` was missed the first time.
+    """
+    from garage.showcase import _SOURCE_TEXT_FIELDS
     from test_ui_contract import RETRIEVED_CHUNK_KEYS
 
-    assert SHOWCASE_CHUNK_KEYS == RETRIEVED_CHUNK_KEYS - {"text"}
+    assert SHOWCASE_CHUNK_KEYS == RETRIEVED_CHUNK_KEYS - set(_SOURCE_TEXT_FIELDS)
     assert set(ShowcaseChunk.model_fields) == SHOWCASE_CHUNK_KEYS
-    assert "text" not in set(written["items"][0]["arms"][0]["retrieval"]["chunks"][0])
+    stored = set(written["items"][0]["arms"][0]["retrieval"]["chunks"][0])
+    assert not stored & set(_SOURCE_TEXT_FIELDS)
 
 
 def test_the_hydration_endpoint_returns_the_field_the_record_is_missing_and_no_ranking():

@@ -299,7 +299,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.86998,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -313,7 +312,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.86909,
-                "section": "Onde estou hoje",
                 "tier": "B"
               },
               {
@@ -327,7 +325,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.86701,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -341,7 +338,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85928,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -355,7 +351,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85919,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -369,7 +364,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85612,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -383,7 +377,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85471,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -397,7 +390,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85209,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -411,7 +403,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.85072,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -425,7 +416,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.8489,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               }
             ]
@@ -792,7 +782,7 @@
       ],
       "question": "Com que aperto eu fecho o cabeçote do meu Kadett GSi?",
       "question_id": "torque-cabecote-natural",
-      "why": "A mesma pergunta do primeiro item, escrita como um mecânico escreveria, e o resultado é desconfortável: o lexical não recupera nada e o denso recupera dez trechos, todos Tier B, de fórum e de blog. Nenhuma das duas colunas responde. Está no showcase exatamente por isso — o Tier A deste Corpus é escrito em inglês, o embedder multilíngue não fecha esse vão aqui, e uma vitrine que só mostrasse as perguntas em que o sistema acerta seria propaganda. Compare com o primeiro item: a diferença entre os dois é a língua da pergunta, e nada mais."
+      "why": "A mesma pergunta que \"cylinder head bolt stage 2 torque\", escrita como um mecânico escreveria, e o resultado é desconfortável: nesta pergunta o lexical não recupera nada e o denso recupera dez trechos, todos Tier B, de fórum e de blog — nenhuma das duas colunas responde. Isto é o que acontece nesta pergunta, e não uma afirmação sobre o corpus: medido sobre as 21 perguntas naturais em português da suíte, o lexical recupera algo em 2 delas e o denso traz algum Tier A em 4. O número que resume a dívida é outro — recall português → Tier A sob denso = 2/10 = 0,20, e o cruzamento genuíno de idioma responde por 6,5% do ganho do denso em recall@10:natural (análise completa e correção pública na issue #7). O Tier A deste Corpus é escrito em inglês. A pergunta está no showcase porque uma vitrine que só mostrasse os acertos seria propaganda."
     },
     {
       "arms": [
@@ -1091,7 +1081,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.8431,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1105,7 +1094,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.83431,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1119,7 +1107,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.82752,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1133,7 +1120,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.82168,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1147,7 +1133,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.81683,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1161,7 +1146,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.81135,
-                "section": "Onde estou hoje",
                 "tier": "B"
               },
               {
@@ -1175,7 +1159,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.8094,
-                "section": "O que eu não faria",
                 "tier": "B"
               },
               {
@@ -1189,7 +1172,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.80191,
-                "section": "Blog Garagem 59 — \"Meu projetinho de rua: dois anos com um Kadett GSi\"",
                 "tier": "B"
               },
               {
@@ -1203,7 +1185,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.80066,
-                "section": "Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\"",
                 "tier": "B"
               },
               {
@@ -1217,7 +1198,6 @@
                 "kind": "prose",
                 "page": null,
                 "score": 0.79861,
-                "section": "O que eu não faria",
                 "tier": "B"
               }
             ]
@@ -1583,8 +1563,14 @@
   },
   "redistribution": {
     "chunk_text_stored": false,
+    "verbatim_subsequence_limit": 25,
     "verbatim_token_limit": 25,
     "worst_verbatim": {
+      "chunk_id": null,
+      "question_id": null,
+      "tokens": 0
+    },
+    "worst_verbatim_subsequence": {
       "chunk_id": null,
       "question_id": null,
       "tokens": 0

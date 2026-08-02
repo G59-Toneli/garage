@@ -100,20 +100,28 @@ this is stochastic and costs money on every line, and fusing them would put CI o
 from needing `GEMINI_API_KEY` (ADR-0004, ADR-0007). It is the only command in the CLI that spends
 money, so it is the only one that prints its plan and refuses to act without `--yes`, and it
 throttles between calls — only around draws that actually reached the provider, since a question
-that retrieves nothing abstains for free. **The record stores no chunk text, ever** (ADR-0003): it
-commits `chunk_id`s, `GET /chunks?ids=…` hydrates them locally and for nothing, and a clone without
-the operator's material renders everything else with the chunks shown as identified absences. The
-second leak is the generated prose, and a mechanical verbatim gate closes it — the longest
-contiguous token run between each claim and any cited Tier A chunk, over a declared threshold the
-build fails and names the question, never truncating and never redacting, with the threshold and the
-worst observed run written into the record so the decision is auditable. Sampling is declared once at
+that retrieves nothing abstains for free. It refuses a dirty tree unless `--allow-dirty` is passed,
+because `showcase_id` has `run_id`'s format and therefore makes `run_id`'s promise that the sha
+identifies the build. **The record stores no source prose, ever** (ADR-0003): it commits `chunk_id`s
+and `doc_title` — the manifest's own catalogue entry, in git already — while `text` **and `section`**
+come back from `GET /chunks?ids=…`, locally and for nothing, and a clone without the operator's
+material renders everything else with the chunks shown as identified absences. `section` is
+`chunking`'s heading text and its first version leaked twelve-token runs of the fixture into a
+committed record, so the guard is an n-gram scan of the bytes on disk rather than a field list — the
+field list is what got it wrong. The second leak is the generated prose, and a mechanical verbatim
+gate closes it in **two** measures against cited Tier A chunks: longest contiguous run, and longest
+common subsequence, because the first alone is evaded by copying a paragraph in order with a linking
+word every twenty tokens. Over either threshold the build fails and names the question and which
+measure fired, never truncating and never redacting, with both thresholds and both worst observed
+values written into the record so the decision is auditable. Sampling is declared once at
 the top of the file; **no stochastic metric has a scalar field anywhere**, so the interface cannot
 render a point estimate for a number that wobbles (ADR-0004); and the displayed draw is chosen by a
 rule recorded in the file, never by picking the best one. The service refuses to boot against a
 record built on another `corpus_hash`, exactly as it refuses a mismatched database. The format, the
-two ADR-0003 gates, the deviation from the issue's "subsequence" wording, and a measured finding
-about what this fixture's dense arm actually does with Portuguese questions are all in
-`docs/showcase.md`. What is committed today is a small **proving run**, not the curated set.
+ADR-0003 gates with the measurements behind their thresholds, and a corrected finding about what
+this fixture's dense arm actually does with Portuguese questions — **recall pt → Tier A under dense
+is 2/10**, and cross-language retrieval is 6.5% of dense's `recall@10:natural` gain (issue #7) — are
+all in `docs/showcase.md`. What is committed today is a small **proving run**, not the curated set.
 
 ## Interface
 

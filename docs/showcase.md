@@ -21,61 +21,130 @@ no trace, no cost. This record adds those four. It adds no chunk text, and that 
 
 ## ADR-0003, resolved twice
 
-### The record stores no chunk text. Ever.
+### The record stores no source prose. Ever.
 
 The criterion says "no **model** call". It does not say "no database". The text already lives in
 `chunks.text`, in the derived artifact that ADR-0002 makes the one legitimate home for third-party
 material and that ADR-0003 keeps out of git. So:
 
-- `chunk_id`, rank, score, tier, document and section go into the record;
-- `GET /chunks?ids=...` hands back the paragraphs — local, free, deterministic, no model;
+- `chunk_id`, rank, score, tier, page, kind and `doc_title` go into the record;
+- `GET /chunks?ids=...` hands back the paragraphs **and the section headings** — local, free,
+  deterministic, no model;
 - a clone **without** the operator's material renders metrics, answer, cost and trace with the
   chunks shown as **absent and identified**, which is already this interface's vocabulary
   (`docs/ui.md`: an absence travels as an absence).
 
-`ShowcaseChunk` is `RetrievedChunk` minus `text`, with `extra="forbid"`, so
-`ShowcaseChunk(**vars(candidate))` fails loudly instead of quietly committing the corpus.
-`tests/test_showcase.py` reads every committed record back and searches it for every non-trivial
-line of the fixture Corpus.
+`ShowcaseChunk` is `RetrievedChunk` minus `_SOURCE_TEXT_FIELDS`.
 
-Today the whole fixture is `rights: original-work`, so storing text would be legal *now* and illegal
-the day a real manual is catalogued. A format that is correct only until the project gets serious
-breaks exactly when it matters.
+**`section` is on that list, and it was not at first.** This is the leak QA found, and the shape of
+it is worth keeping written down. `chunking` sets `section` from `heading.group(2)` — it *is* the
+source document's own heading — and the first version of this module wrote it to disk. Sixteen
+fields of the committed record carried twelve-token runs of the fixture through it. Harmless there:
+the fixture is `rights: original-work` and the leaked headings are short Tier B thread titles. Not
+harmless the day a scanned manual is catalogued, when `Section 3.2 — Cylinder head, tightening
+specifications` is fifty-four characters of a publisher's table of contents going into git without
+passing any gate — the verbatim gate below reads `claim.text` against cited Tier A chunks, and a
+`section` is neither.
 
-### The verbatim gate
+`doc_title` deliberately stays. It is the manifest's own `title`, in git already, by hand, as the
+catalogue entry ADR-0002 says a Corpus *is*. Committing it a second time redistributes nothing.
+
+**What holds this line is not the field list**, because the field list is what got `section` wrong.
+`extra="forbid"` catches a *new* text-bearing field on `Candidate`; it cannot catch one that already
+existed and was enumerated incorrectly, and an earlier version of the comment beside it claimed
+otherwise. The real guard is
+`test_no_ngram_of_any_source_document_reaches_a_committed_record`: it reads the bytes on disk,
+tokenises every string in them, and rejects any **seven**-token run of any source document that is
+not already in the manifest. It knows nothing about fields.
+
+Subtracting the manifest's own n-grams is the only exemption, and it is what distinguishes "this
+text is in git on purpose" from "this text escaped" — `Catálogo de Peças — Kadett / Ipanema, grupo
+12 e 18` is both a manifest `title` and its document's first heading.
+
+**Seven was swept, not guessed**, because the guard it replaces was chosen by eye and had a blind
+spot:
+
+| n | exempt by manifest | false positives on the record | catches `Section 3.2 — Cylinder head, tightening specifications` |
+| --- | --- | --- | --- |
+| 5 | 16 | **15** | yes |
+| 6 | 11 | 0 | yes |
+| **7** | **8** | **0** | **yes** |
+| 8 | 5 | 0 | no |
+| 12 | 0 | 0 | no |
+
+Twelve was the first choice and was loose in the direction that matters: it cannot see a short Tier
+A heading, which is precisely the string a real service manual's `section` will hold — that heading
+is seven tokens folded. Five is too strict, flagging `doc_title` against its own document's H1
+beyond what the manifest exempts. Note the exempt column too: at twelve the manifest subtraction was
+inert and `doc_title` was passing on length alone.
+
+**A limit worth knowing:** an n-gram guard cannot see a heading shorter than n tokens. It is a
+backstop. The structural protection is that `section` is not stored at all.
+
+The test it replaced matched whole markdown **lines**, so it never fired: the record stores a
+heading without its `## ` prefix, and `line in written` was false every time. That is why the suite
+was green with sixteen leaking fields on disk. There is a second test that reconstructs exactly that
+case and asserts the new check rejects it, because a guard that has only ever passed is a guard
+nobody can trust.
+
+Today the whole fixture is `rights: original-work`, so storing any of it would be legal *now* and
+illegal the day a real manual is catalogued. A format that is correct only until the project gets
+serious breaks exactly when it matters.
+
+### The verbatim gate, in two measures
 
 The other way source material could reach git is the generated prose. A model answering over a
 scanned manual can emit a sentence verbatim, and that sentence would be committed.
 
-So for every claim, the build computes the longest run of tokens it shares with any **cited Tier A**
-chunk. Over `VERBATIM_TOKEN_LIMIT` (25, configurable with `--verbatim-token-limit`) the build fails
-and names the question.
+So the build measures every claim against every **cited Tier A** chunk, twice, because either
+measure alone is escapable:
+
+| measure | limit | catches |
+| --- | --- | --- |
+| longest contiguous run | `VERBATIM_TOKEN_LIMIT` = 25 | a quotation: N tokens in a row, no gaps |
+| longest common subsequence | `VERBATIM_SUBSEQUENCE_LIMIT` = 25 | a copy in order with words dropped in |
+
+Over either limit the build fails, names the question, and says which measure fired — a long run is
+a quotation, a long subsequence with a short run is a paraphrase-shaped copy, and the two have
+different fixes.
+
+**Why both, with the numbers.** The first version of this module implemented only the contiguous run
+and argued that a scattered subsequence is just two Portuguese sentences sharing articles. Measured,
+that argument does not survive:
+
+- over unrelated Portuguese paragraph pairs in this corpus, the longest common subsequence is **9**
+  tokens — so a limit of 25 has sixteen tokens of margin over the worst false positive;
+- correct, original, cited answers score **14–21**;
+- and the cost of leaving it out: a 44-token Tier A paragraph copied in order with a linking word
+  dropped in every twenty tokens — "ou seja", "segundo o manual", which is *ordinary LLM behaviour
+  over a manual*, not an attack — scores a **contiguous run of 20** and sails through, while
+  redistributing the paragraph word for word. Its subsequence is 44.
+
+The exact ceiling of the run gate is also worth stating plainly: 25 contiguous tokens pass and 26
+fail, so under the run gate alone a model could copy 25 contiguous tokens per claim, without limit,
+by design. Four tokens of margin over the 21 a legitimate answer reached is thin, is written down
+rather than smoothed over, and must be re-measured before a real corpus is catalogued — the measure
+is absolute, so a longer generated answer mechanically scores higher against the same chunk.
 
 It does **not** truncate and does **not** redact. Silent redaction would be the interface lying
 about what the model produced, and it would hide the one signal an operator needs — "this
-configuration copies". A human rewrites the question, drops it, or raises the threshold in a commit
-where somebody can object. The threshold and the worst run actually observed both go into
-`redistribution`, so the decision is auditable by whoever reads the file rather than by whoever ran
-the command.
+configuration copies". A human rewrites the question, drops it, or raises a threshold in a commit
+where somebody can object. Both thresholds and both worst observed values go into `redistribution`,
+so the decision is auditable by whoever reads the file rather than by whoever ran the command. The
+two worsts are tracked **per measure**, not as one answer's pair: the answer with the longest run is
+frequently not the one with the longest subsequence.
 
 Two narrowings, both deliberate. **Tier A only**: Tier B is a forum post, a different problem with a
 different answer, and folding them together makes the gate fire on the wrong thing. **Cited only**:
 the model saw all *k* chunks in its prompt, so comparing against the uncited ones would flag a
 coincidence as a leak.
 
-**One deviation from issue #14's wording, stated rather than buried.** The issue says "longest common
-token *subsequence*"; this implements the longest common *contiguous run*. A 25-token subsequence
-scattered across a 400-token chunk is not redistribution — it is two Portuguese sentences about the
-same torque figure sharing articles and prepositions, and a gate that fired on that would fire on
-every correct answer the system produces. Contiguity is what makes a match a copy. A gate nobody can
-leave switched on is worse than a looser gate that stays on. `test_showcase.py` asserts the
-distinction so it cannot be undone by accident.
-
-**On the fixture this gate will never fire on its own**, so it would otherwise be exercised for the
-first time in production against real licensed material. There is therefore a mandatory test that
-injects a long synthetic Tier A chunk, has the fake model copy it whole, and asserts the build fails,
-names the question, and fails on the *first* offending sample rather than paying for the rest of the
-run.
+**On the fixture neither gate will fire on its own**, so they would otherwise be exercised for the
+first time in production against real licensed material. There are therefore two mandatory tests: a
+long synthetic Tier A chunk copied whole (the run gate), and the same paragraph copied with a
+linking word every twenty tokens (the subsequence gate, which asserts *both* that the run measure
+does not fire and that the build fails anyway). Both check that the build names the question and
+stops on the **first** offending sample rather than paying for the rest of the run.
 
 ## The schema
 
@@ -87,7 +156,9 @@ layer: "showcase"        neither of RunRecord.layer's values; nothing compares a
 scope                    required, free text: what this file is FOR
 provenance               evaluation.Provenance — imported, never redeclared
 sampling                 {n, generator, model, temperature, measured_on} — once, at the top
-redistribution           {chunk_text_stored: false, verbatim_token_limit, worst_verbatim}
+redistribution           {chunk_text_stored: false,
+                          verbatim_token_limit, worst_verbatim,
+                          verbatim_subsequence_limit, worst_verbatim_subsequence}
 displayed_sample_rule    the rule, in the record
 items[]
   question_id, question, why
@@ -138,6 +209,18 @@ Without `--yes` it prints the plan — how many calls, at what spacing, for how 
 This is the only command in the CLI that spends money, so it is the only one that refuses to act on
 its own: 8 questions × 2 arms × n=10 is 160 calls, and a mistyped `-n` is a day of free-tier quota
 on the wrong thing.
+
+**It also refuses a dirty working tree** unless `--allow-dirty` is passed. `showcase_id` is
+`<timestamp>-<git_sha[:12]>`, deliberately `run_id`'s format, and that format is a *promise*: the
+sha identifies the code that produced the numbers. Built from an uncommitted tree the sha names the
+last commit and the code that produced the record exists nowhere.
+
+`eval run` only warns about the same condition, and the asymmetry is the point rather than an
+inconsistency. A run record is regenerated by one free local command, so a dirty one costs a minute
+to replace; this one costs 160 provider calls, gets committed, and is then what a demo cites for
+months — an unidentifiable build is not recoverable at that price. `--allow-dirty` makes the
+exception deliberate and visible, and `provenance.git_dirty` carries it into the record either way,
+where the screen prints it inline beside the id.
 
 **Throttling.** The default is `THROTTLE_SECONDS = 6`, sized for the documented ~10 RPM free tier.
 Only draws that actually reached the provider count: a question the retriever comes back empty on is
@@ -191,7 +274,19 @@ built against the real Gemini API to show end to end that the command works, tha
 renders with no calls, and that a 429 is recorded as a degradation. Its `scope` says so.
 
 **It is not the curated set.** The full showcase — 8 questions × 2 arms × n=10 = 160 calls — is the
-owner's to authorise and pay for. Two things about the proving run should be read before citing it:
+owner's to authorise and pay for. Four things about the proving run should be read before citing it:
+
+- **Its `provenance.git_dirty` is `true`**, so the sha in its `showcase_id` does not identify the
+  code that produced it. It predates the refusal described above and could not be rebuilt without
+  spending money that was not authorised. The screen says so inline beside the id, and the first
+  curated build will not have the problem.
+- **Its editorial text and its `section` fields were corrected by hand**, offline, after the record
+  was measured: `section` was stripped from every stored chunk (the ADR-0003 leak), the second
+  verbatim gate's fields were added — the worst subsequence is 0 because every sample abstained with
+  zero claims, so the gate compared nothing — and the `why` on each item was refreshed from the
+  corrected question set. **No measurement was touched**: the samples, spreads, `displayed_sample`,
+  traces, token counts, costs and `showcase_id` are exactly as measured. A rebuild would have been
+  the clean fix and costs 12 calls.
 
 - **Two of its twelve draws are real 429 degradations**, left in deliberately. Deleting them would
   be curating the evidence, and they are the most useful thing in the file: they show that a
@@ -202,32 +297,53 @@ owner's to authorise and pay for. Two things about the proving run should be rea
 
 ## A finding: this fixture does not support the demo's headline claim
 
-Measured retrieval-only, for free, over all eight curated questions on both arms:
+An earlier draft of this section overstated it, in exactly the way the owner's own correction on
+issue #7 warns about, and the corrected numbers are the ones below. **Do not write "every natural
+Portuguese question retrieves zero under lexical" or "dense returns ten Tier B chunks" as statements
+about the corpus** — both are true of the one question the record holds and false as generalisations.
 
-- **Every natural Portuguese question retrieves zero chunks under `lexical`** — as expected, and the
-  0.07 the baseline records.
-- **Dense does not close it on this corpus.** For `Com que aperto eu fecho o cabeçote do meu Kadett
-  GSi?` the dense arm returns ten chunks, **all Tier B**, from the forum and the blog, at cosine
-  0.85–0.87. The model then abstains, correctly, because no Tier A chunk is in front of it.
+Measured over the **21 natural Portuguese questions** in `eval/facts.jsonl`:
+
+| claim | reality |
+| --- | --- |
+| lexical retrieves nothing | false as a generalisation — it retrieves something for **2 of 21** |
+| dense returns only Tier B | false as a generalisation — it brings some Tier A for **4 of 21** |
+
+The number that actually names the debt, from the owner's re-analysis of the run record behind
+`baseline.json` (issue #7):
+
+- **recall Portuguese → Tier A under dense = 2/10 = 0.20.**
+- Dense scores `recall@10:natural` 0.809524, but **21 of 21** of that is the natural questions in
+  *English*; genuine cross-language retrieval is **6.5% of the gain — two questions out of
+  forty-two**. Another 29% is Portuguese question → Portuguese Tier B, same language.
+- Of the 8 Portuguese naturals dense misses, **all 8** have Tier A gold.
 
 The reason is structural: the Tier A documents in `corpus/fixture/` are written in English and the
-Tier B ones in Portuguese, so a Portuguese question's nearest neighbours are the forum posts.
-`eval/baseline.json`'s dense improvement is measured over a fact suite that is half English
-phrasings, and it is real — it just does not mean "ask in Portuguese and dense will find the
-manual".
+Tier B ones in Portuguese, so a Portuguese question's nearest neighbours are frequently the forum
+posts. The dense improvement in `eval/baseline.json` is real and correctly measured — it just does
+not mean "ask in Portuguese and dense will find the manual". The Portuguese debt is open.
 
-The curated question set was rewritten in light of this rather than around it. It now opens with
+For the one question the committed record holds, `Com que aperto eu fecho o cabeçote do meu Kadett
+GSi?`, lexical does return nothing and dense does return ten Tier B chunks at cosine 0.85–0.87, and
+the model abstains correctly. That is what the record shows, and its `why` says so in those terms
+with the population numbers beside them.
+
+The curated question set was rewritten in light of this rather than around it. It opens with
 `cylinder head bolt stage 2 torque`, where both arms retrieve Tier A and answer with citations, and
-keeps the Portuguese phrasing as a separate item whose `why` states plainly that neither column
-answers it and that a showcase which only showed the wins would be advertising.
+keeps the Portuguese phrasing as a separate item whose `why` states what happens for *that question*,
+gives the population numbers above, and says plainly that a showcase which only showed the wins
+would be advertising.
 
 ## Tests
 
 | what | where |
 | --- | --- |
 | a curated question renders answer, citations, chunks, trace and cost with a generator that **raises if called** | `test_showcase.py` |
-| no chunk text in any committed file, checked against the corpus line by line | `test_showcase.py` |
-| the verbatim gate fails the build on a synthetic long Tier A chunk, and names the question | `test_showcase.py` |
+| no 7-token n-gram of any source document in any committed record, minus the manifest's own | `test_showcase.py` |
+| that guard rejects the exact `section` leak the line-based one missed | `test_showcase.py` |
+| the run gate fails the build on a synthetic long Tier A chunk, and names the question | `test_showcase.py` |
+| the subsequence gate fails on the paragraph the run gate lets through | `test_showcase.py` |
+| a dirty tree is refused before a single call, and `--allow-dirty` is the deliberate exception | `test_showcase.py` |
 | `samples[].answer` keys are **exactly** `app.GeneratedAnswer`'s, on the serialized bytes | `test_showcase_contract.py` |
 | no scalar for a stochastic metric anywhere in the document | `test_showcase_contract.py` |
 | the build throttles between calls, not before the first, and not around a free abstention | `test_showcase.py` |

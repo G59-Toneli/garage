@@ -155,6 +155,25 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     showcase_build.add_argument(
+        "--verbatim-subsequence-limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "fail the build when a claim shares this many tokens in order, gaps allowed, with a "
+            "cited Tier A chunk (default: showcase.VERBATIM_SUBSEQUENCE_LIMIT). This is the half "
+            "that catches a paragraph copied with a linking word every twenty tokens"
+        ),
+    )
+    showcase_build.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help=(
+            "build from an uncommitted tree. Off by default: showcase_id promises that its git_sha "
+            "identifies the code that produced the record, and a dirty tree breaks that promise"
+        ),
+    )
+    showcase_build.add_argument(
         "--yes",
         action="store_true",
         help="actually spend the money. Without it the command prints the plan and stops",
@@ -435,6 +454,7 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
     from garage.showcase import (
         DEFAULT_SAMPLE_COUNT,
         THROTTLE_SECONDS,
+        VERBATIM_SUBSEQUENCE_LIMIT,
         VERBATIM_TOKEN_LIMIT,
         ShowcaseError,
         build_showcase,
@@ -452,6 +472,11 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
         VERBATIM_TOKEN_LIMIT
         if arguments.verbatim_token_limit is None
         else arguments.verbatim_token_limit
+    )
+    subsequence_limit = (
+        VERBATIM_SUBSEQUENCE_LIMIT
+        if arguments.verbatim_subsequence_limit is None
+        else arguments.verbatim_subsequence_limit
     )
     if samples < 1:
         print(f"--samples must be at least 1, got {samples}", file=sys.stderr)
@@ -525,6 +550,8 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
             scope=arguments.scope,
             n=samples,
             verbatim_token_limit=token_limit,
+            verbatim_subsequence_limit=subsequence_limit,
+            allow_dirty=arguments.allow_dirty,
             throttle_seconds=throttle,
             # Progress on stdout, not through `logging`. The build is minutes long and mostly
             # sleeping; a silent command that spends money is a command an operator kills.
@@ -538,9 +565,18 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
     print(f"\nshowcase_id: {record.showcase_id}")
     print(f"corpus_hash: {record.provenance.corpus_hash}")
     print(
-        f"verbatim:    worst run {record.redistribution.worst_verbatim.tokens} tokens "
-        f"(limit {record.redistribution.verbatim_token_limit})"
+        f"verbatim:    worst contiguous run {record.redistribution.worst_verbatim.tokens} "
+        f"(limit {record.redistribution.verbatim_token_limit}) · worst subsequence "
+        f"{record.redistribution.worst_verbatim_subsequence.tokens} "
+        f"(limit {record.redistribution.verbatim_subsequence_limit})"
     )
+    if record.provenance.git_dirty:
+        # `--allow-dirty` was passed, so this is not a surprise — it is a receipt. The record's
+        # git_sha does not identify the code that produced it, and the screen says so too.
+        print(
+            "note: built from a dirty tree with --allow-dirty; this record's git_sha does not "
+            "identify the code that produced it, and the showcase screen says so"
+        )
     for item in record.items:
         for arm in item.arms:
             spread = arm.spread["tokens_out"]
@@ -550,8 +586,6 @@ def _showcase_build(arguments: argparse.Namespace) -> int:
                 f"displayed #{arm.displayed_sample}"
             )
     print(f"record:      {path}")
-    if record.provenance.git_dirty:
-        print("note: measured from a dirty working tree; commit the record with the change it describes")
     return 0
 
 

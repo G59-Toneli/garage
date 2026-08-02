@@ -559,7 +559,7 @@ function showcaseView({ record, item, chunks, missing }) {
       k: arm.k,
       tiers: arm.tiers,
       contract: arm.contract,
-      chunks: arm.retrieval.chunks.map((chunk) => hydrate(chunk, byId, absent)),
+      chunks: arm.retrieval.chunks.map((chunk) => hydrate(chunk, byId)),
       answer: sample.answer,
       trace: sample.trace,
     });
@@ -582,6 +582,12 @@ function showcaseView({ record, item, chunks, missing }) {
       showcaseId: record.showcase_id,
       scope: record.scope,
       startedAt: record.started_at,
+      gitSha: record.provenance.git_sha,
+      // `showcase_id` is `<timestamp>-<git_sha[:12]>` and that format is a promise: the sha
+      // identifies the code that produced the numbers. A dirty tree breaks it, and the screen has to
+      // say so — an id that looks like a `run_id` and does not keep the `run_id`'s guarantee is
+      // worse than one that never claimed it.
+      gitDirty: record.provenance.git_dirty === true,
       sampling: {
         n: record.sampling.n,
         generator: record.sampling.generator,
@@ -590,8 +596,12 @@ function showcaseView({ record, item, chunks, missing }) {
         measuredOn: record.sampling.measured_on,
       },
       redistribution: {
-        limit: record.redistribution.verbatim_token_limit,
-        worst: record.redistribution.worst_verbatim.tokens,
+        // Both measures, both limits. One number on screen under a two-measure gate would be a
+        // page reporting half of what protected it.
+        runLimit: record.redistribution.verbatim_token_limit,
+        worstRun: record.redistribution.worst_verbatim.tokens,
+        subsequenceLimit: record.redistribution.verbatim_subsequence_limit,
+        worstSubsequence: record.redistribution.worst_verbatim_subsequence.tokens,
         chunkTextStored: record.redistribution.chunk_text_stored,
       },
       displayRule: record.displayed_sample_rule,
@@ -604,23 +614,29 @@ function showcaseView({ record, item, chunks, missing }) {
         (total, arm) => total + arm.retrieval.chunks.filter((chunk) => byId.has(chunk.chunk_id)).length,
         0
       ),
+      // From the endpoint's own `missing`, not inferred from what did come back. The two agree
+      // today; reading the answer the service gave is the side to be on if they ever stop.
       absent: item.arms.reduce(
-        (total, arm) => total + arm.retrieval.chunks.filter((chunk) => !byId.has(chunk.chunk_id)).length,
+        (total, arm) => total + arm.retrieval.chunks.filter((chunk) => absent.has(chunk.chunk_id)).length,
         0
       ),
     },
   };
 }
 
-function hydrate(chunk, byId, absent) {
+function hydrate(chunk, byId) {
   const held = byId.get(chunk.chunk_id);
   return {
     ...chunk,
-    // Null, never `""`. The record carries no text by design and the database may not hold it
-    // either; both arrive here as the same absence, and `absent` distinguishes "the artifact says it
-    // does not have this" from "nobody asked for it".
+    // Null, never `""`. The record carries no source prose by design and the database may not hold
+    // it either; both arrive here as the same absence.
     text: held ? held.text : null,
-    unaskedFor: !held && !absent.has(chunk.chunk_id),
+    // `section` is hydrated for the same reason `text` is, and it is not an oversight that the
+    // record does not carry it: `chunking` sets it from the source document's own heading, so it is
+    // the operator's prose (ADR-0003, `showcase._SOURCE_TEXT_FIELDS`). It was in the record once and
+    // leaked twelve-token runs of the fixture into git. `doc_title` is different and stays in the
+    // record — it is the manifest's catalogue entry, in git already.
+    section: held ? held.section : null,
   };
 }
 

@@ -144,7 +144,7 @@ async function show() {
     },
   });
   renderComparison(view, region);
-  stampPanels(region, view.showcase);
+  stampPanels(region, view);
   attachSpreads(region, view);
   output.append(region);
 
@@ -168,7 +168,20 @@ function banner(showcase) {
     }),
     el("dl", { class: "kv" }, [
       el("dt", { text: "showcase_id" }),
-      el("dd", { class: "mono", text: showcase.showcaseId }),
+      el("dd", {}, [
+        el("span", { class: "mono", text: showcase.showcaseId }),
+        // Said on screen, not only in the file. The id ends in twelve characters of a commit sha
+        // and reads exactly like a `run_id`, which does keep the guarantee; a reader who is not
+        // told otherwise will assume this one does too.
+        showcase.gitDirty
+          ? el("strong", {
+              class: "warn-inline",
+              text:
+                " — árvore suja: o sha neste id é o do último commit, e não identifica o código " +
+                "que produziu estes números. Reconstrua a partir de uma árvore limpa antes de citar.",
+            })
+          : null,
+      ]),
       el("dt", { text: "escopo" }),
       // The field that keeps a three-question proving run from being read as the curated set. It is
       // required in the record precisely because the two are indistinguishable without it.
@@ -189,9 +202,11 @@ function banner(showcase) {
         // record carries it as a field so this line reads it rather than asserting it.
         text: showcase.redistribution.chunkTextStored
           ? "sim — isto não deveria ser possível"
-          : `não. O arquivo guarda apenas chunk_id; o texto vem de GET /chunks, local e gratuito. ` +
-            `Portão de verbatim: pior trecho repetido ${showcase.redistribution.worst} tokens, ` +
-            `limite ${showcase.redistribution.limit}`,
+          : `não. O arquivo guarda apenas chunk_id; o texto e a seção vêm de GET /chunks, local e ` +
+            `gratuito. Portão de verbatim, duas medidas: maior trecho contíguo repetido ` +
+            `${showcase.redistribution.worstRun} tokens (limite ${showcase.redistribution.runLimit}), ` +
+            `maior subsequência em ordem ${showcase.redistribution.worstSubsequence} tokens ` +
+            `(limite ${showcase.redistribution.subsequenceLimit})`,
       }),
     ]),
   ]);
@@ -207,25 +222,46 @@ function whyThisQuestion(showcase) {
   ]);
 }
 
-function stampPanels(region, showcase) {
-  // Channel 2. Every panel of numbers gets the stamp, and every stamp names the record, so a
-  // screenshot of one panel taken out of context still says where it came from.
+function stampPanels(region, view) {
+  // Channel 2, and — since the QA round — the place the sample qualifier lives too.
   //
-  // Done by walking the rendered DOM rather than by threading a flag through `render.js`, and that
-  // is the trade taken on purpose: the alternative is every component learning about a screen it
-  // has nothing to do with. `.panel`, `.state` and `[data-strategy]` are the class names those
-  // components already publish, so this is reading a contract rather than guessing at markup.
-  for (const panel of region.querySelectorAll(".panel, .state")) {
-    panel.prepend(
-      el("p", {
-        class: "stamp",
-        attrs: {
-          "aria-label": `valor pré-computado, registro ${showcase.showcaseId}`,
-        },
-        text: `PRÉ-COMPUTADO · ${showcase.showcaseId}`,
-      })
-    );
+  // The cost panel prints `tokens`, `custo` and the waterfall prints `generate_ms`: every one of
+  // those is **one draw of n**, and they were rendering as lone numbers with the qualifier several
+  // hundred pixels below in the spread panel. That does not break ADR-0004's letter — no scalar for
+  // a stochastic metric exists in the file, and the spread is right there — but a reader who never
+  // scrolls has read a point value off the screen, which is what ADR-0004 is *for*. So "amostra k
+  // de n" travels in the stamp, and the stamp is on every panel.
+  //
+  // Done by walking the rendered DOM rather than by threading a flag through `render.js`: the
+  // alternative is every component learning about a screen it has nothing to do with. `.panel`,
+  // `.state` and `[data-strategy]` are class names those components already publish, so this reads
+  // a contract rather than guessing at markup.
+  const showcase = view.showcase;
+  for (const arm of view.arms) {
+    const column = region.querySelector(`.arm[data-strategy="${cssEscape(arm.strategy)}"]`);
+    if (!column) continue;
+    // A failed arm has no samples and gets the plain stamp: there is no draw to qualify.
+    const draw =
+      arm.failed || arm.displayedSample === undefined
+        ? null
+        : `amostra ${arm.displayedSample + 1} de ${arm.sampleCount}`;
+    for (const panel of column.querySelectorAll(".panel, .state")) {
+      panel.prepend(stamp(showcase, draw));
+    }
   }
+}
+
+function stamp(showcase, draw) {
+  const parts = ["PRÉ-COMPUTADO", ...(draw ? [draw] : []), showcase.showcaseId];
+  return el("p", {
+    class: "stamp",
+    attrs: {
+      "aria-label": draw
+        ? `valor pré-computado, ${draw}, registro ${showcase.showcaseId}`
+        : `valor pré-computado, registro ${showcase.showcaseId}`,
+    },
+    text: parts.join(" · "),
+  });
 }
 
 // --- the spread ------------------------------------------------------------------------------------
@@ -244,10 +280,14 @@ function attachSpreads(region, view) {
 
 function spreadPanel(arm, showcase) {
   return el("article", { class: "panel" }, [
+    // The one panel whose numbers are *not* a single draw, so its stamp says so instead of naming
+    // one. Appended after `stampPanels` has run, which is why it carries its own.
     el("p", {
       class: "stamp",
-      attrs: { "aria-label": `dispersão pré-computada, registro ${showcase.showcaseId}` },
-      text: `PRÉ-COMPUTADO · ${showcase.showcaseId}`,
+      attrs: {
+        "aria-label": `dispersão pré-computada sobre as ${arm.sampleCount} amostras, registro ${showcase.showcaseId}`,
+      },
+      text: `PRÉ-COMPUTADO · todas as ${arm.sampleCount} amostras · ${showcase.showcaseId}`,
     }),
     el("h4", { text: `Dispersão entre as ${arm.sampleCount} amostras` }),
     el("p", {

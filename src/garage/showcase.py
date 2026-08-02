@@ -24,33 +24,60 @@ local, free, deterministic, no model — and a clone without the operator's mate
 metrics, the answer and the trace with the chunks shown as **absent and identified**. That is
 already this interface's vocabulary: an absence travels as an absence (`docs/ui.md`).
 
-Today the whole fixture Corpus is `rights: original-work`, so storing text here would be legal now
-and illegal the day a real manual is catalogued. A format that is correct only until the project
-gets serious is a format that breaks exactly when it matters, so the rule is enforced from the first
-line: `ShowcaseChunk` has no `text` field and `extra="forbid"` makes adding one at the edges
-impossible, and a test reads every committed record back and asserts no chunk text is in it.
+"No text" is narrower than the rule, and the difference was a real leak rather than a hypothetical.
+The rule is **no source prose of any kind**. `section` is set by `chunking` from the source
+document's own heading, and the first version of this module wrote it to disk: sixteen fields of the
+committed record carried twelve-token runs of the fixture through it. `_SOURCE_TEXT_FIELDS` now
+names both fields in one place. `doc_title` is the one string that stays, because it is the
+manifest's own catalogue entry — already in git, by hand, as ADR-0002 says a Corpus *is*.
+
+Today the whole fixture Corpus is `rights: original-work`, so storing any of it here would be legal
+now and illegal the day a real manual is catalogued. A format that is correct only until the project
+gets serious breaks exactly when it matters.
+
+The check that holds this line is deliberately **not** the model's field list, because the field
+list is what got `section` wrong. It is
+`test_no_ngram_of_any_source_document_reaches_a_committed_record`: it reads the bytes on disk,
+tokenises every string in them, and rejects any seven-token run of any source document that is not
+already in the manifest. It knows nothing about which fields exist, which is why it caught what the
+enumeration missed. The test it replaced matched whole markdown *lines*, so it never fired — the
+record stores headings without their `## ` prefix, and `line in written` was false every time. Seven
+is a swept threshold rather than a guessed one, and the sweep is in the test beside it.
 
 ## The second leak, which is real
 
 The generated prose is the other way source material could reach git. A model answering over a
 scanned manual can emit a sentence verbatim, and that sentence would be committed. So the build
-applies a **mechanical verbatim gate**: for every claim, the longest run of tokens it shares with
-any cited Tier A chunk. Over `VERBATIM_TOKEN_LIMIT` the build *fails and names the question*.
+measures every claim against every cited Tier A chunk, **twice**, because either measure alone is
+escapable:
+
+- **Longest contiguous run** (`VERBATIM_TOKEN_LIMIT`) — the sharper evidence. Twenty-six identical
+  tokens in a row with nothing between them is a quotation in any language.
+- **Longest common subsequence** (`VERBATIM_SUBSEQUENCE_LIMIT`), in order, gaps allowed. This exists
+  because the first is evadable with one edit. A whole Tier A paragraph copied in order with a
+  linking word dropped in every twenty tokens — "ou seja", "segundo o manual" — scores a contiguous
+  run of 20, passes a limit of 25, and redistributes the paragraph word for word. That is not an
+  attack, it is ordinary LLM behaviour over a manual. Against a 44-token paragraph the run says 20
+  and the subsequence says 44.
+
+Over either limit the build *fails and names the question*, and says which measure fired: a long run
+is a quotation, a long subsequence with a short run is a paraphrase-shaped copy, and the two have
+different fixes.
 
 It does not truncate and it does not redact. Silent redaction would be the interface lying about
 what the model produced, which is the one thing this whole project is built not to do — and it
 would hide the exact signal an operator needs, which is "this configuration copies". A human either
-rewrites the question, drops it, or raises the threshold deliberately. The threshold and the worst
-run actually observed both go into the record under `redistribution`, so the decision is auditable
-by whoever reads the file rather than by whoever ran the command.
+rewrites the question, drops it, or raises a threshold deliberately. Both thresholds and both worst
+observed values go into the record under `redistribution`, so the decision is auditable by whoever
+reads the file rather than by whoever ran the command.
 
-One deviation from the issue text, stated rather than buried. The issue says "longest common token
-*subsequence*"; this implements the longest common *contiguous run*. A 25-token subsequence
-scattered across a 400-token chunk is not redistribution — it is two Portuguese sentences about the
-same torque figure sharing articles and prepositions, and a gate that fires on that would fire on
-every correct answer the system produces. Contiguity is what makes a match a copy. The stricter
-reading would be a gate nobody could leave switched on, and a gate switched off is worse than a
-looser gate switched on.
+The issue asked for the subsequence measure; the first version of this module substituted the
+contiguous one and argued that a scattered subsequence is only two Portuguese sentences sharing
+articles. Measured, that argument does not survive. Over unrelated Portuguese paragraph pairs in
+this corpus the longest common subsequence is **9** tokens, and correct original cited answers score
+**14–21** — so a subsequence limit of 25 sits sixteen tokens above the worst false positive. Both
+measures are kept, because the contiguous one is still the better evidence of literal copying and
+costs nothing to keep.
 
 ## Why the shape is what it is
 
@@ -95,6 +122,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Sequence
 
@@ -135,11 +163,25 @@ DEFAULT_SAMPLE_COUNT = 10
 # thing this file could contain.
 THROTTLE_SECONDS = 6.0
 
-# The verbatim gate's threshold, in tokens. Twenty-five is a declared policy number and not a
-# measured one — it is roughly a long sentence, comfortably above the longest run a correct cited
-# answer produces against this fixture and comfortably below a copied paragraph. It travels into the
-# record so that a reader can disagree with it, which is the only thing that makes it auditable.
+# The verbatim gate's two thresholds, in tokens. Both travel into the record so a reader can
+# disagree with them, which is the only thing that makes a policy number auditable.
+#
+# **Contiguous.** Twenty-five tokens in a row, no gaps. Roughly a long sentence.
 VERBATIM_TOKEN_LIMIT = 25
+
+# **Subsequence.** In order, gaps allowed, and this is the one with evidence behind it rather than
+# an eyeball. Measured over this corpus: the longest common subsequence between any two *unrelated*
+# Portuguese paragraphs is **9** tokens, and a correct original cited answer scores **14–21**. So a
+# limit of 25 sits sixteen tokens above the worst false positive and four above the most overlapping
+# legitimate answer observed.
+#
+# Four tokens is a thin margin and is written down rather than smoothed over. It is also the margin
+# on *this* corpus, whose paragraphs are short invented tables; the number must be re-measured
+# before the first real manual is catalogued, and a longer generated answer mechanically scores
+# higher against the same chunk because the measure is absolute rather than normalised by length.
+# The failure mode of getting it wrong is a build that stops and names a question, which is
+# recoverable, so it is deliberately set on the strict side of comfortable.
+VERBATIM_SUBSEQUENCE_LIMIT = 25
 
 # Written into the record rather than only into this source, because the choice of which of n
 # answers a visitor sees is exactly the kind of decision a demo can be accused of making
@@ -259,8 +301,10 @@ def longest_common_run(left: Sequence[str], right: Sequence[str]) -> int:
     rather than the whole matrix, which is not a performance decision but a size one: the full table
     for the largest pair here is a few hundred thousand cells that nobody reads.
 
-    Contiguous, not a subsequence. The module docstring argues why; the short version is that a
-    scattered subsequence is shared vocabulary and a contiguous run is a copy.
+    Contiguous. It is the sharper signal of the two — a run of twenty-six identical tokens in order
+    with nothing between them is not a coincidence in any language — and it is *not* sufficient on
+    its own. `longest_common_subsequence` below is the other half, and the module docstring explains
+    why the pair is needed.
     """
     if not left or not right:
         return 0
@@ -275,6 +319,31 @@ def longest_common_run(left: Sequence[str], right: Sequence[str]) -> int:
                     best = current[column]
         previous = current
     return best
+
+
+def longest_common_subsequence(left: Sequence[str], right: Sequence[str]) -> int:
+    """The longest sequence of tokens appearing in both, in order, gaps allowed.
+
+    The second half of the verbatim gate, and it exists because the first half is evadable with one
+    edit. A whole Tier A paragraph copied in order with a linking word dropped in every twenty
+    tokens — "ou seja", "segundo o manual", which is *ordinary* LLM behaviour over a manual, not an
+    attack — scores a contiguous run of twenty and sails through a limit of twenty-five while
+    redistributing the paragraph word for word. This measure scores that at the full length of the
+    paragraph.
+
+    Same one-row dynamic programming as above, same negligible cost at these sizes.
+    """
+    if not left or not right:
+        return 0
+    previous = [0] * (len(right) + 1)
+    for token in left:
+        current = [0] * (len(right) + 1)
+        for column, other in enumerate(right, start=1):
+            current[column] = (
+                previous[column - 1] + 1 if token == other else max(previous[column], current[column - 1])
+            )
+        previous = current
+    return previous[-1]
 
 
 class VerbatimFinding(BaseModel):
@@ -293,10 +362,36 @@ class VerbatimFinding(BaseModel):
     chunk_id: str | None = None
 
 
-def worst_verbatim_run(
+@dataclass(frozen=True)
+class VerbatimReading:
+    """Both measures over one answer, taken together because neither is sufficient alone.
+
+    A plain dataclass and not a Pydantic model: it never reaches disk. What reaches disk is the two
+    `VerbatimFinding`s inside `Redistribution`.
+    """
+
+    run: VerbatimFinding
+    subsequence: VerbatimFinding
+
+    def merge(self, other: VerbatimReading) -> VerbatimReading:
+        """The worse of two readings, measure by measure.
+
+        Per measure, not per answer. The answer with the longest contiguous run is frequently not
+        the one with the longest subsequence, and reporting one answer's pair would throw away the
+        other's worse half — which is the half a reader calibrating a threshold needs.
+        """
+        return VerbatimReading(
+            run=max(self.run, other.run, key=lambda finding: finding.tokens),
+            subsequence=max(
+                self.subsequence, other.subsequence, key=lambda finding: finding.tokens
+            ),
+        )
+
+
+def worst_verbatim(
     answer: GeneratedAnswer, chunks: Sequence[Candidate], *, question_id: str
-) -> VerbatimFinding:
-    """The longest run any claim shares with any Tier A chunk it cited.
+) -> VerbatimReading:
+    """Both measures over every claim against every Tier A chunk it cited.
 
     Tier A only, and cited only. Tier A is the operator's licensed material — a service manual, a
     scanned repair guide — and it is the material ADR-0003 forbids redistributing; Tier B is a forum
@@ -306,19 +401,36 @@ def worst_verbatim_run(
     comparing against all of them would flag a coincidence as a leak.
     """
     by_id = {chunk.chunk_id: chunk for chunk in chunks}
-    worst = VerbatimFinding(tokens=0)
+    worst = VerbatimReading(run=VerbatimFinding(tokens=0), subsequence=VerbatimFinding(tokens=0))
     for claim in answer.claims:
         claim_tokens = tokens(claim.text)
         for citation in claim.citations:
             chunk = by_id.get(citation.chunk_id)
             if chunk is None or chunk.tier != "A":
                 continue
-            run = longest_common_run(claim_tokens, tokens(chunk.text))
-            if run > worst.tokens:
-                worst = VerbatimFinding(
-                    tokens=run, question_id=question_id, chunk_id=chunk.chunk_id
+            chunk_tokens = tokens(chunk.text)
+            worst = worst.merge(
+                VerbatimReading(
+                    run=_finding(
+                        longest_common_run(claim_tokens, chunk_tokens), question_id, chunk.chunk_id
+                    ),
+                    subsequence=_finding(
+                        longest_common_subsequence(claim_tokens, chunk_tokens),
+                        question_id,
+                        chunk.chunk_id,
+                    ),
                 )
+            )
     return worst
+
+
+def _finding(count: int, question_id: str, chunk_id: str) -> VerbatimFinding:
+    # A zero-token overlap names nothing. Two claims can be compared against two chunks and share
+    # not one word, and pointing at whichever pair happened to be last would read as though that
+    # pair were the worst offender rather than a non-event.
+    if count == 0:
+        return VerbatimFinding(tokens=0)
+    return VerbatimFinding(tokens=count, question_id=question_id, chunk_id=chunk_id)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -446,14 +558,44 @@ def _span_duration_ms(trace: dict[str, Any] | None, name: str) -> float | None:
 # ------------------------------------------------------------------------------------------------
 
 
-class ShowcaseChunk(BaseModel):
-    """One retrieved chunk as the record stores it: everything except the words.
+# Every `Candidate` field whose value is a run of words lifted out of a source document. Both of
+# them are dropped on the way into a record, and the list is named rather than inlined into
+# `ShowcaseChunk.of` so that "which fields carry the operator's prose" is a question with one answer
+# in this codebase.
+#
+# `section` is on this list and its absence from the first version of this module was a real leak,
+# caught by an n-gram grep over the committed record: `chunking` sets it from `heading.group(2)`, so
+# it *is* the source document's own heading text. Sixteen fields of the committed record carried
+# twelve-token runs of the fixture through it. Harmless there — the fixture is `rights:
+# original-work` and the leaked headings are short Tier B thread titles — and not harmless at all on
+# the day a scanned manual is catalogued, because `Section 3.2 — Cylinder head, tightening
+# specifications` is fifty-four characters of a publisher's table of contents going into git without
+# passing any gate. The verbatim gate below cannot catch it: that one reads `claim.text` against
+# cited Tier A chunks, and a `section` is neither.
+#
+# `doc_title` deliberately stays. It is the manifest's own `title` field, which is in git already,
+# by hand, as the catalogue entry ADR-0002 says a Corpus *is*. Committing it a second time
+# redistributes nothing.
+#
+# Both dropped fields are recovered at render time from `GET /chunks`, exactly as `text` is, so
+# nothing is lost on screen and nothing is stored.
+_SOURCE_TEXT_FIELDS = ("text", "section")
 
-    The field list is `retrieval.Candidate` minus `text`, and the omission is the point of this
-    class (ADR-0003). `extra="forbid"` is what makes it enforceable rather than a convention — a
-    future `ShowcaseChunk(**vars(candidate))` fails loudly instead of quietly committing the corpus.
-    Scores and components stay, because they are measurements this project produced about the
-    material rather than the material itself.
+
+class ShowcaseChunk(BaseModel):
+    """One retrieved chunk as the record stores it: everything except the operator's words.
+
+    `retrieval.Candidate` minus `_SOURCE_TEXT_FIELDS`, and the omissions are the point of this class
+    (ADR-0003). Scores and components stay, because they are measurements this project produced
+    *about* the material rather than the material itself; identifiers, tier, page and kind stay for
+    the same reason.
+
+    `extra="forbid"` is what stops a *new* text-bearing field on `Candidate` from reaching disk —
+    and it is worth being precise about what that buys, because an earlier version of this comment
+    was not. It catches fields nobody has enumerated yet. It does **not** catch a field that already
+    existed and was enumerated wrongly, which is exactly how `section` got through. The check that
+    catches that class is `test_no_ngram_of_any_source_document_reaches_a_committed_record`, which
+    reads the bytes on disk and knows nothing about this model's field list.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -463,7 +605,6 @@ class ShowcaseChunk(BaseModel):
     doc_title: str
     tier: str
     page: int | None
-    section: str | None
     kind: str
     score: float
     components: dict[str, float | None]
@@ -471,9 +612,8 @@ class ShowcaseChunk(BaseModel):
     @classmethod
     def of(cls, candidate: Candidate) -> ShowcaseChunk:
         fields = dict(vars(candidate))
-        # Popped by name, so a `Candidate` that grows a second text-bearing field fails the
-        # `extra="forbid"` above rather than being silently written to disk.
-        fields.pop("text", None)
+        for name in _SOURCE_TEXT_FIELDS:
+            fields.pop(name, None)
         return cls(**fields)
 
 
@@ -573,28 +713,42 @@ class Sampling(BaseModel):
 class Redistribution(BaseModel):
     """What the ADR-0003 gates decided, written down so the decision is auditable.
 
-    Both halves are here. `chunk_text_stored` is a `Literal[False]`, so a build that ever wanted to
-    store text would have to change this line, in a commit, where someone can object to it. And the
-    verbatim finding is recorded whether or not it fired, because a threshold with no observed value
-    beside it is a policy nobody can calibrate.
+    Three gates, all reported. `chunk_text_stored` is a `Literal[False]`, so a build that ever
+    wanted to store text would have to change this line, in a commit, where someone can object to
+    it. The two verbatim findings are recorded whether or not they fired, because a threshold with
+    no observed value beside it is a policy nobody can calibrate — and because "the gate ran and saw
+    six" and "the gate never ran" are different facts.
+
+    Two measures rather than one, and the pair is the fix for a real hole. A contiguous-run gate
+    alone is evadable by dropping a linking word every twenty tokens, which redistributes a whole
+    paragraph in order at a run of twenty. See `longest_common_subsequence`.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     chunk_text_stored: Literal[False] = False
     verbatim_token_limit: int = Field(ge=1)
+    verbatim_subsequence_limit: int = Field(ge=1)
     worst_verbatim: VerbatimFinding
+    worst_verbatim_subsequence: VerbatimFinding
 
     @model_validator(mode="after")
-    def _the_gate_would_have_fired(self) -> Redistribution:
+    def _neither_gate_would_have_fired(self) -> Redistribution:
+        # A record cannot exist describing a build a gate should have stopped. Belt and braces:
+        # `build_showcase` raises before writing, and this makes a hand-edited file unloadable too.
+        over: list[str] = []
         if self.worst_verbatim.tokens > self.verbatim_token_limit:
-            # A record cannot exist describing a build the gate should have stopped. Belt and
-            # braces: `build_showcase` raises before writing, and this makes a hand-edited file
-            # unloadable too.
-            raise ValueError(
-                f"the worst verbatim run is {self.worst_verbatim.tokens} tokens, over the declared "
-                f"limit of {self.verbatim_token_limit}; this record should never have been written"
+            over.append(
+                f"the worst contiguous run is {self.worst_verbatim.tokens} tokens, over the "
+                f"declared limit of {self.verbatim_token_limit}"
             )
+        if self.worst_verbatim_subsequence.tokens > self.verbatim_subsequence_limit:
+            over.append(
+                f"the worst subsequence is {self.worst_verbatim_subsequence.tokens} tokens, over "
+                f"the declared limit of {self.verbatim_subsequence_limit}"
+            )
+        if over:
+            raise ValueError("; ".join(over) + "; this record should never have been written")
         return self
 
 
@@ -729,6 +883,8 @@ def build_showcase(
     tiers: tuple[str, ...] = TIERS,
     contract: Contract = Contract(),
     verbatim_token_limit: int = VERBATIM_TOKEN_LIMIT,
+    verbatim_subsequence_limit: int = VERBATIM_SUBSEQUENCE_LIMIT,
+    allow_dirty: bool = False,
     throttle_seconds: float = THROTTLE_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
     report: Callable[[str], None] = lambda line: None,
@@ -763,7 +919,26 @@ def build_showcase(
     provenance = local_provenance(
         database_url, artifact.corpus_id, artifact.corpus_hash, artifact.ingest_version
     )
-    worst = VerbatimFinding(tokens=0)
+    if provenance.git_dirty and not allow_dirty:
+        # `showcase_id` is `<timestamp>-<git_sha[:12]>`, deliberately the same format as `run_id`,
+        # and that format is a *promise*: the sha identifies the code that produced the numbers. A
+        # dirty tree breaks it — the sha names the last commit, and the record was produced by
+        # something else that no longer exists anywhere.
+        #
+        # `eval run` only warns, and the asymmetry is the point rather than an inconsistency. A run
+        # record is regenerated by one free local command, so a dirty one costs a minute to replace.
+        # This one costs 160 provider calls, gets committed, and is then the thing a demo cites for
+        # months — an unidentifiable build is not recoverable at that price. So the default is a
+        # refusal, and `--allow-dirty` makes the exception a deliberate, visible act. Both facts
+        # survive into the record through `provenance.git_dirty`, and the screen says so.
+        raise ShowcaseError(
+            "the working tree is dirty, so `git_sha` would not identify the code that produced "
+            "this record — and `showcase_id` promises that it does.\n"
+            f"  git_sha: {provenance.git_sha}\n"
+            "Commit first, or pass --allow-dirty to build an unidentifiable record on purpose. "
+            "Nothing was called."
+        )
+    worst = VerbatimReading(run=VerbatimFinding(tokens=0), subsequence=VerbatimFinding(tokens=0))
     # Counts the draws that actually reached the provider, and nothing else. Two consequences, both
     # wanted. The throttle applies *between* calls rather than before the first, so the smallest
     # possible run does not cost six seconds for nothing. And the zero-cost abstention — an empty
@@ -806,19 +981,15 @@ def build_showcase(
                 # Checked here, before the next call, so a leak costs one question rather than the
                 # whole run. The build must not spend another twenty calls on a record it is about
                 # to refuse to write.
-                found = worst_verbatim_run(wire, candidates, question_id=question.question_id)
-                if found.tokens > worst.tokens:
-                    worst = found
-                if found.tokens > verbatim_token_limit:
-                    raise VerbatimLeak(
-                        f"the answer to {question.question_id!r} under {retriever.name} repeats "
-                        f"{found.tokens} consecutive tokens of Tier A chunk {found.chunk_id}, over "
-                        f"the declared limit of {verbatim_token_limit}.\n"
-                        f"  question: {question.question}\n"
-                        "Committing it would redistribute the operator's material (ADR-0003). "
-                        "Nothing was written. Rewrite or drop the question, or raise "
-                        "--verbatim-token-limit deliberately and say why in the commit."
-                    )
+                found = worst_verbatim(wire, candidates, question_id=question.question_id)
+                worst = worst.merge(found)
+                _refuse_a_leak(
+                    found,
+                    question=question,
+                    strategy=retriever.name,
+                    token_limit=verbatim_token_limit,
+                    subsequence_limit=verbatim_subsequence_limit,
+                )
 
                 ranking = ShowcaseRetrieval(
                     chunks=tuple(ShowcaseChunk.of(candidate) for candidate in candidates)
@@ -874,10 +1045,55 @@ def build_showcase(
             measured_on=started.date().isoformat(),
         ),
         redistribution=Redistribution(
-            verbatim_token_limit=verbatim_token_limit, worst_verbatim=worst
+            verbatim_token_limit=verbatim_token_limit,
+            verbatim_subsequence_limit=verbatim_subsequence_limit,
+            worst_verbatim=worst.run,
+            worst_verbatim_subsequence=worst.subsequence,
         ),
         displayed_sample_rule=DISPLAY_RULE,
         items=tuple(items),
+    )
+
+
+def _refuse_a_leak(
+    found: VerbatimReading,
+    *,
+    question: ShowcaseQuestion,
+    strategy: str,
+    token_limit: int,
+    subsequence_limit: int,
+) -> None:
+    """Stop the build and name the question, on either measure.
+
+    Checked after every draw rather than at the end, so a leak costs one question instead of the
+    whole run — the build must not spend another twenty calls on a record it is about to refuse to
+    write.
+
+    Both measures are reported when both fired, because they say different things: a long contiguous
+    run is a quotation, and a long subsequence with a short run is a paraphrase-shaped copy. Which
+    one it is decides whether the fix is rewriting the question or rewriting the prompt.
+    """
+    reasons: list[str] = []
+    if found.run.tokens > token_limit:
+        reasons.append(
+            f"repeats {found.run.tokens} consecutive tokens of Tier A chunk "
+            f"{found.run.chunk_id} (limit {token_limit})"
+        )
+    if found.subsequence.tokens > subsequence_limit:
+        reasons.append(
+            f"shares {found.subsequence.tokens} tokens in order, gaps allowed, with Tier A chunk "
+            f"{found.subsequence.chunk_id} (limit {subsequence_limit})"
+        )
+    if not reasons:
+        return
+    raise VerbatimLeak(
+        f"the answer to {question.question_id!r} under {strategy} "
+        + "; and ".join(reasons)
+        + ".\n"
+        f"  question: {question.question}\n"
+        "Committing it would redistribute the operator's material (ADR-0003). Nothing was written. "
+        "Rewrite or drop the question, or raise --verbatim-token-limit / "
+        "--verbatim-subsequence-limit deliberately and say why in the commit."
     )
 
 

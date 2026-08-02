@@ -374,6 +374,10 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
 }
 .strip-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* A record built from an uncommitted tree: its git_sha names the last commit, not the code that
+   produced it. Inline beside the id it undermines, not in a footnote. */
+.warn-inline { color: var(--warn); font-weight: 600; }
+
 /* A chunk whose text this artifact does not hold. Dashed, quiet, and never red: nothing failed. */
 .chunk-text-absent {
   border: 1px dashed var(--line);
