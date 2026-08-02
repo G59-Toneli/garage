@@ -11,7 +11,7 @@ python -m garage eval gate
 ```
 corpus_hash: 21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
 postgres:    16.14 (Debian 16.14-1.pgdg12+1) (pg_trgm 1.6)
-facts:       76 (sha256 d44c3af4af84…)
+facts:       76 (sha256 3c7dc8b7e9dd…)
 lexical  k=10
   mrr@10             0.440789
   ndcg@10            0.442512
@@ -179,13 +179,13 @@ every single time. The history is the directory listing.
 ```jsonc
 {
   "run_record_version": 2,
-  "run_id": "20260802T012113Z-83bfb8a3e75a",
-  "started_at": "2026-08-02T01:21:13Z",
+  "run_id": "20260802T013309Z-fba1dad4ff09",
+  "started_at": "2026-08-02T01:33:09Z",
   "duration_ms": 1204,
   "layer": "deterministic",
   "suite": "facts",
   "provenance": {
-    "git_sha": "83bfb8a3e75a…", "git_dirty": false,
+    "git_sha": "fba1dad4ff09…", "git_dirty": false,
     "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 1,
     "python_version": "3.12.13", "platform": "Windows-11-…",
     "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
@@ -193,7 +193,7 @@ every single time. The history is the directory listing.
     "text_search_dictionaries": "portuguese_stem, simple"
   },
   "sample_count": 76,
-  "facts_sha256": "d44c3af4af84…",
+  "facts_sha256": "3c7dc8b7e9dd…",
   "arms": [
     {
       "configuration": {"strategy": "lexical", "k": 10, "tiers": ["A", "B"],
@@ -278,9 +278,9 @@ someone can go and check.
 ```jsonc
 {
   "baseline_version": 2,
-  "run_id": "20260802T012113Z-83bfb8a3e75a",
+  "run_id": "20260802T013309Z-fba1dad4ff09",
   "sample_count": 76,
-  "facts_sha256": "d44c3af4af84…",
+  "facts_sha256": "3c7dc8b7e9dd…",
   "arms": [
     {
       "configuration": { /* must match the run arm exactly */ },
@@ -398,7 +398,7 @@ Two checks, not one:
 2. **The measurement.** Everything the run must reproduce, compared field by field.
 
 ```
-the newest run record in the tree (20260802T012113Z-83bfb8a3e75a.json) does not match what this
+the newest run record in the tree (20260802T013309Z-fba1dad4ff09.json) does not match what this
 build measures. It was committed against a different corpus, engine, Configuration or retrieval
 behaviour.
 ```
