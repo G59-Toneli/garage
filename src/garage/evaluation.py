@@ -631,6 +631,32 @@ def database_provenance(database_url: str) -> tuple[str, str, str, str]:
     return (server, trgm[0] if trgm else "absent", config, dictionaries)
 
 
+def artifact_identity(database_url: str, artifact: Any) -> dict[str, Any]:
+    """The subset of `Provenance` that describes the *artifact*, read off the live database.
+
+    Not the whole class: everything here is a property of the database and the code that built it,
+    and nothing here is a property of the machine or the person who ran the command. `git_sha`,
+    `python_version` and `platform` describe a run; these four describe what was run against.
+
+    It lives beside `database_provenance` and calls it, rather than beside the check that consumes
+    it, so that both sides of that check come from one producer. A committed record's
+    `text_search_dictionaries` is written by `local_provenance` through this same function; the boot
+    gate compares against it through this one. Two independent readings of "which configuration is
+    the database using" is precisely how a check comes to pass while the thing it checks is wrong.
+
+    Keyed by `Provenance` field name so a consumer can compare `getattr(record.provenance, name)`
+    against `identity[name]` and never restate the mapping — see `showcase.record_diverges`, which
+    is the reason this exists.
+    """
+    _, _, config, dictionaries = database_provenance(database_url)
+    return {
+        "corpus_hash": artifact.corpus_hash,
+        "ingest_version": artifact.ingest_version,
+        "text_search_config": config,
+        "text_search_dictionaries": dictionaries,
+    }
+
+
 def verify_chunk_ids(database_url: str, facts: Sequence[Fact]) -> None:
     """Refuse to measure against facts that point at chunks the artifact does not hold.
 

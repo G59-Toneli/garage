@@ -297,11 +297,12 @@ match" to "no term matched", and that is a real loss of margin rather than a fre
 
 The 0.6 floor itself is **unchanged, deliberately**. Not because the signal is inert — 31 of the 76
 fact questions have a chunk above it — but because the number has no measurement behind it and the
-distribution it sits in is strange: the questions that clear it clear it enormously, five of them at
-1.000, while the ones that would most benefit sit between 0.36 and 0.50. It is doing real work and
-nobody knows whether it is the right work, which is an argument for measuring it rather than nudging
-it, and issue #13 moves the distribution underneath it in any case. It changes when there is a
-number, not before.
+distribution is bimodal enough that a second guess would be no better than the first: 11 questions
+reach exactly 1.000, because a keyword question can be a literal substring of a spec row, and the 45
+that fall short spread from 0.172 to 0.591, one of them missing the floor by nine thousandths. The
+floor is deciding real outcomes and nobody knows whether it decides them correctly, which is an
+argument for measuring it rather than nudging it, and issue #13 moves the distribution underneath it
+in any case. It changes when there is a number, not before.
 
 Ranking is deterministic: ties break on `chunk_id`, so the same query against the same artifact
 returns the same order. A benchmark whose ranking wobbled between runs would report noise as a

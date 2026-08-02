@@ -176,12 +176,17 @@ this ADR claimed on a figure that had been read too broadly: 0.357 is the maximu
 query, not for the corpus. Measured across the 76 fact questions, **31 have at least one chunk above
 the floor**, so it is deciding real outcomes.
 
-The distribution is what argues for leaving it alone. The questions that clear it clear it
-enormously — five reach 1.000, because a keyword question can be a literal substring of a spec row —
-while the ones that would most benefit from a lower floor sit between 0.36 and 0.50. There is no
-value in that gap that is obviously right, any number picked now would be picked to make an aggregate
-look good, the gate would then defend it, and #13 changes the distribution underneath it. It moves
-when there is a measurement, with a re-promoted baseline behind it.
+The distribution is what argues for leaving it alone. It is bimodal: **11 of the 76 reach exactly
+1.000**, because a keyword question can be a literal substring of a spec row, and the 45 that fall
+short spread from **0.172 to 0.591** — one of them missing the floor by nine thousandths. There is no
+value in that spread that is obviously right, any number picked now would be picked to make an
+aggregate look good, the gate would then defend it, and #13 changes the distribution underneath it.
+It moves when there is a measurement, with a re-promoted baseline behind it.
+
+(This paragraph said "five reach 1.000" when it was first written, and the review measured eleven.
+Correcting an unmeasured claim with another unmeasured claim is this issue's own defect in
+miniature, so every figure in this section is now `select max(word_similarity(question, text)) from
+chunks` over `eval/facts.jsonl`, run rather than recalled.)
 
 ## Consequences
 
@@ -193,8 +198,14 @@ when there is a measurement, with a re-promoted baseline behind it.
   `test_ingest.py` builds twice and asserts the column survives.
 - The baseline is re-measured and deliberately re-promoted. `measurement()` diverges on purpose:
   `text_search_config` becomes `public.garage_bi` and `text_search_dictionaries` becomes
-  `unaccent, garage_en_stop, garage_pt_stop, portuguese_stem`. `facts_sha256` and `sample_count` do
-  not change, which is what makes the comparison a comparison.
+  `garage_en_stop, garage_pt_stop, portuguese_stem, simple, unaccent` — the exact string in the record, which is
+  neither the mapping order above nor the mapping list. `_TEXT_SEARCH_DICTIONARIES` aggregates
+  `DISTINCT ... ORDER BY dictname`, so it is alphabetical, and it covers *every* token type the
+  configuration maps rather than only the six word types this ADR alters: `simple` is in there
+  because `numword`, `email`, `url` and the rest still map to it, inherited from `pg_catalog.portuguese`
+  by the `COPY`. That is the field doing its job — it describes the whole configuration, not the
+  diff. `facts_sha256` and `sample_count` do not change, which is what makes the comparison a
+  comparison.
 - **A new reproducibility dependency, and it is the only one this change adds.** `unaccent` loads its
   fold table from `unaccent.rules` in the server's `$SHAREDIR/tsearch_data`, and the two stop word
   dictionaries load `english.stop` and `portuguese.stop` from the same place. The stored `tsvector`
@@ -202,15 +213,34 @@ when there is a measurement, with a re-promoted baseline behind it.
   `measurement()` *detects* a divergence, through `postgres_version` and `text_search_dictionaries`;
   it does not prevent one. Shipping our own rules file is the fix available the day two servers
   disagree. Nothing measured today says they do.
-- **The committed showcase record is now stale in its `lexical` arm, and nothing refuses to serve
-  it.** `eval/showcase/20260802T051801Z-44a5db93da69.json` holds rankings measured under the old
-  query and carries `ingest_version: 1`, `text_search_config: pg_catalog.portuguese` in its own
-  provenance. `verify_showcase_records` compares only `corpus_hash`, which did not change, so the
-  record boots and the screen shows a `lexical` column that this build would not produce. Rebuilding
-  it costs provider calls, which this change was not authorised to spend, so it is left in place and
-  named here rather than quietly shipped. Two candidate fixes, neither taken today: extend the boot
-  check to `ingest_version` (refuses to serve, which breaks the demo rather than correcting it), or
-  re-run `showcase build` with the budget for it. The second is the right one.
+- **The boot gate for showcase records now compares four fields, and the proving run was deleted
+  rather than shipped stale.** This started as an unfixed consequence and became the most serious
+  finding in review, so both halves are recorded.
+
+  `verify_showcase_records` compared `corpus_hash` alone. This change moved the ranking without
+  touching a document, so the hash matched and the committed record booted — and the failure was not
+  a cosmetic one. `POST /query` looks a curated question up in the record *before* it retrieves, so
+  the service answered `"Com que aperto eu fecho o cabeçote do meu Kadett GSi?"` with the recorded
+  `chunks: [], abstained: true` while the same question with one extra space missed the lookup, went
+  live, and came back with ten chunks. One process, one artifact, two contradictory answers, and the
+  wrong one was the one the comparison screen published as authoritative. The provenance panel read
+  `ingest_version: 1` beside a `GET /provenance` reading `2`.
+
+  Comparing a third of `Provenance` was never a policy. `ingest.verify_artifact` has compared three
+  numbers all along, and the `Provenance` docstring argues in its own words that `corpus_hash` alone
+  is "reproducible in principle and wrong in practice". `showcase.SHOWCASE_IDENTITY_FIELDS` now holds
+  four: `corpus_hash`, `ingest_version`, `text_search_config`, `text_search_dictionaries`. `git_sha`
+  and `git_dirty` are excluded and a test says why — a record cannot name the commit that contains
+  it, which issue #6 settled for the run record. The same comparison runs per request in
+  `find_precomputed`, through one shared `record_diverges`, because the two checks having different
+  widths is how this happened.
+
+  With the gate in place, `eval/showcase/20260802T051801Z-44a5db93da69.json` makes the service refuse
+  to boot — correctly, because it is wrong. Keeping it would ship a repository that cannot serve at
+  all; rebuilding it costs provider calls this change was not authorised to spend. So it is
+  **deleted**, which is the second option the refusal message itself offers, and the empty showcase
+  is a state the screen already renders as a legitimate one rather than an error. Restoring it is one
+  `showcase build` with a budget, and `docs/showcase.md` says so.
 - `docs/retrieval.md`'s signal table said full text missed `cabecote` and trigram rescued it. Both
   halves were false and both are corrected: `plainto_tsquery('portuguese', 'cabecote')` matched 0
   chunks, trigram never cleared its floor, and `garage_bi` matches 6. The module docstring of

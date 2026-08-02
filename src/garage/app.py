@@ -100,6 +100,7 @@ from garage.generation import (
     reject_unverifiable,
     verify_citations,
 )
+from garage.evaluation import artifact_identity
 from garage.ingest import verify_artifact
 from garage.retrieval import (
     DEFAULT_K,
@@ -467,10 +468,31 @@ def create_app(
         # against a different Corpus would put the wrong paragraph under a real citation and nothing
         # on screen could tell. Loud, at boot, exactly like the database check above — and here
         # rather than inside `showcase.py` because refusing to *serve* is this layer's decision.
-        from garage.showcase import precomputed_index, verify_showcase_records
+        #
+        # The identity is four fields and not just `corpus_hash` since ADR-0010, which is the change
+        # that proved one was not enough: it moved the ranking without touching a document, so the
+        # hash matched, the record booted, and `POST /query` published a recorded `abstained: true`
+        # for a question this build answers with ten chunks. `showcase.SHOWCASE_IDENTITY_FIELDS`
+        # holds the list and the argument.
+        from garage.showcase import precomputed_index, showcase_ids, verify_showcase_records
 
+        # Computed once at boot and kept on `state`, because `POST /query` re-checks it per request
+        # and three catalogue queries on the hot path would be three catalogue queries on the hot
+        # path. It cannot go stale within a process: ADR-0002 makes the database a build artifact and
+        # nothing at runtime writes to it.
+        #
+        # And skipped entirely when no record is committed, which is not micro-optimisation. It keeps
+        # the extra database read out of the boot path of every build that serves no showcase — the
+        # lexical-only deployment, and most of the test suite — so a build with nothing to check does
+        # not acquire a dependency on the thing it is not checking. `{}` rather than `None` because
+        # the per-request lookup indexes it, and it only reaches that line through a non-empty index,
+        # which cannot exist here.
+        committed = showcase_ids(settings.showcase_dir)
+        app.state.artifact_identity = (
+            artifact_identity(settings.database_url, app.state.artifact) if committed else {}
+        )
         app.state.showcase_ids = verify_showcase_records(
-            app.state.artifact.corpus_hash, settings.showcase_dir
+            app.state.artifact_identity, settings.showcase_dir
         )
         # Indexed once, here, immediately after the gate that just agreed every record stands on this
         # artifact. Rebuilding it per request would put file reads and Pydantic validation on the hot
@@ -609,7 +631,7 @@ def create_app(
             k=query_request.k,
             tiers=query_request.tiers,
             contract=query_request.contract,
-            corpus_hash=corpus_hash,
+            identity=http.app.state.artifact_identity,
         )
         if recorded is not None and not query_request.rerun:
             return _precomputed_response(

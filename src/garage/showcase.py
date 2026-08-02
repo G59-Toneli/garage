@@ -124,7 +124,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -834,8 +834,57 @@ def showcase_ids(directory: Path | None = None) -> tuple[str, ...]:
     return tuple(sorted((path.stem for path in directory.glob("*.json")), reverse=True))
 
 
-def verify_showcase_records(corpus_hash: str, directory: Path | None = None) -> tuple[str, ...]:
-    """Refuse to serve a precomputed answer over material this artifact does not hold.
+# The fields of `evaluation.Provenance` a committed record must share with the live artifact before
+# this build will serve it. Four, and it was one until ADR-0010 proved one was not enough.
+#
+# `corpus_hash` alone is a check the `Provenance` docstring itself argues against: "a record citing
+# only the first would be reproducible in principle and wrong in practice". `ingest.verify_artifact`
+# has compared three numbers all along. The showcase record is governed by the *same* `Provenance`
+# class and was being checked against a third of it, which is not a policy — it is an omission that
+# looked like one.
+#
+# What it cost, measured rather than imagined: ADR-0010 changed the ranking without touching a
+# document, so `corpus_hash` was identical and the record booted. `POST /query` then answered the
+# curated question from the record — `chunks: []`, `abstained: true` — while the same question with
+# one extra space missed the lookup, went live, and returned ten chunks. One process, one artifact,
+# two contradictory answers, and the wrong one was the one the comparison screen published. The
+# provenance panel said `ingest_version: 1` while `GET /provenance` said `2`.
+#
+# `ingest_version` is the field that would have caught it. The two text search fields are here on the
+# same argument one step further out: the configuration behind `chunks.tsv` is not in any of the
+# three numbers `verify_artifact` compares, and a record measured under `pg_catalog.portuguese` does
+# not describe a build searching under `public.garage_bi` even when every chunk is byte-identical.
+#
+# `git_sha` and `git_dirty` are deliberately **absent**. A record cannot name the commit that
+# contains it — the file is written before it is committed, so requiring agreement would make every
+# record permanently stale by construction. Issue #6 settled this for the run record and the same
+# answer holds here.
+SHOWCASE_IDENTITY_FIELDS = (
+    "corpus_hash",
+    "ingest_version",
+    "text_search_config",
+    "text_search_dictionaries",
+)
+
+
+def record_diverges(identity: Mapping[str, Any], record: ShowcaseRecord) -> tuple[str, ...]:
+    """Which identity fields this record disagrees with, in declared order. Empty means it fits.
+
+    One implementation, used by the boot gate and by the per-request lookup, because two comparisons
+    of the same thing are two things to get out of step — and the per-request one is what closes the
+    window on a record dropped into the directory of a running service.
+    """
+    return tuple(
+        name
+        for name in SHOWCASE_IDENTITY_FIELDS
+        if getattr(record.provenance, name) != identity[name]
+    )
+
+
+def verify_showcase_records(
+    identity: Mapping[str, Any], directory: Path | None = None
+) -> tuple[str, ...]:
+    """Refuse to serve a precomputed answer that does not describe this build.
 
     The boot gate for this format, and the same argument as `ingest.verify_artifact`: a showcase
     citing `svc-kadett-1993#0002` is worthless if that identifier now points at a different
@@ -843,24 +892,40 @@ def verify_showcase_records(corpus_hash: str, directory: Path | None = None) -> 
     one. `GET /chunks` would happily hydrate it with the wrong text and nothing on screen would say
     so.
 
+    Refusing to boot is the *point* rather than a cost of the check, and it is worth saying because
+    the softer option is tempting. A record that no longer describes this build is already broken;
+    serving it anyway does not preserve the demo, it publishes a wrong answer under the authority of
+    a precomputed one. A service that will not start, naming what diverged and how to regenerate it,
+    is strictly better than a screen that confidently states the lexical arm abstains on a question
+    this build answers with ten chunks.
+
     Loud, at boot, and never per request — a service that checks this on the way out is a service
     willing to hold a stale record as long as nobody opens that page. Every mismatched record is
-    named at once rather than the first, because the operator's next action is to rebuild all of
-    them.
+    named at once rather than the first, and every diverging field with it, because the operator's
+    next action is to rebuild all of them and they want the whole list.
     """
     identifiers = showcase_ids(directory)
     stale: list[str] = []
     for showcase_id in identifiers:
         base = Path(directory) if directory is not None else SHOWCASE_DIR
         record = load_showcase_record(base / f"{showcase_id}.json")
-        if record.provenance.corpus_hash != corpus_hash:
-            stale.append(f"  {showcase_id}: corpus_hash {record.provenance.corpus_hash}")
+        diverged = record_diverges(identity, record)
+        if diverged:
+            stale.append(
+                f"  {showcase_id}\n"
+                + "\n".join(
+                    f"      {name}: record {getattr(record.provenance, name)!r} "
+                    f"!= database {identity[name]!r}"
+                    for name in diverged
+                )
+            )
     if stale:
         raise ShowcaseError(
-            "the database holds a different Corpus than these showcase records were built "
-            f"against.\n  database: corpus_hash {corpus_hash}\n" + "\n".join(stale) + "\n"
+            "these showcase records do not describe the build this service would serve them "
+            "from:\n" + "\n".join(stale) + "\n"
             "Rebuild them with `python -m garage showcase build`, or delete them. A precomputed "
-            "answer over material this artifact does not hold cites chunks nobody can check."
+            "answer measured under a different artifact cites chunks nobody can check and states "
+            "results this build does not produce."
         )
     return identifiers
 
@@ -959,22 +1024,27 @@ def find_precomputed(
     k: int,
     tiers: Sequence[str],
     contract: str,
-    corpus_hash: str,
+    identity: Mapping[str, Any],
 ) -> Precomputed | None:
     """The recorded answer for this exact request, or nothing.
 
-    `corpus_hash` is re-checked here even though `verify_showcase_records` already refused to boot on
+    The identity is re-checked here even though `verify_showcase_records` already refused to boot on
     a mismatch. The boot gate reads the directory once; this reads the object that is about to be
     published. A record dropped into the directory of a running service would be listed by
-    `GET /showcase` and — without this line — served as a live-looking answer over material the
-    database may not hold. Cheap, and it closes the window.
+    `GET /showcase` and — without this line — served as a live-looking answer over an artifact the
+    database may no longer be. Cheap, and it closes the window.
+
+    Through `record_diverges` rather than by comparing a field here, so the window this closes is the
+    same width as the gate at boot. It used to compare `corpus_hash` alone, which is how a record
+    measured under a different text search configuration reached a reader as an authoritative
+    `abstained: true` for a question this build answers.
     """
     found = index.get(
         precomputed_key(question=question, strategy=strategy, k=k, tiers=tiers, contract=contract)
     )
     if found is None:
         return None
-    if found.record.provenance.corpus_hash != corpus_hash:
+    if record_diverges(identity, found.record):
         return None
     return found
 

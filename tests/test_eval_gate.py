@@ -161,18 +161,23 @@ def test_the_suite_is_neither_trivial_nor_impossible(record):
     # passes cannot detect an improvement; a suite nothing passes cannot detect a regression. The
     # gate itself compares against the promoted baseline — this only asserts the suite has room in
     # both directions.
-    recall = record.arms[0].metrics["recall@10"]
-
-    # The ceiling moved from 0.85 to 0.95 with ADR-0010, which fixed the lexical arm from 0.447 to
-    # 0.868 and pushed it through the old bound. Raising a bound because the code got better is
-    # exactly the move this file should be suspicious of, so the reasoning is written down: the
-    # bound is a *triviality* check, and the suite is not trivial at 0.868 — ten of the 76 questions
-    # still miss entirely, and the arm scores 0.571 on natural Portuguese questions. What would make
-    # it trivial is a fact set edited to fit the retriever, which is what happened before #6 and is
-    # the reason this assertion exists. 0.95 leaves the check able to fire on that while no longer
-    # firing on a genuine improvement. The dense arm, at 0.895, would already have failed the old
-    # one; only `arms[0]` is checked, which is a gap this comment is not closing today.
-    assert 0.15 < recall < 0.95
+    # **Every arm**, not `arms[0]`. It read the first arm, which is always `lexical`, so `dense` has
+    # never been covered since the day it landed — and `dense` has scored 0.894737 from that day,
+    # which means it would have failed the old 0.85 ceiling immediately had anything looked. A
+    # triviality check that only inspects the weaker arm cannot detect the thing it is for, because
+    # the fact set being too easy shows up in the *strongest* arm first.
+    #
+    # The ceiling moved from 0.85 to 0.95 with ADR-0010, which took `lexical` from 0.447 to 0.868 and
+    # pushed it through the old bound. Raising a bound because the code got better is exactly the
+    # move this file should be suspicious of, so the reasoning is written down rather than assumed:
+    # this is a check for a *fact set shaped to fit the retriever*, which is what happened before #6.
+    # `facts_sha256` and `sample_count` are byte-identical across the change, so the questions did not
+    # move — the retriever did. The suite is not trivial at 0.868 either: ten of the 76 questions miss
+    # entirely and the arm scores 0.571 on natural Portuguese ones. 0.95 still fires on a rewritten
+    # question set while no longer firing on a genuine improvement, and it now fires for any arm.
+    for arm in record.arms:
+        recall = arm.metrics["recall@10"]
+        assert 0.15 < recall < 0.95, f"{arm.configuration.strategy}: recall@10 {recall}"
 
 
 def test_the_committed_baseline_describes_a_run_record_that_is_in_the_tree():

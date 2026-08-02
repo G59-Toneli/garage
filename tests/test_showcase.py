@@ -45,6 +45,7 @@ from garage.showcase import (
     spread_of,
     spreads_from,
     tokens,
+    SHOWCASE_IDENTITY_FIELDS,
     verify_showcase_records,
     write_showcase_record,
 )
@@ -67,6 +68,12 @@ PROVENANCE = Provenance(
     text_search_config="pg_catalog.portuguese",
     text_search_dictionaries="portuguese_stem",
 )
+
+# What the boot gate compares against, built from `PROVENANCE` rather than typed out beside it:
+# these two must agree field for field in the passing case, and a second literal is how they would
+# stop agreeing. `showcase.artifact_identity` builds the real one off the live database.
+IDENTITY = {name: getattr(PROVENANCE, name) for name in SHOWCASE_IDENTITY_FIELDS}
+
 
 QUESTION = ShowcaseQuestion(
     question_id="torque-cabecote",
@@ -173,6 +180,10 @@ def test_a_curated_question_renders_answer_citations_chunks_trace_and_cost_with_
     # configuration, and the endpoints resolve it the same way a container does.
     settings = settings.model_copy(update={"showcase_dir": directory})
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # Boot now also reads the live text search configuration to build the artifact identity the
+    # showcase gate compares against. Stubbed with the same values `PROVENANCE` carries, so a record
+    # built by `offline` matches this build exactly, which is the passing case these tests need.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
     # `GET /chunks` is the hydration path and the only place text ever comes from. It is a database
     # read, so it is faked here — what matters is that it is *local*, not that it is Postgres.
     monkeypatch.setattr(
@@ -230,6 +241,10 @@ def test_a_missing_chunk_degrades_to_an_identified_absence_rather_than_an_error(
 ):
     """A clone without the operator's material must still render. ADR-0003 makes this the normal case."""
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # Boot now also reads the live text search configuration to build the artifact identity the
+    # showcase gate compares against. Stubbed with the same values `PROVENANCE` carries, so a record
+    # built by `offline` matches this build exactly, which is the passing case these tests need.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
     monkeypatch.setattr(app_module, "fetch_chunks", lambda url, ids: ())
 
     from fastapi.testclient import TestClient
@@ -250,6 +265,10 @@ def test_asking_for_more_chunks_than_the_cap_is_refused_rather_than_truncated(
     from garage.retrieval import MAX_CHUNK_IDS
 
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # Boot now also reads the live text search configuration to build the artifact identity the
+    # showcase gate compares against. Stubbed with the same values `PROVENANCE` carries, so a record
+    # built by `offline` matches this build exactly, which is the passing case these tests need.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
     from fastapi.testclient import TestClient
 
     with TestClient(create_app(settings, retriever=FakeRetriever([candidate()]))) as client:
@@ -365,13 +384,26 @@ def test_no_ngram_of_any_source_document_reaches_a_committed_record():
     the catalogue entry ADR-0002 says a Corpus is, and several titles are also the first heading of
     their document. Subtracting the manifest's own n-grams is what distinguishes "this text is
     already in git on purpose" from "this text escaped", and it is the only exemption.
+
+    **Every committed retrieval artifact, not only the showcase directory.** `docs/examples/` arrived
+    with ADR-0010 and holds a captured retrieval response — same provenance, same risk, and it was
+    protected only by `set(chunk) & set(_SOURCE_TEXT_FIELDS)`, which is a field list. A field list is
+    precisely what got `section` wrong and precisely why this test exists. Guarding a *new* artifact
+    with the weak check while the strong one sat one glob away was the same mistake at one remove, so
+    the glob covers both directories and will cover the next one by being the place that enumerates
+    them.
     """
+    from garage.capture import CAPTURE_PATH
     from garage.corpus import FIXTURE_CORPUS
     from garage.showcase import SHOWCASE_DIR
 
     records = sorted(SHOWCASE_DIR.glob("*.json")) if SHOWCASE_DIR.is_dir() else []
+    records += sorted(CAPTURE_PATH.parent.glob("*.json")) if CAPTURE_PATH.parent.is_dir() else []
     if not records:
-        pytest.skip("no showcase record is committed in this checkout")
+        pytest.skip("no committed record in this checkout")
+    # The captured example is the artifact this test was widened for, so its presence is asserted
+    # rather than left to a glob that would silently cover nothing if the file were renamed.
+    assert CAPTURE_PATH in records
 
     from_sources: set[tuple[str, ...]] = set()
     for source in sorted((FIXTURE_CORPUS / "sources").glob("*.md")):
@@ -842,11 +874,11 @@ def test_a_stale_corpus_hash_invalidates_the_record_loudly(offline, tmp_path):
     record = build(CountingGenerator())
     write_showcase_record(record, tmp_path)
 
-    # The same hash it was built against: silence, and the ids come back.
-    assert verify_showcase_records(CORPUS_HASH, tmp_path) == (record.showcase_id,)
+    # The same artifact it was built against: silence, and the ids come back.
+    assert verify_showcase_records(IDENTITY, tmp_path) == (record.showcase_id,)
 
     with pytest.raises(ShowcaseError) as refusal:
-        verify_showcase_records("f" * 64, tmp_path)
+        verify_showcase_records({**IDENTITY, "corpus_hash": "f" * 64}, tmp_path)
 
     message = str(refusal.value)
     assert record.showcase_id in message
@@ -854,6 +886,92 @@ def test_a_stale_corpus_hash_invalidates_the_record_loudly(offline, tmp_path):
     # And it says what to do about it, because a refusal that only says no costs more time than it
     # saves.
     assert "showcase build" in message
+
+
+@pytest.mark.parametrize(
+    "field, wrong",
+    [
+        ("ingest_version", 99),
+        ("text_search_config", "public.something_else"),
+        ("text_search_dictionaries", "portuguese_stem, simple"),
+    ],
+)
+def test_every_identity_field_and_not_only_the_hash_invalidates_the_record(
+    offline, tmp_path, field, wrong
+):
+    """The three fields the gate did not check, and the failure that proved it had to.
+
+    ADR-0010 changed the text search configuration and the query shape. Not one document moved, so
+    `corpus_hash` was identical and the committed record booted — and `POST /query` then served its
+    recorded `chunks: [], abstained: true` for the curated question while the same question with one
+    extra space fell through to live retrieval and came back with ten chunks. One process, one
+    artifact, two contradictory answers, and the wrong one was the one the comparison screen
+    published. The provenance panel read `ingest_version: 1` beside a `GET /provenance` reading `2`.
+
+    Parametrised over each field on its own so the test says *which* field is load bearing rather
+    than passing because some other one happened to differ too. `ingest_version` is the one that
+    would have caught the real incident; the two text fields catch the class one step out, where the
+    chunks are byte-identical and only the stemmer behind them moved.
+    """
+    record = build(CountingGenerator())
+    write_showcase_record(record, tmp_path)
+
+    with pytest.raises(ShowcaseError) as refusal:
+        verify_showcase_records({**IDENTITY, field: wrong}, tmp_path)
+
+    message = str(refusal.value)
+    # The refusal names the field, both values and the way out. An operator reading it should not
+    # have to diff two JSON files to learn what happened.
+    assert field in message
+    assert str(wrong) in message and str(getattr(PROVENANCE, field)) in message
+    assert "showcase build" in message
+
+
+def test_the_identity_deliberately_excludes_the_commit_that_contains_the_record():
+    """A record cannot name the commit it is committed in, so `git_sha` is not comparable.
+
+    Stated as a test because the list is tempting to "complete": every other `Provenance` field is
+    in it, and adding these two would make every committed record permanently stale by construction
+    — the sha in the file is the sha *before* the file existed. Issue #6 settled this for the run
+    record and the reasoning is identical here.
+    """
+    assert "git_sha" not in SHOWCASE_IDENTITY_FIELDS
+    assert "git_dirty" not in SHOWCASE_IDENTITY_FIELDS
+    # And the ones that are in it are all real `Provenance` fields, so a typo is a failure here
+    # rather than a `getattr` raising at boot in front of an operator.
+    for name in SHOWCASE_IDENTITY_FIELDS:
+        assert name in Provenance.model_fields
+
+
+def test_a_record_that_fails_the_identity_is_not_served_as_a_precomputed_answer(offline, tmp_path):
+    """The per-request half, which is the one that actually reached a reader.
+
+    The boot gate refuses the whole process. This is the window it does not cover: a record dropped
+    into the directory of a service already running. It compared `corpus_hash` alone, through a
+    second hand-written comparison, which is exactly how the two checks came to have different
+    widths. Both now go through `record_diverges`.
+    """
+    from garage.showcase import find_precomputed, precomputed_index, record_diverges
+
+    record = build(CountingGenerator())
+    write_showcase_record(record, tmp_path)
+    index = precomputed_index(tmp_path)
+    item = record.items[0]
+    arm = item.arms[0]
+    ask = dict(
+        question=item.question,
+        strategy=arm.strategy,
+        k=arm.k,
+        tiers=arm.tiers,
+        contract=arm.contract,
+    )
+
+    assert find_precomputed(index, identity=IDENTITY, **ask) is not None
+    # One field wrong — the one the real incident turned on — and the lookup declines rather than
+    # publishing a stale answer that looks live.
+    stale = {**IDENTITY, "ingest_version": 99}
+    assert record_diverges(stale, record) == ("ingest_version",)
+    assert find_precomputed(index, identity=stale, **ask) is None
 
 
 def test_the_service_refuses_to_boot_against_a_record_built_on_another_corpus(
@@ -869,6 +987,9 @@ def test_the_service_refuses_to_boot_against_a_record_built_on_another_corpus(
         app_module,
         "verify_artifact",
         lambda *_: Artifact(corpus_id="fixture", corpus_hash="9" * 64, ingest_version=1),
+    )
+    monkeypatch.setattr(
+        app_module, "artifact_identity", lambda *_: {**IDENTITY, "corpus_hash": "9" * 64}
     )
 
     from fastapi.testclient import TestClient
@@ -895,6 +1016,10 @@ def test_where_the_records_live_is_deployment_configuration(offline, monkeypatch
     elsewhere = tmp_path / "elsewhere"
     write_showcase_record(record, elsewhere)
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # Boot now also reads the live text search configuration to build the artifact identity the
+    # showcase gate compares against. Stubbed with the same values `PROVENANCE` carries, so a record
+    # built by `offline` matches this build exactly, which is the passing case these tests need.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
 
     from fastapi.testclient import TestClient
 
@@ -916,6 +1041,10 @@ def test_an_unknown_showcase_record_is_a_404_and_never_a_path_traversal(
     monkeypatch, settings  # noqa: F811
 ):
     monkeypatch.setattr(app_module, "verify_artifact", lambda *_: ARTIFACT)
+    # Boot now also reads the live text search configuration to build the artifact identity the
+    # showcase gate compares against. Stubbed with the same values `PROVENANCE` carries, so a record
+    # built by `offline` matches this build exactly, which is the passing case these tests need.
+    monkeypatch.setattr(app_module, "artifact_identity", lambda *_: IDENTITY)
     from fastapi.testclient import TestClient
 
     with TestClient(create_app(settings, retriever=FakeRetriever([candidate()]))) as client:

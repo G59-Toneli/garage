@@ -113,13 +113,18 @@ RRF_K = 60
 # draft of this comment claimed that and it is false. Measured over the 76 fact questions, 31 of them
 # have at least one chunk above 0.6, so the floor is decided and is deciding.
 #
-# What 0.6 does not have is a *measurement*. It was picked by eye, and the distribution it sits in is
-# strange: the questions that clear it clear it enormously (five reach 1.000, because a keyword
-# question can be a literal substring of a spec row) while the ones that need help most sit at 0.36
-# to 0.50. So the value is doing real work and nobody knows whether it is doing the right work, which
-# is an argument for measuring it rather than for nudging it — and #13 changes the distribution
-# underneath it anyway. A floor picked today is a floor #13 invalidates, and in the meantime the gate
-# would be defending it. When there is a measurement, this line changes with a baseline behind it.
+# What 0.6 does not have is a *measurement*, and the distribution it sits in is bimodal enough that
+# guessing again would be no better. Of the 76, **11 reach exactly 1.000** — a keyword question can be
+# a literal substring of a spec row — and the 45 that fall short spread from 0.172 to 0.591, which
+# includes a question that misses the floor by nine thousandths. So the value is deciding real
+# outcomes and nobody knows whether it is deciding them correctly, which is an argument for measuring
+# it rather than for nudging it — and #13 changes the distribution underneath it anyway. A floor
+# picked today is a floor #13 invalidates, and in the meantime the gate would be defending it. When
+# there is a measurement, this line changes with a baseline behind it.
+#
+# (An earlier draft of this comment said five reached 1.000. It was eleven. Correcting an unmeasured
+# claim with another unmeasured claim is the defect this whole change is about, so the counts above
+# are `select max(word_similarity(question, text)) from chunks` over `eval/facts.jsonl`, run.)
 WORD_SIMILARITY_FLOOR = 0.6
 
 DEFAULT_K = 10

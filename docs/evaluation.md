@@ -205,7 +205,7 @@ every single time. The history is the directory listing.
     "python_version": "3.12.13", "platform": "Windows-11-…",
     "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
     "text_search_config": "public.garage_bi",
-    "text_search_dictionaries": "garage_en_stop, garage_pt_stop, portuguese_stem, unaccent"
+    "text_search_dictionaries": "garage_en_stop, garage_pt_stop, portuguese_stem, simple, unaccent"
   },
   "sample_count": 76,
   "facts_sha256": "3c7dc8b7e9dd…",
