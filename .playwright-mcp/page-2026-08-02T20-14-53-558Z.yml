@@ -1,0 +1,183 @@
+- generic [active] [ref=f1e1]:
+  - 'note "Aviso permanente: o corpus deste site é fictício e os documentos foram inventados para o projeto." [ref=f1e2]':
+    - strong [ref=f1e3]: Este corpus é fictício.
+    - text: Os documentos abaixo — manual de serviço, boletins, tópicos de fórum — foram inventados para este projeto e não descrevem nenhum veículo real. Tudo o que esta página mostra sobre recuperação, citação e custo é medido de verdade; o material sobre o qual é medido, não. Falsificar uma afirmação sobre material inventado é um exercício, e o site diz isso em vez de deixar você descobrir. corpus_id=fixture · build unknown
+  - banner [ref=f1e4]:
+    - heading "Garage" [level=1] [ref=f1e5]
+    - navigation [ref=f1e6]:
+      - link "comparação" [ref=f1e7] [cursor=pointer]:
+        - /url: ./index.html
+      - text: ·
+      - link "avaliação" [ref=f1e8] [cursor=pointer]:
+        - /url: ./eval.html
+      - text: ·
+      - link "showcase" [ref=f1e9] [cursor=pointer]:
+        - /url: ./showcase.html
+  - status [ref=f1e10]: 2 braços · 76 perguntas
+  - main [ref=f1e11]:
+    - generic [ref=f1e12]:
+      - heading "Avaliação determinística" [level=2] [ref=f1e13]
+      - generic [ref=f1e14]:
+        - term [ref=f1e15]: baseline promovido
+        - definition [ref=f1e16]: 20260802T024452Z-604c0f58a210
+        - term [ref=f1e17]: registro mais recente
+        - definition [ref=f1e18]: 20260802T024452Z-604c0f58a210
+        - term [ref=f1e19]: perguntas
+        - definition [ref=f1e20]: "76"
+        - term [ref=f1e21]: facts_sha256
+        - definition [ref=f1e22]: 3c7dc8b7e9ddef5c12ca142a20027016a46caf3465ed4e17fcf963965184f632
+        - term [ref=f1e23]: tolerância
+        - definition [ref=f1e24]: 0,014 — número de política, não estatístico
+        - term [ref=f1e25]: piso de ruído
+        - definition [ref=f1e26]: 0,013
+      - paragraph [ref=f1e27]: "Sem barras de erro: estas métricas são determinísticas — mesma pergunta, mesmo artefato, mesmo resultado. O que está desenhado é o corredor de tolerância, que é política de gate."
+      - group [ref=f1e28]:
+        - generic "proveniência do registro" [ref=f1e29]
+    - generic [ref=f1e30]:
+      - heading "lexical" [level=3] [ref=f1e31]
+      - paragraph [ref=f1e32]: embedder — · k 10 · tiers A, B · reranker —
+      - table [ref=f1e33]:
+        - rowgroup [ref=f1e34]:
+          - row [ref=f1e35]:
+            - columnheader "métrica" [ref=f1e36]
+            - columnheader "promovido" [ref=f1e37]
+            - columnheader "medido" [ref=f1e38]
+            - columnheader "delta" [ref=f1e39]
+            - columnheader "corredor (tolerância 0,014)" [ref=f1e40]
+        - rowgroup [ref=f1e41]:
+          - row [ref=f1e42]:
+            - rowheader "mrr@10 GATED" [ref=f1e43]:
+              - text: mrr@10
+              - generic [ref=f1e44]: GATED
+            - cell "0,440789" [ref=f1e45]
+            - cell "0,440789" [ref=f1e46]
+            - cell "+0,000000" [ref=f1e47]
+            - cell [ref=f1e48]
+          - row [ref=f1e53]:
+            - rowheader "ndcg@10 GATED" [ref=f1e54]:
+              - text: ndcg@10
+              - generic [ref=f1e55]: GATED
+            - cell "0,442512" [ref=f1e56]
+            - cell "0,442512" [ref=f1e57]
+            - cell "+0,000000" [ref=f1e58]
+            - cell [ref=f1e59]
+          - row [ref=f1e64]:
+            - rowheader "recall@1 GATED" [ref=f1e65]:
+              - text: recall@1
+              - generic [ref=f1e66]: GATED
+            - cell "0,427632" [ref=f1e67]
+            - cell "0,427632" [ref=f1e68]
+            - cell "+0,000000" [ref=f1e69]
+            - cell [ref=f1e70]
+          - row [ref=f1e75]:
+            - rowheader "recall@10 GATED" [ref=f1e76]:
+              - text: recall@10
+              - generic [ref=f1e77]: GATED
+            - cell "0,447368" [ref=f1e78]
+            - cell "0,447368" [ref=f1e79]
+            - cell "+0,000000" [ref=f1e80]
+            - cell [ref=f1e81]
+          - row [ref=f1e86]:
+            - rowheader "recall@10:keyword GATED" [ref=f1e87]:
+              - text: recall@10:keyword
+              - generic [ref=f1e88]: GATED
+            - cell "0,911765" [ref=f1e89]
+            - cell "0,911765" [ref=f1e90]
+            - cell "+0,000000" [ref=f1e91]
+            - cell [ref=f1e92]
+          - row [ref=f1e97]:
+            - rowheader "recall@10:natural GATED" [ref=f1e98]:
+              - text: recall@10:natural
+              - generic [ref=f1e99]: GATED
+            - cell "0,071429" [ref=f1e100]
+            - cell "0,071429" [ref=f1e101]
+            - cell "+0,000000" [ref=f1e102]
+            - cell [ref=f1e103]
+          - row [ref=f1e108]:
+            - rowheader "recall@5 GATED" [ref=f1e109]:
+              - text: recall@5
+              - generic [ref=f1e110]: GATED
+            - cell "0,447368" [ref=f1e111]
+            - cell "0,447368" [ref=f1e112]
+            - cell "+0,000000" [ref=f1e113]
+            - cell [ref=f1e114]
+          - row [ref=f1e119]:
+            - rowheader "value_match@1 não gated" [ref=f1e120]
+            - cell "0,434211" [ref=f1e121]
+            - cell "0,434211" [ref=f1e122]
+            - cell "+0,000000" [ref=f1e123]
+            - cell [ref=f1e124]
+    - generic [ref=f1e128]:
+      - heading "dense" [level=3] [ref=f1e129]
+      - paragraph [ref=f1e130]: embedder baseline@6f852da7deb1 · k 10 · tiers A, B · reranker —
+      - table [ref=f1e131]:
+        - rowgroup [ref=f1e132]:
+          - row [ref=f1e133]:
+            - columnheader "métrica" [ref=f1e134]
+            - columnheader "promovido" [ref=f1e135]
+            - columnheader "medido" [ref=f1e136]
+            - columnheader "delta" [ref=f1e137]
+            - columnheader "corredor (tolerância 0,014)" [ref=f1e138]
+        - rowgroup [ref=f1e139]:
+          - row [ref=f1e140]:
+            - rowheader "mrr@10 GATED" [ref=f1e141]:
+              - text: mrr@10
+              - generic [ref=f1e142]: GATED
+            - cell "0,755738" [ref=f1e143]
+            - cell "0,755738" [ref=f1e144]
+            - cell "+0,000000" [ref=f1e145]
+            - cell [ref=f1e146]
+          - row [ref=f1e151]:
+            - rowheader "ndcg@10 GATED" [ref=f1e152]:
+              - text: ndcg@10
+              - generic [ref=f1e153]: GATED
+            - cell "0,790693" [ref=f1e154]
+            - cell "0,790693" [ref=f1e155]
+            - cell "+0,000000" [ref=f1e156]
+            - cell [ref=f1e157]
+          - row [ref=f1e162]:
+            - rowheader "recall@1 GATED" [ref=f1e163]:
+              - text: recall@1
+              - generic [ref=f1e164]: GATED
+            - cell "0,671053" [ref=f1e165]
+            - cell "0,671053" [ref=f1e166]
+            - cell "+0,000000" [ref=f1e167]
+            - cell [ref=f1e168]
+          - row [ref=f1e173]:
+            - rowheader "recall@10 GATED" [ref=f1e174]:
+              - text: recall@10
+              - generic [ref=f1e175]: GATED
+            - cell "0,894737" [ref=f1e176]
+            - cell "0,894737" [ref=f1e177]
+            - cell "+0,000000" [ref=f1e178]
+            - cell [ref=f1e179]
+          - row [ref=f1e184]:
+            - rowheader "recall@10:keyword GATED" [ref=f1e185]:
+              - text: recall@10:keyword
+              - generic [ref=f1e186]: GATED
+            - cell "1,000000" [ref=f1e187]
+            - cell "1,000000" [ref=f1e188]
+            - cell "+0,000000" [ref=f1e189]
+            - cell [ref=f1e190]
+          - row [ref=f1e195]:
+            - rowheader "recall@10:natural GATED" [ref=f1e196]:
+              - text: recall@10:natural
+              - generic [ref=f1e197]: GATED
+            - cell "0,809524" [ref=f1e198]
+            - cell "0,809524" [ref=f1e199]
+            - cell "+0,000000" [ref=f1e200]
+            - cell [ref=f1e201]
+          - row [ref=f1e206]:
+            - rowheader "recall@5 GATED" [ref=f1e207]:
+              - text: recall@5
+              - generic [ref=f1e208]: GATED
+            - cell "0,855263" [ref=f1e209]
+            - cell "0,855263" [ref=f1e210]
+            - cell "+0,000000" [ref=f1e211]
+            - cell [ref=f1e212]
+          - row [ref=f1e217]:
+            - rowheader "value_match@1 não gated" [ref=f1e218]
+            - cell "0,710526" [ref=f1e219]
+            - cell "0,710526" [ref=f1e220]
+            - cell "+0,000000" [ref=f1e221]
+            - cell [ref=f1e222]

@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     trust_forwarded_for: bool = False
 
     # The anti-abuse bucket, the only limiter in this system that produces a 429. Zero disables it.
-    requests_per_minute: int = 10
+    requests_per_minute: int = 20
 
     # The two generation budgets. Neither ever produces an error: over either one the request is
     # rebased onto retrieval, which is local and free, and the answer is marked `degraded` with a

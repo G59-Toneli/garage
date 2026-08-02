@@ -75,12 +75,18 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal
 
-# The anti-abuse bucket. Ten requests a minute is generous for a human reading a two-column
-# comparison and immediately uncomfortable for a script. It is a *token bucket* rather than a fixed
-# window so that a visitor who opens the page and fires two parallel `POST /query` calls — which is
-# exactly what `main.js` does, one per strategy — is not spending a window's worth of allowance on
-# one comparison.
-DEFAULT_REQUESTS_PER_MINUTE = 10
+# The anti-abuse bucket, in *requests* — while a visitor thinks in *actions*, and one action is two
+# requests, because `main.js` fires one `POST /query` per strategy. A comparison costs two tokens; a
+# comparison whose re-run button is pressed on both columns costs four. A token bucket rather than a
+# fixed window, so those paired calls are not charged a whole window.
+#
+# Twenty, not ten. Ten was comfortable for someone reading each answer, and it broke exactly where
+# the site is doing its job: six questions typed in quick succession is twelve tokens, and the
+# showcase screen with two curated questions re-run on both columns is eight in under a minute. The
+# ceiling was landing on demonstrations, not on scripts. Twenty costs nothing to be wrong about —
+# retrieval is 11 ms of local Postgres, so this is a 0.4% duty cycle, and the money is fenced by the
+# two generation budgets below, which this bucket does not guard.
+DEFAULT_REQUESTS_PER_MINUTE = 20
 
 # Generations, not requests. Sixty a day is roughly six comparisons an hour for eight hours from one
 # address, which is more than any honest visitor will do and far less than the global ceiling.

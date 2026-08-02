@@ -216,7 +216,7 @@ length; this is the operator's view.
 
 | limiter | key | default | on refusal |
 |---|---|---|---|
-| requests per minute | client address | 10, token bucket | **429** with `Retry-After` |
+| requests per minute | client address | 20, token bucket | **429** with `Retry-After` |
 | generations per day | client address | 60 | degrade |
 | generations per day | *global* | 200 | degrade |
 

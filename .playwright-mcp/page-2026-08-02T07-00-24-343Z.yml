@@ -1,0 +1,298 @@
+- generic [ref=f25e1]:
+  - 'note "Aviso permanente: o corpus deste site é fictício e os documentos foram inventados para o projeto." [ref=f25e2]':
+    - strong [ref=f25e3]: Este corpus é fictício.
+    - text: Os documentos abaixo — manual de serviço, boletins, tópicos de fórum — foram inventados para este projeto e não descrevem nenhum veículo real. Tudo o que esta página mostra sobre recuperação, citação e custo é medido de verdade; o material sobre o qual é medido, não. Falsificar uma afirmação sobre material inventado é um exercício, e o site diz isso em vez de deixar você descobrir. corpus_id=fixture · build unknown
+  - banner [ref=f25e4]:
+    - heading "Garage" [level=1] [ref=f25e5]
+    - navigation [ref=f25e6]:
+      - link "comparação" [ref=f25e7] [cursor=pointer]:
+        - /url: ./index.html
+      - text: ·
+      - link "avaliação" [ref=f25e8] [cursor=pointer]:
+        - /url: ./eval.html
+      - text: ·
+      - link "showcase" [ref=f25e9] [cursor=pointer]:
+        - /url: ./showcase.html
+  - generic [ref=f25e10]:
+    - generic [ref=f25e11]:
+      - generic [ref=f25e12]: Pergunta
+      - textbox "Pergunta" [active] [ref=f25e13]:
+        - /placeholder: torque do cabeçote no estágio 2
+        - text: Com que aperto eu fecho o cabeçote do meu Kadett GSi?
+    - generic [ref=f25e14]:
+      - generic [ref=f25e15]: k
+      - spinbutton "k" [ref=f25e16]: "10"
+    - group "tiers" [ref=f25e17]:
+      - generic [ref=f25e19]:
+        - checkbox "A" [checked] [ref=f25e20]
+        - text: A
+      - generic [ref=f25e21]:
+        - checkbox "B" [checked] [ref=f25e22]
+        - text: B
+    - generic [ref=f25e23]:
+      - generic [ref=f25e24]: contrato
+      - combobox "contrato" [ref=f25e25]:
+        - option "cited" [selected]
+        - option "free"
+    - generic [ref=f25e26]:
+      - generic [ref=f25e27]: coluna esquerda
+      - combobox "coluna esquerda" [ref=f25e28]:
+        - option "lexical" [selected]
+        - option "dense"
+    - generic [ref=f25e29]:
+      - generic [ref=f25e30]: coluna direita
+      - combobox "coluna direita" [ref=f25e31]:
+        - option "lexical"
+        - option "dense" [selected]
+    - button "Comparar" [ref=f25e32] [cursor=pointer]
+  - status [ref=f25e33]: lexical vs dense · duas requisições paralelas · tempo de parede, uma amostra, conexão fria
+  - main [ref=f25e34]:
+    - generic [ref=f25e315]:
+      - heading "Com que aperto eu fecho o cabeçote do meu Kadett GSi?" [level=2] [ref=f25e316]
+      - generic [ref=f25e317]:
+        - term [ref=f25e318]: corpus_hash
+        - definition [ref=f25e319]: 21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
+    - generic [ref=f25e320]:
+      - generic [ref=f25e321]:
+        - generic [ref=f25e322]: lexical
+        - generic [ref=f25e323]: resposta pré-computada · showcase 20260802T051801Z-44a5db93da69 · amostra 2 de 3
+      - generic [ref=f25e324]:
+        - generic [ref=f25e325]: dense
+        - generic [ref=f25e326]: resposta pré-computada · showcase 20260802T051801Z-44a5db93da69 · amostra 2 de 3
+    - generic [ref=f25e327]:
+      - generic [ref=f25e328]: sobreposição
+      - generic [ref=f25e329]: 0 recuperados em lexical · 10 recuperados em dense · 0 em comum · 0 só em lexical · 10 só em dense
+    - generic [ref=f25e330]:
+      - strong [ref=f25e331]: Uma coluna não recuperou nada. Isso é o comportamento projetado.
+      - paragraph [ref=f25e332]: "A estratégia lexical descarta trechos abaixo de um piso de similaridade, então uma pergunta que o Corpus não cobre volta vazia — e a geração se abstém sem chamar modelo nenhum. A estratégia dense não tem piso: busca por vizinhos mais próximos sempre devolve os k mais próximos, por mais distantes que estejam. Compare os cossenos antes de ler a coluna cheia como \"a que funcionou\"."
+    - generic [ref=f25e333]:
+      - generic [ref=f25e334]:
+        - generic [ref=f25e335]:
+          - heading "lexical" [level=3] [ref=f25e336]
+          - generic [ref=f25e337]:
+            - term [ref=f25e338]: embedder
+            - definition [ref=f25e339]: sem índice denso
+            - term [ref=f25e340]: k · tiers · contrato
+            - definition [ref=f25e341]: 10 · A, B · cited
+            - term [ref=f25e342]: traceId
+            - definition [ref=f25e343]: 84f8c36faf5bf8873f6f97fa5c6817a1
+        - article [ref=f25e344]:
+          - heading "Abstenção — comportamento correto" [level=4] [ref=f25e345]
+          - paragraph [ref=f25e346]: nenhum trecho do Corpus foi recuperado para esta pergunta
+          - paragraph [ref=f25e347]: O Corpus não cobre isto. Nenhuma chamada ao modelo foi feita — custo zero.
+        - article [ref=f25e348]:
+          - heading "Custo e contrato" [level=4] [ref=f25e349]
+          - generic [ref=f25e350]:
+            - term [ref=f25e351]: provedor · modelo
+            - definition [ref=f25e352]: nenhuma chamada
+            - term [ref=f25e353]: tokens entrada / saída
+            - definition [ref=f25e354]: 0 / 0
+            - term [ref=f25e355]: custo estimado
+            - definition [ref=f25e356]: —
+            - term [ref=f25e357]: citações inválidas
+            - definition [ref=f25e358]: "0"
+            - term [ref=f25e359]: afirmações sem suporte
+            - definition [ref=f25e360]: "0"
+            - term [ref=f25e361]: estado contraditório
+            - definition [ref=f25e362]: não
+        - article [ref=f25e363]:
+          - heading "Árvore de spans" [level=4] [ref=f25e364]
+          - paragraph [ref=f25e365]: escala compartilhada, 0–1.124,5 ms · tempo de parede, uma amostra, conexão fria — não é uma medição de desempenho
+          - generic [ref=f25e366]:
+            - generic [ref=f25e367]:
+              - generic [ref=f25e368]:
+                - generic [ref=f25e369]: retrieve
+                - generic [ref=f25e370]: 13,9 ms
+              - group [ref=f25e373]:
+                - generic "5 atributos" [ref=f25e374] [cursor=pointer]
+            - generic [ref=f25e376]:
+              - generic [ref=f25e377]: rerank
+              - generic [ref=f25e378]: — não executado
+            - generic [ref=f25e382]:
+              - generic [ref=f25e383]: generate
+              - generic [ref=f25e384]: — não executado
+        - article [ref=f25e387]:
+          - heading "Trechos recuperados" [level=4] [ref=f25e388]
+          - paragraph [ref=f25e389]: Nenhum. A estratégia não encontrou nada acima do seu piso.
+      - generic [ref=f25e390]:
+        - generic [ref=f25e391]:
+          - heading "dense" [level=3] [ref=f25e392]
+          - generic [ref=f25e393]:
+            - term [ref=f25e394]: embedder
+            - definition [ref=f25e395]: baseline@6f852da7deb1
+            - term [ref=f25e396]: k · tiers · contrato
+            - definition [ref=f25e397]: 10 · A, B · cited
+            - term [ref=f25e398]: traceId
+            - definition [ref=f25e399]: 289a9c6a44a973d513bdc877508dabe8
+        - article [ref=f25e400]:
+          - heading "Abstenção — comportamento correto" [level=4] [ref=f25e401]
+          - paragraph [ref=f25e402]: Os trechos fornecidos não contêm informações sobre o torque de aperto do cabeçote do Kadett GSi.
+          - paragraph [ref=f25e403]: O Corpus não cobre isto. O modelo foi consultado e recusou responder.
+        - article [ref=f25e404]:
+          - heading "Custo e contrato" [level=4] [ref=f25e405]
+          - generic [ref=f25e406]:
+            - term [ref=f25e407]: provedor · modelo
+            - definition [ref=f25e408]: gemini · gemini-2.5-flash
+            - term [ref=f25e409]: tokens entrada / saída
+            - definition [ref=f25e410]: 1527 / 49
+            - term [ref=f25e411]: custo estimado
+            - definition [ref=f25e412]: US$ 0,000581 estimado, tabela de 2026-08-01
+            - term [ref=f25e413]: citações inválidas
+            - definition [ref=f25e414]: "0"
+            - term [ref=f25e415]: afirmações sem suporte
+            - definition [ref=f25e416]: "0"
+            - term [ref=f25e417]: estado contraditório
+            - definition [ref=f25e418]: não
+        - article [ref=f25e419]:
+          - heading "Árvore de spans" [level=4] [ref=f25e420]
+          - paragraph [ref=f25e421]: escala compartilhada, 0–1.124,5 ms · tempo de parede, uma amostra, conexão fria — não é uma medição de desempenho
+          - generic [ref=f25e422]:
+            - generic [ref=f25e423]:
+              - generic [ref=f25e424]:
+                - generic [ref=f25e425]: retrieve
+                - generic [ref=f25e426]: 65,7 ms
+              - group [ref=f25e429]:
+                - generic "5 atributos" [ref=f25e430] [cursor=pointer]
+            - generic [ref=f25e432]:
+              - generic [ref=f25e433]: rerank
+              - generic [ref=f25e434]: — não executado
+            - generic [ref=f25e437]:
+              - generic [ref=f25e438]:
+                - generic [ref=f25e439]: generate
+                - generic [ref=f25e440]: 1.058,8 ms
+              - group [ref=f25e443]:
+                - generic "18 atributos" [ref=f25e444] [cursor=pointer]
+        - article [ref=f25e445]:
+          - heading "Trechos recuperados (10)" [level=4] [ref=f25e446]
+          - paragraph [ref=f25e447]: score (cosseno) · barra absoluta, 0–1
+          - list [ref=f25e448]:
+            - listitem [ref=f25e449]:
+              - generic [ref=f25e450]:
+                - generic [ref=f25e451]: "#1"
+                - generic [ref=f25e452]: TIER B · comunidade
+                - generic [ref=f25e453]: 0,869980 cosseno
+              - generic [ref=f25e459]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0004"
+              - paragraph [ref=f25e460]: "**bereta_do_ze** — 14/03/2019 Cabe, mas não cabe bonito. O 250-S é seis cilindros em linha, o cofre do Kadett é transversal. Você vai precisar de longarina reforçada e mesa nova. Fiz num Chevette, ali é natural porque já é longitudinal. No Kadett é gambiarra estrutural."
+              - generic [ref=f25e461]:
+                - term [ref=f25e462]: cosseno
+                - definition [ref=f25e463]: 0,869980
+                - term [ref=f25e464]: posição no cosseno
+                - definition [ref=f25e465]: rank 1
+              - paragraph [ref=f25e466]: "#1 · só nesta coluna"
+            - listitem [ref=f25e467]:
+              - generic [ref=f25e468]:
+                - generic [ref=f25e469]: "#2"
+                - generic [ref=f25e470]: TIER B · comunidade
+                - generic [ref=f25e471]: 0,869090 cosseno
+              - generic [ref=f25e477]: Blog Garagem 59 — dois anos com um Kadett GSi · sem página · Onde estou hoje · blog-projetinho-de-rua#0005
+              - paragraph [ref=f25e478]: Cabeçote trabalhado, comando de rua, gerenciamento programável, gasolina comum. Não é o Kadett mais rápido do bairro e não quero que seja. É um **projetinho de rua** que sai de casa todo dia.
+              - generic [ref=f25e479]:
+                - term [ref=f25e480]: cosseno
+                - definition [ref=f25e481]: 0,869090
+                - term [ref=f25e482]: posição no cosseno
+                - definition [ref=f25e483]: rank 2
+              - paragraph [ref=f25e484]: "#2 · só nesta coluna"
+            - listitem [ref=f25e485]:
+              - generic [ref=f25e486]:
+                - generic [ref=f25e487]: "#3"
+                - generic [ref=f25e488]: TIER B · comunidade
+                - generic [ref=f25e489]: 0,867010 cosseno
+              - generic [ref=f25e495]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0008"
+              - paragraph [ref=f25e496]: "**tuning_carlao** — 15/03/2019 Aí sim. No 2.0 MPFI com cabeçote trabalhado, comando 280° e escape 4x1 você tira uns 150 cv sem perder a dirigibilidade. Fica um **projetinho de rua** honesto. O swap 250-S é coisa de quem quer barulho em linha reta, não é pra Kadett."
+              - generic [ref=f25e497]:
+                - term [ref=f25e498]: cosseno
+                - definition [ref=f25e499]: 0,867010
+                - term [ref=f25e500]: posição no cosseno
+                - definition [ref=f25e501]: rank 3
+              - paragraph [ref=f25e502]: "#3 · só nesta coluna"
+            - listitem [ref=f25e503]:
+              - generic [ref=f25e504]:
+                - generic [ref=f25e505]: "#4"
+                - generic [ref=f25e506]: TIER B · comunidade
+                - generic [ref=f25e507]: 0,859280 cosseno
+              - generic [ref=f25e513]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0006"
+              - paragraph [ref=f25e514]: "**andre_gsi** — 15/03/2019 E se eu ficar no 2.0 e só mexer no **cabeçote**? Tipo trabalhar o cabeçote, comando mais bravo?"
+              - generic [ref=f25e515]:
+                - term [ref=f25e516]: cosseno
+                - definition [ref=f25e517]: 0,859280
+                - term [ref=f25e518]: posição no cosseno
+                - definition [ref=f25e519]: rank 4
+              - paragraph [ref=f25e520]: "#4 · só nesta coluna"
+            - listitem [ref=f25e521]:
+              - generic [ref=f25e522]:
+                - generic [ref=f25e523]: "#5"
+                - generic [ref=f25e524]: TIER B · comunidade
+                - generic [ref=f25e525]: 0,859190 cosseno
+              - generic [ref=f25e531]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0007"
+              - paragraph [ref=f25e532]: Tipo trabalhar o cabeçote, comando mais bravo? **tuning_carlao** — 15/03/2019
+              - generic [ref=f25e533]:
+                - term [ref=f25e534]: cosseno
+                - definition [ref=f25e535]: 0,859190
+                - term [ref=f25e536]: posição no cosseno
+                - definition [ref=f25e537]: rank 5
+              - paragraph [ref=f25e538]: "#5 · só nesta coluna"
+            - listitem [ref=f25e539]:
+              - generic [ref=f25e540]:
+                - generic [ref=f25e541]: "#6"
+                - generic [ref=f25e542]: TIER B · comunidade
+                - generic [ref=f25e543]: 0,856120 cosseno
+              - generic [ref=f25e549]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0002"
+              - paragraph [ref=f25e550]: "**andre_gsi** — 14/03/2019 Galera, tenho um GSi 93 e tá na cabeça fazer o **swap 250-S**. Já vi uns projetinho de rua rodando com isso e o torque é outro mundo. Alguém já fez? Cabe no cofre sem cortar a torre?"
+              - generic [ref=f25e551]:
+                - term [ref=f25e552]: cosseno
+                - definition [ref=f25e553]: 0,856120
+                - term [ref=f25e554]: posição no cosseno
+                - definition [ref=f25e555]: rank 6
+              - paragraph [ref=f25e556]: "#6 · só nesta coluna"
+            - listitem [ref=f25e557]:
+              - generic [ref=f25e558]:
+                - generic [ref=f25e559]: "#7"
+                - generic [ref=f25e560]: TIER B · comunidade
+                - generic [ref=f25e561]: 0,854710 cosseno
+              - generic [ref=f25e567]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0011"
+              - paragraph [ref=f25e568]: "**bereta_do_ze** — 16/03/2019 Confirmo. E a **coroa** original do GSi é curta demais pra motor bravo, você vai bater o corte em quinta antes da velocidade. Se for mexer no motor, mexe na relação também."
+              - generic [ref=f25e569]:
+                - term [ref=f25e570]: cosseno
+                - definition [ref=f25e571]: 0,854710
+                - term [ref=f25e572]: posição no cosseno
+                - definition [ref=f25e573]: rank 7
+              - paragraph [ref=f25e574]: "#7 · só nesta coluna"
+            - listitem [ref=f25e575]:
+              - generic [ref=f25e576]:
+                - generic [ref=f25e577]: "#8"
+                - generic [ref=f25e578]: TIER B · comunidade
+                - generic [ref=f25e579]: 0,852090 cosseno
+              - generic [ref=f25e585]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0005"
+              - paragraph [ref=f25e586]: No Kadett é gambiarra estrutural. **andre_gsi** — 15/03/2019
+              - generic [ref=f25e587]:
+                - term [ref=f25e588]: cosseno
+                - definition [ref=f25e589]: 0,852090
+                - term [ref=f25e590]: posição no cosseno
+                - definition [ref=f25e591]: rank 8
+              - paragraph [ref=f25e592]: "#8 · só nesta coluna"
+            - listitem [ref=f25e593]:
+              - generic [ref=f25e594]:
+                - generic [ref=f25e595]: "#9"
+                - generic [ref=f25e596]: TIER B · comunidade
+                - generic [ref=f25e597]: 0,850720 cosseno
+              - generic [ref=f25e603]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0009"
+              - paragraph [ref=f25e604]: O swap 250-S é coisa de quem quer barulho em linha reta, não é pra Kadett. Só cuidado com o pistão. Se você levantar muito a taxa, no gasolina comum vai detonar. Já vi cabeçote plainado demais comendo pistão em três mil quilômetros.
+              - generic [ref=f25e605]:
+                - term [ref=f25e606]: cosseno
+                - definition [ref=f25e607]: 0,850720
+                - term [ref=f25e608]: posição no cosseno
+                - definition [ref=f25e609]: rank 9
+              - paragraph [ref=f25e610]: "#9 · só nesta coluna"
+            - listitem [ref=f25e611]:
+              - generic [ref=f25e612]:
+                - generic [ref=f25e613]: "#10"
+                - generic [ref=f25e614]: TIER B · comunidade
+                - generic [ref=f25e615]: 0,848900 cosseno
+              - generic [ref=f25e621]: "Fórum Opala & Cia — vale a pena swap 250-S no Kadett? · sem página · Fórum Opala & Cia — tópico: \"vale a pena swap 250-S no Kadett?\" · forum-swap-250s#0003"
+              - paragraph [ref=f25e622]: Cabe no cofre sem cortar a torre? **bereta_do_ze** — 14/03/2019
+              - generic [ref=f25e623]:
+                - term [ref=f25e624]: cosseno
+                - definition [ref=f25e625]: 0,848900
+                - term [ref=f25e626]: posição no cosseno
+                - definition [ref=f25e627]: rank 10
+              - paragraph [ref=f25e628]: "#10 · só nesta coluna"

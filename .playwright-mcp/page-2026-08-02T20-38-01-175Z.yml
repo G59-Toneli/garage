@@ -1,0 +1,17 @@
+- generic [active] [ref=f1e1]:
+  - heading "Garage está fora do ar" [level=1] [ref=f1e2]
+  - paragraph [ref=f1e3]: O servidor web está de pé e o serviço por trás dele não está respondendo. Nada foi consultado e nada está sendo escondido — não há o que mostrar.
+  - paragraph [ref=f1e4]:
+    - text: "A causa mais provável não é uma queda:"
+    - strong [ref=f1e5]: o serviço se recusa a subir contra um banco que não é o artefato deste commit.
+    - text: O
+    - code [ref=f1e6]: corpus_hash
+    - text: "gravado no banco, ou o de algum registro de showcase committado, diverge do que este código descreve. Essa recusa é o comportamento correto: servir números sobre material que este artefato não contém seria pior do que não servir nada, porque pareceria igualmente confiável."
+  - paragraph [ref=f1e7]:
+    - text: "Operador:"
+    - code [ref=f1e8]: docker compose logs serve
+    - text: nomeia os dois hashes. O conserto é
+    - code [ref=f1e9]: python -m garage ingest
+    - text: e, se um registro de showcase divergir, reconstruí-lo ou removê-lo. Veja
+    - code [ref=f1e10]: docs/deploy.md
+    - text: .

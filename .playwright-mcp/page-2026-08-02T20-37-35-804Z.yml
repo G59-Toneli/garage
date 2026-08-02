@@ -1,0 +1,21 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Garage" [level=1] [ref=e3]
+    - navigation [ref=e4]:
+      - link "comparação" [ref=e5] [cursor=pointer]:
+        - /url: ./index.html
+      - text: ·
+      - link "avaliação" [ref=e6] [cursor=pointer]:
+        - /url: ./eval.html
+      - text: ·
+      - link "showcase" [ref=e7] [cursor=pointer]:
+        - /url: ./showcase.html
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]: registro
+      - combobox "registro" [disabled] [ref=e11]
+    - generic [ref=e12]:
+      - generic [ref=e13]: pergunta curada
+      - combobox "pergunta curada" [disabled] [ref=e14]
+  - status [ref=e15]: lendo /showcase…
+  - main
