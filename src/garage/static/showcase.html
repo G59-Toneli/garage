@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+  The precomputed screen. Everything on it was measured before the visitor arrived, and the page's
+  first job is to make that impossible to miss — see `showcasescreen.js` and the `.precomputed`
+  texture in `styles.css`.
+-->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Garage — showcase pré-computado</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Garage</h1>
+      <nav>
+        <a href="./index.html">comparação</a> ·
+        <a href="./eval.html">avaliação</a> ·
+        <a href="./showcase.html" aria-current="page">showcase</a>
+      </nav>
+    </header>
+
+    <!--
+      Empty and disabled, like the strategy selects on the comparison page and for the same reason:
+      which records exist and which questions they hold are properties of the running build, and
+      this file does not know either. A placeholder here would offer a visitor a question this
+      showcase may not contain.
+    -->
+    <form id="pick" class="ask">
+      <label class="field">
+        <span>registro</span>
+        <select id="record" disabled></select>
+      </label>
+      <label class="field grow">
+        <span>pergunta curada</span>
+        <select id="question" disabled></select>
+      </label>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite">lendo /showcase…</p>
+    <main id="output"></main>
+
+    <script type="module" src="./showcasescreen.js"></script>
+  </body>
+</html>

@@ -120,13 +120,25 @@ def candidate(chunk_id="svc-kadett-1993#0001", tier="A", score=0.9) -> Candidate
 
 
 @pytest.fixture
-def settings() -> Settings:
+def settings(tmp_path) -> Settings:
     # `gemini_api_key=None` explicitly, and it is not decoration. `create_app` builds a real
     # `GeminiGenerator` when it finds a key, and `Settings` reads the process environment — so on a
     # developer's machine with `GEMINI_API_KEY` exported, every test here that passes no generator
     # would quietly make a paid network call. It did, before this line: one test took sixteen
     # seconds and hit the real API. A test's dependencies must come from the test.
-    return Settings(database_url="postgresql://u:p@db:5432/garage", gemini_api_key=None)
+    #
+    # `showcase_dir` is the same argument one layer out, and it is a fix rather than a precaution.
+    # The boot gate refuses any showcase record whose `corpus_hash` does not match the artifact
+    # (ADR-0002), and `ARTIFACT` above is a fake with a hash of zeroes — so every test in this file
+    # started failing the moment a real record was committed to `eval/showcase/`. An empty directory
+    # is the honest dependency: these tests are about the query endpoint and have no business
+    # knowing which showcase happens to be committed. The tests that *are* about the showcase point
+    # this at a directory they filled themselves.
+    return Settings(
+        database_url="postgresql://u:p@db:5432/garage",
+        gemini_api_key=None,
+        showcase_dir=tmp_path / "no-showcase",
+    )
 
 
 @pytest.fixture

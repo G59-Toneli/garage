@@ -52,11 +52,27 @@ const TIER_LABELS = {
   B: { label: "TIER B · comunidade", short: "relato de comunidade" },
 };
 
+// The fourth hand-written list, added by the showcase, and a name the pipeline owns exactly like the
+// three above: these keys are `showcase.SPREAD_METRICS`, decided in Python. Iterated generically
+// with the raw key as fallback, so a metric added there shows up here unlabelled rather than
+// dropped — the same rule `COMPONENT_LABELS` follows and for the same reason.
+const SPREAD_LABELS = {
+  tokens_in: "tokens de entrada",
+  tokens_out: "tokens de saída",
+  cost_usd: "custo (US$)",
+  claims: "afirmações",
+  citations: "citações",
+  invalid_citations: "citações inválidas",
+  unsupported_claims: "afirmações sem suporte",
+  generate_ms: "latência da geração (ms)",
+};
+
 // ---------------------------------------------------------------------------------------------
 
 export function toView(source) {
   if (source.source === "live") return liveView(source);
   if (source.source === "record") return recordView(source);
+  if (source.source === "showcase") return showcaseView(source);
   throw new Error(`fonte desconhecida: ${source.source}`);
 }
 
@@ -64,6 +80,17 @@ export function toView(source) {
 
 function liveView({ responses }) {
   const arms = responses.map((response) => (response.failed ? failedArm(response) : armView(response)));
+  return { ...comparison(arms), source: "live" };
+}
+
+// Everything two columns mean *together*, computed from arm views and from nothing else.
+//
+// Extracted out of `liveView` when the showcase source arrived, and the extraction is the point
+// rather than tidiness: a precomputed comparison and a live one are the same comparison, so the
+// overlap arithmetic, the shared `corpus_hash` assertion, the floor note and the millisecond scale
+// must be one implementation. Two would drift, and the divergence would appear as a demo that
+// disagrees with the live page about which chunks the two strategies share.
+function comparison(arms) {
   // A failed arm is excluded from every cross-column computation rather than counted as empty. It
   // did not retrieve nothing — it did not answer at all, and "0 em comum" against a column that
   // never ran would be a set operation over a set that does not exist.
@@ -122,7 +149,6 @@ function liveView({ responses }) {
       : null;
 
   return {
-    source: "live",
     shared: {
       question: answered.length ? answered[0].question : null,
       corpusHash: agrees ? hashes[0] ?? null : null,
@@ -236,7 +262,14 @@ function chunkView(chunk, index, scoring) {
     // `p. null`.
     page: chunk.page,
     section: chunk.section,
-    text: chunk.text,
+    text: chunk.text ?? null,
+    // Null text is a state only the showcase can reach, and it is a *designed* one. A showcase
+    // record commits `chunk_id`s and never a word of the material (ADR-0003), so a clone without
+    // the operator's Corpus hydrates nothing and this chunk has an identity, a rank, a score and a
+    // tier — everything except the paragraph. Flagged rather than left as an empty string, because
+    // an empty string renders as a blank card and a blank card is an absence pretending not to be
+    // one. The adapter says what is missing; `render.chunkCard` says how missing looks.
+    textAbsent: chunk.text === null || chunk.text === undefined,
     score: chunk.score,
     scoreFraction: Math.max(0, Math.min(1, chunk.score / (scoring.max || 1))),
     components: Object.entries(chunk.components || {}).map(([key, value]) => ({
@@ -490,4 +523,153 @@ function recordView({ baseline, record }) {
 
 function armKey(configuration) {
   return `${configuration.strategy}::${configuration.embedder ?? ""}::${configuration.k}`;
+}
+
+// --- the showcase source ---------------------------------------------------------------------------
+//
+// This is the branch issue #11's criterion two rests on, and the reason `toView` was built with a
+// `source` discriminator in the first place. Not one component below changes for it: a showcase item
+// is turned into arm views by the *same* `armView` a live `POST /query` goes through, and then
+// through the *same* `comparison` a live pair goes through, so `renderComparison` cannot tell the
+// two apart and does not have to.
+//
+// The one thing it adds is `showcase`, and everything in it exists to stop a visitor believing these
+// numbers were measured for them just now: the `showcase_id`, when it was sampled, at what
+// temperature, how many draws, and the rule that picked the draw on screen. The screen stamps that
+// beside every panel of numbers (`showcasescreen.js`), on a distinct texture rather than a distinct
+// tone, so it survives monochrome — the same argument the tier treatment already makes.
+
+function showcaseView({ record, item, chunks, missing }) {
+  // `chunks` is what `GET /chunks?ids=...` handed back: local, free, deterministic, no model. The
+  // record itself holds no text at all, and a clone whose database does not hold the operator's
+  // material simply gets fewer entries here and renders those chunks as identified absences.
+  const byId = new Map((chunks || []).map((chunk) => [chunk.chunk_id, chunk]));
+  const absent = new Set(missing || []);
+
+  const arms = item.arms.map((arm) => {
+    const sample = arm.samples[arm.displayed_sample];
+    // Hand-assembled into exactly the body shape `armView` reads, and deliberately not a second
+    // adapter written beside it. If the record ever stops being convertible into this shape the
+    // record is wrong, not the renderer — that is the boundary doing its job.
+    const view = armView({
+      question: item.question,
+      corpus_hash: record.provenance.corpus_hash,
+      strategy: arm.strategy,
+      embedder: arm.embedder,
+      k: arm.k,
+      tiers: arm.tiers,
+      contract: arm.contract,
+      chunks: arm.retrieval.chunks.map((chunk) => hydrate(chunk, byId)),
+      answer: sample.answer,
+      trace: sample.trace,
+    });
+    return {
+      ...view,
+      // Which of the n is on screen, and — always beside it — the rule that chose it. Shown together
+      // because "sample 1 of 3" on its own invites the reader to assume it is the first or the best,
+      // and it is neither.
+      displayedSample: arm.displayed_sample,
+      sampleCount: arm.samples.length,
+      displayRule: record.displayed_sample_rule,
+      spread: spreadView(arm.spread),
+    };
+  });
+
+  return {
+    ...comparison(arms),
+    source: "showcase",
+    showcase: {
+      showcaseId: record.showcase_id,
+      scope: record.scope,
+      startedAt: record.started_at,
+      gitSha: record.provenance.git_sha,
+      // `showcase_id` is `<timestamp>-<git_sha[:12]>` and that format is a promise: the sha
+      // identifies the code that produced the numbers. A dirty tree breaks it, and the screen has to
+      // say so — an id that looks like a `run_id` and does not keep the `run_id`'s guarantee is
+      // worse than one that never claimed it.
+      gitDirty: record.provenance.git_dirty === true,
+      sampling: {
+        n: record.sampling.n,
+        generator: record.sampling.generator,
+        model: record.sampling.model,
+        temperature: record.sampling.temperature,
+        measuredOn: record.sampling.measured_on,
+      },
+      redistribution: {
+        // Both measures, both limits. One number on screen under a two-measure gate would be a
+        // page reporting half of what protected it.
+        runLimit: record.redistribution.verbatim_token_limit,
+        worstRun: record.redistribution.worst_verbatim.tokens,
+        subsequenceLimit: record.redistribution.verbatim_subsequence_limit,
+        worstSubsequence: record.redistribution.worst_verbatim_subsequence.tokens,
+        chunkTextStored: record.redistribution.chunk_text_stored,
+      },
+      displayRule: record.displayed_sample_rule,
+      why: item.why,
+      // Counted here so the screen can say it in one sentence instead of every card repeating it.
+      // Zero is the ordinary case on the machine that built the record and is *not* silence: the
+      // line is drawn either way, because "every chunk was hydrated" is a fact worth stating on a
+      // page whose whole claim is that it stores no text.
+      hydrated: item.arms.reduce(
+        (total, arm) => total + arm.retrieval.chunks.filter((chunk) => byId.has(chunk.chunk_id)).length,
+        0
+      ),
+      // From the endpoint's own `missing`, not inferred from what did come back. The two agree
+      // today; reading the answer the service gave is the side to be on if they ever stop.
+      absent: item.arms.reduce(
+        (total, arm) => total + arm.retrieval.chunks.filter((chunk) => absent.has(chunk.chunk_id)).length,
+        0
+      ),
+    },
+  };
+}
+
+function hydrate(chunk, byId) {
+  const held = byId.get(chunk.chunk_id);
+  return {
+    ...chunk,
+    // Null, never `""`. The record carries no source prose by design and the database may not hold
+    // it either; both arrive here as the same absence.
+    text: held ? held.text : null,
+    // `section` is hydrated for the same reason `text` is, and it is not an oversight that the
+    // record does not carry it: `chunking` sets it from the source document's own heading, so it is
+    // the operator's prose (ADR-0003, `showcase._SOURCE_TEXT_FIELDS`). It was in the record once and
+    // leaked twelve-token runs of the fixture into git. `doc_title` is different and stays in the
+    // record — it is the manifest's catalogue entry, in git already.
+    section: held ? held.section : null,
+  };
+}
+
+function spreadView(spread) {
+  // The strip plot's geometry, computed once here rather than in the renderer, because it is
+  // arithmetic on served values — the same thing the overlap band is. What is *not* computed is a
+  // mean, a standard deviation or an error bar: n is ten at most and the record deliberately holds
+  // no scalar for any of these, so there is nothing to draw one from and nothing that should be
+  // (ADR-0004).
+  return Object.entries(spread || {}).map(([key, values]) => {
+    const low = values.minimum;
+    const high = values.maximum;
+    // A constant metric — every draw identical, which at temperature 0 is the good outcome — has a
+    // zero-width range. Its marks sit at the centre rather than at 0/0, which would draw ten
+    // identical values as a hard left edge and read as "the lowest possible".
+    const span = low === null || high === null || high === low ? 0 : high - low;
+    return {
+      key,
+      label: SPREAD_LABELS[key] || key,
+      n: values.n,
+      minimum: low,
+      maximum: high,
+      distinct: values.distinct,
+      // True when the quantity did not move across n draws. The single most useful thing on the
+      // panel, and it is a count that was observed, not an estimate.
+      constant: values.distinct <= 1,
+      marks: values.values.map((value, index) => ({
+        index,
+        value,
+        // Null is not a position. `cost_usd` is null for a model with no published price and for a
+        // call that never happened; the mark is omitted rather than drawn at zero.
+        fraction: value === null || span === 0 ? (value === null ? null : 0.5) : (value - low) / span,
+      })),
+    };
+  });
 }

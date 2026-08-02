@@ -36,9 +36,9 @@ import json
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, AsyncIterator, Literal, Sequence
+from typing import Annotated, Any, AsyncIterator, Literal, Sequence
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,12 +58,14 @@ from garage.generation import (
 from garage.ingest import verify_artifact
 from garage.retrieval import (
     DEFAULT_K,
+    MAX_CHUNK_IDS,
     MAX_K,
     TIERS,
     Candidate,
     Filters,
     Retriever,
     available_retrievers,
+    fetch_chunks,
 )
 from garage.tracing import Tracer
 
@@ -236,6 +238,44 @@ class QueryResponse(BaseModel):
     trace: dict[str, Any]
 
 
+class HydratedChunk(BaseModel):
+    """One chunk read back by identifier, for a screen that holds ids and needs words.
+
+    `RetrievedChunk` minus `score` and `components`, and the two omissions are the point: this chunk
+    was not ranked by anything, so a score here would be a number invented for a lookup. Same field
+    names as `RetrievedChunk` wherever they overlap, because the interface renders both through the
+    same component and a second spelling of `doc_title` would be a second thing to keep in step.
+    """
+
+    chunk_id: str
+    doc_id: str
+    doc_title: str
+    tier: Tier
+    page: int | None
+    section: str | None
+    kind: str
+    text: str
+
+
+class ChunksResponse(BaseModel):
+    """The words behind a list of identifiers, and — separately — the ones this artifact lacks.
+
+    `missing` is a field rather than a 404 because a partial answer is the *designed* state, not an
+    error. A showcase record commits `chunk_id`s and never text (ADR-0003, `docs/showcase.md`), so a
+    clone without the operator's material renders the metrics, the answer and the trace with those
+    chunks marked absent and identified. An absence travels as an absence; a 404 would turn the
+    whole page into an error over material it was never promised.
+
+    `corpus_hash` is echoed for the same reason `QueryResponse` echoes it: text hydrated from one
+    artifact into a record built against another is the exact failure the boot gate exists to
+    prevent, and a client that can see both can refuse to draw.
+    """
+
+    corpus_hash: str
+    chunks: tuple[HydratedChunk, ...]
+    missing: tuple[str, ...]
+
+
 def create_app(
     settings: Settings | None = None,
     retriever: Retriever | None = None,
@@ -289,6 +329,16 @@ def create_app(
             app.state.artifact = verify_artifact(
                 settings.database_url, settings.corpus_dir, embedder
             )
+        # The same refusal, one artifact further out. A showcase record is precomputed prose citing
+        # `chunk_id`s that `GET /chunks` will hydrate out of *this* database, so a record built
+        # against a different Corpus would put the wrong paragraph under a real citation and nothing
+        # on screen could tell. Loud, at boot, exactly like the database check above — and here
+        # rather than inside `showcase.py` because refusing to *serve* is this layer's decision.
+        from garage.showcase import verify_showcase_records
+
+        app.state.showcase_ids = verify_showcase_records(
+            app.state.artifact.corpus_hash, settings.showcase_dir
+        )
         app.state.retrievers = {strategy.name: strategy for strategy in strategies}
         app.state.default_strategy = strategies[0].name
         yield
@@ -438,6 +488,74 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"no run record {run_id!r}")
         return _read_json(_runs_dir() / f"{run_id}.json")
 
+    @app.get("/chunks")
+    def chunks(
+        http: Request,
+        # No `max_length` here on purpose, even though FastAPI would happily enforce one. The cap is
+        # `retrieval.MAX_CHUNK_IDS` and it is checked by `fetch_chunks`, so it holds for every caller
+        # of that function rather than for HTTP alone — and there is one number, not two that can
+        # drift. What this layer decides is the *status code*, below.
+        ids: Annotated[list[str] | None, Query()] = None,
+    ) -> ChunksResponse:
+        """Read-only hydration: identifiers in, the artifact's own words out.
+
+        This endpoint is what lets a committed showcase record hold **no chunk text at all**
+        (ADR-0003). The acceptance criterion behind the showcase says "no *model* call" — it does
+        not say "no database", and the words already live in `chunks.text`, in the derived artifact
+        that ADR-0002 makes the one legitimate home for third-party material. So the record commits
+        `chunk_id`s, this hands back the paragraphs, and neither one costs a cent or leaves the box.
+
+        Repeated `ids` parameters rather than one comma-separated value, because a `chunk_id` is an
+        opaque string this endpoint does not get to impose a grammar on. `doc#0007` is the shape
+        today; a separator baked into the query format would be a separator some future corpus_id
+        cannot contain.
+
+        Nothing here is filtered by tier or by anything else. The caller is looking at a citation it
+        already holds, and a filter could only hide the chunk behind it.
+        """
+        wanted = list(dict.fromkeys(ids or []))
+        try:
+            found = fetch_chunks(http.app.state.settings.database_url, wanted)
+        except ValueError as too_many:
+            # 422 and the real number, not a truncation. Silently answering the first hundred of a
+            # hundred and twenty would hand a screen a partial hydration indistinguishable from
+            # chunks the artifact genuinely lacks — the one confusion `missing` exists to prevent.
+            raise HTTPException(status_code=422, detail=str(too_many)) from too_many
+        by_id = {chunk.chunk_id: chunk for chunk in found}
+        return ChunksResponse(
+            corpus_hash=http.app.state.artifact.corpus_hash,
+            # In the order they were asked for, not the order the SQL returned. The caller is
+            # hydrating a ranked list and re-sorting it here would make every client sort it back.
+            chunks=tuple(
+                HydratedChunk(**vars(by_id[chunk_id])) for chunk_id in wanted if chunk_id in by_id
+            ),
+            missing=tuple(chunk_id for chunk_id in wanted if chunk_id not in by_id),
+        )
+
+    # The showcase surface, beside `GET /eval/*` and unmodelled for exactly the same reason: these
+    # endpoints hand back the bytes on disk, because re-serialising a record through a Pydantic model
+    # here would be a second description of the format and therefore a place for it to drift from
+    # `showcase.py` with no test noticing. The screen shows the committed file or nothing.
+
+    @app.get("/showcase")
+    def showcase() -> dict[str, list[str]]:
+        # Newest first, and by the same property as `GET /eval/runs`: `showcase_id` opens with a UTC
+        # timestamp, so lexicographic order is chronological order.
+        #
+        # Re-listed off disk rather than served from `app.state.showcase_ids`, which the boot gate
+        # already computed. The two would agree at boot and could diverge afterwards, and this is
+        # the side to be on: the endpoint hands back what is on disk *now*, so a record dropped into
+        # the directory of a running service is either served or not, never listed-but-404.
+        return {"showcase_ids": list(_showcase_ids(settings))}
+
+    @app.get("/showcase/{showcase_id}")
+    def showcase_record(showcase_id: str) -> dict[str, Any]:
+        # Membership in the set that exists, never a denylist of `..` and separators. Same reasoning
+        # as `GET /eval/runs/{run_id}`: a denylist is a thing to get wrong.
+        if showcase_id not in _showcase_ids(settings):
+            raise HTTPException(status_code=404, detail=f"no showcase record {showcase_id!r}")
+        return _read_json(_showcase_dir(settings) / f"{showcase_id}.json")
+
     # Mounted **last**, after every route above. `StaticFiles` at the root is a catch-all: mounted
     # earlier it would swallow `/health`, `/query` and `/eval/*` and the service would answer every
     # one of them with a 404 page. Absent directory means no mount rather than a boot failure — the
@@ -446,6 +564,24 @@ def create_app(
         app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
 
     return app
+
+
+def _showcase_dir(settings: Settings) -> Path:
+    """Where this deployment's showcase records live.
+
+    Null in `Settings` means the repository's own `eval/showcase/`, resolved here rather than in
+    `config.py`: that module is the leaf everything else reads and must not import `showcase`, which
+    imports this one.
+    """
+    from garage.showcase import SHOWCASE_DIR
+
+    return settings.showcase_dir or SHOWCASE_DIR
+
+
+def _showcase_ids(settings: Settings) -> tuple[str, ...]:
+    from garage.showcase import showcase_ids
+
+    return showcase_ids(_showcase_dir(settings))
 
 
 def _baseline_path() -> Path:

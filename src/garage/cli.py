@@ -84,6 +84,101 @@ def _build_parser() -> argparse.ArgumentParser:
         help="the run_id of a record in eval/runs/ (its filename without .json)",
     )
 
+    # The showcase, and deliberately a sibling of `eval` rather than a verb under it. `eval` is the
+    # deterministic layer — offline, free, and the thing CI re-measures; this one calls a paid
+    # provider on every line it writes (ADR-0004, ADR-0007). Putting it under `eval` would put a
+    # command that spends money one tab-completion away from the command that gates the build.
+    showcase = commands.add_parser(
+        "showcase", help="the precomputed showcase (calls a paid provider)"
+    ).add_subparsers(dest="showcase_command", required=True)
+    showcase_build = showcase.add_parser(
+        "build",
+        help="sample the curated questions against every strategy and write a showcase record",
+    )
+    _add_corpus_arguments(showcase_build)
+    _add_database_argument(showcase_build)
+    # Every default below is `None` and is resolved in the handler, which is not the usual argparse
+    # style and is required here: naming the real default would mean importing `garage.showcase` at
+    # parser-construction time, and that module reaches `garage.app` — so `corpus validate`, an
+    # offline build step, would acquire fastapi and psycopg because a sibling subcommand has them.
+    # The numbers live in exactly one place; this file points at it.
+    showcase_build.add_argument(
+        "-n",
+        "--samples",
+        type=int,
+        default=None,
+        metavar="N",
+        help="draws per question per strategy (default: showcase.DEFAULT_SAMPLE_COUNT)",
+    )
+    showcase_build.add_argument(
+        "--questions",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="the curated question set (default: eval/showcase/questions.jsonl)",
+    )
+    showcase_build.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="use only the first N curated questions — how a small proving run is built cheaply",
+    )
+    showcase_build.add_argument(
+        "--scope",
+        required=True,
+        metavar="TEXT",
+        help=(
+            "what this record is for, written into it. A proving run and a curated release share a "
+            "schema and have nothing else in common, and a reader who cannot tell them apart will "
+            "cite the wrong one"
+        ),
+    )
+    showcase_build.add_argument(
+        "--throttle",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "pause between provider calls (default: showcase.THROTTLE_SECONDS). The free tier is "
+            "~10 RPM; without a pause the build eats its own 429s and records them as results"
+        ),
+    )
+    showcase_build.add_argument(
+        "--verbatim-token-limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "fail the build when a claim repeats this many consecutive tokens of a cited Tier A "
+            "chunk (default: showcase.VERBATIM_TOKEN_LIMIT; ADR-0003)"
+        ),
+    )
+    showcase_build.add_argument(
+        "--verbatim-subsequence-limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "fail the build when a claim shares this many tokens in order, gaps allowed, with a "
+            "cited Tier A chunk (default: showcase.VERBATIM_SUBSEQUENCE_LIMIT). This is the half "
+            "that catches a paragraph copied with a linking word every twenty tokens"
+        ),
+    )
+    showcase_build.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help=(
+            "build from an uncommitted tree. Off by default: showcase_id promises that its git_sha "
+            "identifies the code that produced the record, and a dirty tree breaks that promise"
+        ),
+    )
+    showcase_build.add_argument(
+        "--yes",
+        action="store_true",
+        help="actually spend the money. Without it the command prints the plan and stops",
+    )
+
     # A subcommand rather than a `curl` line in the Dockerfile and another in `ci.yml`. The sha256
     # digests are the load-bearing part of vendoring model weights, and a digest maintained in three
     # places is a digest that is wrong in two of them — the same argument that moved `pg_trgm` and
@@ -106,6 +201,7 @@ def _build_parser() -> argparse.ArgumentParser:
     eval_run.set_defaults(handler=_eval_run)
     eval_gate.set_defaults(handler=_eval_gate)
     eval_promote.set_defaults(handler=_eval_promote)
+    showcase_build.set_defaults(handler=_showcase_build)
     embedder_fetch.set_defaults(handler=_embedder_fetch)
     embedder_show.set_defaults(handler=_embedder_show)
     commands.add_parser("serve", help="run the read-only HTTP server").set_defaults(handler=_serve)
@@ -335,6 +431,161 @@ def _eval_promote(arguments: argparse.Namespace) -> int:
             f"note: the {strategy} arm gates nothing. Add its metric names to gated_metrics in "
             f"{path} when you are ready to hold them."
         )
+    return 0
+
+
+def _showcase_build(arguments: argparse.Namespace) -> int:
+    """Sample the curated questions and write a record. The only command in this file that spends money.
+
+    So it is the only one that refuses to act on its own. It prints the plan — how many provider
+    calls, at what throttle, for how long — and stops unless `--yes` was passed. A dry run is not a
+    courtesy here: 8 questions x 2 arms x n=10 is 160 calls against a free tier of 250 a day, and a
+    mistyped `-n` is a whole day of quota spent on the wrong thing. `eval run` needs no such guard
+    because re-running it costs a minute of a local database.
+
+    The generator is built here rather than inside `build_showcase`, for the same reason `create_app`
+    builds it: a missing key must be a clear sentence about configuration, not a traceback from an
+    optional dependency deep inside a build.
+    """
+    from pydantic import ValidationError
+
+    from garage.config import Settings
+    from garage.ingest import ArtifactMismatch
+    from garage.showcase import (
+        DEFAULT_SAMPLE_COUNT,
+        THROTTLE_SECONDS,
+        VERBATIM_SUBSEQUENCE_LIMIT,
+        VERBATIM_TOKEN_LIMIT,
+        ShowcaseError,
+        build_showcase,
+        load_questions,
+        write_showcase_record,
+    )
+
+    database_url = _resolve_database_url(arguments)
+    if database_url is None:
+        return 1
+
+    samples = DEFAULT_SAMPLE_COUNT if arguments.samples is None else arguments.samples
+    throttle = THROTTLE_SECONDS if arguments.throttle is None else arguments.throttle
+    token_limit = (
+        VERBATIM_TOKEN_LIMIT
+        if arguments.verbatim_token_limit is None
+        else arguments.verbatim_token_limit
+    )
+    subsequence_limit = (
+        VERBATIM_SUBSEQUENCE_LIMIT
+        if arguments.verbatim_subsequence_limit is None
+        else arguments.verbatim_subsequence_limit
+    )
+    if samples < 1:
+        print(f"--samples must be at least 1, got {samples}", file=sys.stderr)
+        return 1
+
+    try:
+        settings = Settings(database_url=database_url)
+    except ValidationError as invalid:
+        print(f"configuration failed\n{invalid}", file=sys.stderr)
+        return 1
+    if not settings.gemini_api_key:
+        print(
+            "no generation key: set GEMINI_API_KEY (or GARAGE_GEMINI_API_KEY).\n"
+            "A showcase is prose sampled from a hosted model; there is nothing to precompute "
+            "without one.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        curated = load_questions(arguments.questions)
+    except ShowcaseError as failure:
+        print(f"showcase build failed\n{failure}", file=sys.stderr)
+        return 1
+    if arguments.limit is not None:
+        # First N, never a random N. A proving run has to be re-runnable and comparable against the
+        # one before it, and a sample that moves between invocations is not either.
+        curated = curated[: arguments.limit]
+    if not curated:
+        print("--limit selected no questions", file=sys.stderr)
+        return 1
+
+    from garage.retrieval import available_retrievers
+
+    try:
+        strategies = available_retrievers(database_url)
+    except Exception as failure:  # a missing embedder is `EmbedderError`, a bad URL is psycopg's
+        print(f"showcase build failed\n{failure}", file=sys.stderr)
+        return 1
+
+    planned = len(curated) * len(strategies) * samples
+    print(f"questions:   {len(curated)} ({', '.join(question.question_id for question in curated)})")
+    print(f"strategies:  {len(strategies)} ({', '.join(strategy.name for strategy in strategies)})")
+    print(f"samples:     {samples} per question per strategy")
+    print(f"provider:    gemini {settings.gemini_model}")
+    # An upper bound, said as one. A question the retriever comes back empty on is abstained without
+    # anybody being asked and costs nothing, so the real total is this or less — and a plan that
+    # printed the smaller number would be the one that surprises an operator.
+    print(
+        f"calls:       at most {planned} paid calls, ~{throttle:g}s apart "
+        f"≈ {planned * throttle / 60:.1f} min (a question that retrieves nothing abstains free)"
+    )
+    print(f"scope:       {arguments.scope}")
+    if not arguments.yes:
+        # Deliberately not an interactive prompt. This runs in a terminal today and in whatever a
+        # future operator wraps it in tomorrow, and a command that blocks on stdin is a command that
+        # hangs in the second case.
+        print("\nNothing was called. Re-run with --yes to spend it.")
+        return 0
+
+    from garage.generation import GeminiGenerator
+
+    generator = GeminiGenerator(api_key=settings.gemini_api_key, model=settings.gemini_model)
+    try:
+        record = build_showcase(
+            database_url,
+            arguments.corpus_dir,
+            generator=generator,
+            questions=curated,
+            retrievers=strategies,
+            scope=arguments.scope,
+            n=samples,
+            verbatim_token_limit=token_limit,
+            verbatim_subsequence_limit=subsequence_limit,
+            allow_dirty=arguments.allow_dirty,
+            throttle_seconds=throttle,
+            # Progress on stdout, not through `logging`. The build is minutes long and mostly
+            # sleeping; a silent command that spends money is a command an operator kills.
+            report=print,
+        )
+    except (ShowcaseError, ArtifactMismatch) as failure:
+        print(f"showcase build failed\n{failure}", file=sys.stderr)
+        return 1
+
+    path = write_showcase_record(record)
+    print(f"\nshowcase_id: {record.showcase_id}")
+    print(f"corpus_hash: {record.provenance.corpus_hash}")
+    print(
+        f"verbatim:    worst contiguous run {record.redistribution.worst_verbatim.tokens} "
+        f"(limit {record.redistribution.verbatim_token_limit}) · worst subsequence "
+        f"{record.redistribution.worst_verbatim_subsequence.tokens} "
+        f"(limit {record.redistribution.verbatim_subsequence_limit})"
+    )
+    if record.provenance.git_dirty:
+        # `--allow-dirty` was passed, so this is not a surprise — it is a receipt. The record's
+        # git_sha does not identify the code that produced it, and the screen says so too.
+        print(
+            "note: built from a dirty tree with --allow-dirty; this record's git_sha does not "
+            "identify the code that produced it, and the showcase screen says so"
+        )
+    for item in record.items:
+        for arm in item.arms:
+            spread = arm.spread["tokens_out"]
+            print(
+                f"  {item.question_id:<28} {arm.strategy:<8} tokens_out "
+                f"{spread.minimum:g}–{spread.maximum:g} ({spread.distinct} distinct) · "
+                f"displayed #{arm.displayed_sample}"
+            )
+    print(f"record:      {path}")
     return 0
 
 

@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     # mounted into the serving container (ADR-0003).
     corpus_dir: Path = FIXTURE_CORPUS
 
+    # Where the precomputed showcase records live, checked against the artifact at boot exactly as
+    # `corpus_dir` is (ADR-0002, `docs/showcase.md`). `None` means the repository's own
+    # `eval/showcase/`, resolved by `garage.showcase` — spelled as a null rather than as that path
+    # because naming it here would mean importing `showcase`, which reaches `app`, from the module
+    # every other module reads. Configuration must stay the leaf.
+    #
+    # It is a setting at all, and not a constant, for the same reason `corpus_dir` is: which records
+    # a container serves is a property of the deployment. It is also the seam that keeps a test of
+    # the query endpoint from depending on whichever showcase happens to be committed — a test's
+    # dependencies come from the test, which is the argument `gemini_api_key` below already makes.
+    showcase_dir: Path | None = None
+
     # Absent by default, and absence is a supported configuration rather than a misconfiguration:
     # the service boots, retrieves and traces without ever holding one, and simply returns no
     # answer. Not an abstention and not a degradation — a stage that never ran, exactly as the trace

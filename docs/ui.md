@@ -21,12 +21,13 @@ React is expected eventually. The section below is what makes that cheap.
 toView(source) -> view
 ```
 
-A *source* is a data origin. Two exist:
+A *source* is a data origin. Three exist:
 
 | source | input | produces |
 | --- | --- | --- |
 | `{source: "live", responses: [...]}` | the bodies of two `POST /query` calls | the comparison view |
 | `{source: "record", baseline, record}` | `eval/baseline.json` and a run record | the metrics view |
+| `{source: "showcase", record, item, chunks, missing}` | a showcase record and `GET /chunks` | the comparison view, precomputed |
 
 Everything that renders — `static/render.js`, `static/evalscreen.js` — consumes only the returned
 view object. **No component ever reads a server payload.** A component that did would be the thing
@@ -41,10 +42,11 @@ a null cost, a `_rank` that never fired and an absent span all travel through as
 Formatting — how an absence looks — lives in `static/dom.js`. Keeping the two apart is what stops a
 `null` from being helpfully turned into a `0` somewhere upstream of the screen.
 
-### The three hand-written lists
+### The hand-written lists
 
-Acceptance criterion six says nothing displayed is hard-coded. Three lists in this interface are
-written by hand anyway, and each one is a *name the pipeline owns* rather than a number:
+Acceptance criterion six says nothing displayed is hard-coded. Four lists in this interface are
+written by hand anyway, and each one is a *name the pipeline owns* rather than a number (the fourth,
+`SPREAD_LABELS`, arrived with the showcase and is described in that section):
 
 No strategy name is written down either: the two selects start empty and disabled and are filled
 from `GET /strategies`, so a lexical-only build never offers a visitor a `dense` option — not even
@@ -280,23 +282,112 @@ whisker on a number with no variance is an invented number, which is exactly wha
 criterion forbids. What is drawn is the **tolerance corridor**, labelled as policy — `Baseline.tolerance`
 is explicitly a policy number and not a statistical one.
 
-## What issue #11 has to add
+## The showcase screen
 
-Issue #11 wants curated questions rendering with no model call. **The current Run Record does not
-support that**, and the gap should be closed in the record rather than papered over in the interface:
+`showcase.html` renders curated questions with **zero model calls**. It is the third source, and the
+one the adaptation boundary was built for. The format itself, the ADR-0003 argument behind it and
+the verbatim gate are documented in `docs/showcase.md`; what follows is only what the interface does
+with it.
 
-- it is retrieval-only — no `answer`, no claims, no citations;
-- no cost, no tokens, no provider;
-- no trace, so no waterfall;
-- no chunk text, by ADR-0003 — only `chunk_id`s and `expected_chunk_ids`.
+Three reads, all of them free and local: `GET /showcase`, `GET /showcase/{id}`, and
+`GET /chunks?ids=...`. There is no `POST /query` in `showcasescreen.js` and
+`tests/test_showcase_contract.py` fails the build if one ever appears.
 
-What a record can serve statically today is exactly what `eval.html` already shows: the per-arm
-metrics table and the ranked `chunk_id`s.
+### The boundary paid off, and here is the receipt
 
-So the work in #11 is a **record source that produces the same shape `liveView` produces** — an arm
-with `chunks`, an `answer` in one of the five states, and a `trace` — which means the record format
-grows the fields above. When it does, the change lands in `adapt.recordView` and **no component
-changes**. That is what the boundary was built for.
+`showcaseView` builds each arm by handing `armView` — the *same* function a live `POST /query` body
+goes through — an object of the shape it already reads, then runs the result through the *same*
+`comparison` a live pair goes through. `renderComparison` cannot tell a stored record from two live
+HTTP calls and does not have to.
+
+`liveView`'s cross-column half was extracted into `comparison(arms)` to make that literal rather than
+approximate. Two implementations of the overlap arithmetic, the shared `corpus_hash` assertion, the
+floor note and the millisecond scale would drift, and the drift would show up as a demo that
+disagrees with the live page about which chunks the two strategies share.
+
+### The absence branch in `chunkCard`, and why it is not a breach of the boundary
+
+`render.chunkCard` gained a branch for a chunk whose paragraph this artifact does not hold. An
+earlier draft of this document described that as "the one component that had to change, against the
+boundary's promise". **That was wrong, and the wording mattered enough to correct rather than
+soften: as written it would license a real breach later.**
+
+The boundary's rule is that no component reads a *server payload*. `adapt.js` emits `textAbsent` as
+a boolean — a datum, decided by the adapter, in the view object — and `render.js` consumes it. That
+is precisely the contract, and it has abundant precedent in this very interface: `failed`, `ran`,
+`fired`, `zeroCost` and the five-state enum are all the same shape. What the component added is copy
+and structure, which is formatting, which is the component's job.
+
+The division still holds and is worth restating: the adapter decides *what is missing*, `dom.js`
+decides *how an absence is spelled*, and the component decides *what an absence looks like as
+markup*. Rendering `null` through `el({text})` would produce an empty `<p>`, and a blank card is an
+absence pretending to be a short chunk.
+
+Dashed, quiet, and never red: nothing failed, and everything around it is still the product.
+
+The same hydration path carries `section`, and for a reason that is not cosmetic. A `section` is set
+by `chunking` from the source document's own heading, so it is the operator's prose and it does not
+go into a committed record (ADR-0003) — it comes back from `GET /chunks` exactly as `text` does.
+`doc_title` is the exception that stays in the record, because it is the manifest's catalogue entry
+and is in git already.
+
+### Saying "precomputed" on four channels
+
+A visitor who reads these as live numbers has been misled, so the claim is carried the same way the
+tier is (see above), and for the same reason — colour alone fails WCAG 1.4.1 and fails in print:
+
+1. **Text** — a banner naming the `showcase_id`, the scope, the date the samples were drawn, the
+   provider, the model, the temperature, n, and both verbatim-gate readings. When the record was
+   built from a dirty tree the banner says so *inline beside the id*: `showcase_id` has `run_id`'s
+   format and therefore appears to make `run_id`'s promise, and a sha that does not identify the
+   code which produced the numbers has to be marked where the sha is read, not in a footnote.
+2. **A stamp on every panel of numbers**, each carrying the `showcase_id` **and which draw it is** —
+   `PRÉ-COMPUTADO · amostra 2 de 3 · 20260802T…`. Beside every *group* of numbers rather than every
+   numeral, which would be unreadable, and a screenshot of one panel out of context still says both
+   where it came from and that it is one sample of several.
+
+   The draw qualifier used to live only in the spread panel at the bottom of the column, several
+   hundred pixels below the cost figures it qualified. That does not break ADR-0004's letter — the
+   file holds no scalar and the spread is right there — but a reader who never scrolls has read a
+   point value off the screen, which is the thing ADR-0004 exists to prevent. The spread panel's own
+   stamp reads `todas as N amostras`, because it is the one panel whose numbers are not a draw.
+3. **Texture, not tone** — a repeating diagonal hatch behind the whole region, plus a 2px border so
+   the edge of "what is precomputed" is a line and not a gradient. A lighter shade of grey says
+   nothing in monochrome.
+4. **`aria-label`** on the region and on each stamp, spelling it out for a reader who gets none of
+   the first three.
+
+The stamps are applied by walking the rendered DOM for `.panel`, `.state` and `[data-strategy]` —
+class names those components already publish — rather than by threading a flag through `render.js`.
+That is the trade: the alternative is every component learning about a screen it has nothing to do
+with.
+
+### The strip plot
+
+n draws are drawn as n marks on a line, and that is all. **No error bar, no mean, no standard
+deviation, no box.** Ten samples do not support a sigma, and the record deliberately holds no scalar
+for any stochastic quantity precisely so that this file *cannot* render one (ADR-0004) — the same
+argument the metrics screen makes about the tolerance corridor, one layer further.
+
+What is printed beside the marks is the minimum and the maximum, both observed, and a count of how
+many distinct values appeared. That count is the most useful thing on the panel: at temperature 0 it
+is frequently 1, and "this number did not move across ten calls" is what a reader actually wants to
+know. When it is **zero** the row says "sem valor — não houve chamada", which is a different fact
+from ten identical measurements and used to render as one.
+
+Marks are translucent so overlapping draws read darker, focusable, and individually announced —
+a plot a screen reader cannot enumerate would put the draws out of reach of exactly the reader who
+needs the numbers rather than the picture. The draw actually on screen in the column beside it is
+marked taller, solid and accented: three channels, colour last.
+
+`displayed_sample` is never "the best one" and the rule that chose it is printed beside the plot,
+out of the record.
+
+### The fourth hand-written list
+
+`SPREAD_LABELS` joins the three above. Same rule: the keys are `showcase.SPREAD_METRICS`, decided in
+Python, iterated generically with the raw key as fallback, so a metric added there shows up
+unlabelled rather than dropped.
 
 ## Two things a later reader should not have to discover alone
 
