@@ -182,6 +182,19 @@ class LexicalRetriever:
         return _rows_to_candidates(rows)
 
 
+def available_retrievers(database_url: str) -> tuple[Retriever, ...]:
+    """Every strategy this build can measure, in the order a report should show them.
+
+    This tuple, and not the evaluation harness, is the list the deterministic gate iterates over.
+    Strategy is a runtime axis (design §9) and comparing strategies is the entire point of the
+    benchmark, so the day `dense` exists it belongs here — one line, in the module that owns
+    retrieval — and the gate picks it up with no change to `evaluation.py` at all. A harness that
+    named `LexicalRetriever` itself would have made the comparison the harness's business rather
+    than retrieval's.
+    """
+    return (LexicalRetriever(database_url),)
+
+
 def _clamp_k(k: int) -> int:
     if k < 1:
         raise ValueError(f"k must be at least 1, got {k}")

@@ -67,8 +67,14 @@ EVAL_K = max(RECALL_DEPTHS)
 # measurements and comparing one against the other would be meaningless.
 assert EVAL_K <= MAX_K
 
-RUN_RECORD_VERSION = 1
-BASELINE_VERSION = 1
+# Version 2 because the record holds *arms*: one measurement per strategy, side by side in one file.
+# A single-arm record could express `lexical` alone and could not express the comparison the whole
+# benchmark exists to make — and worse, two single-arm files could be produced against two different
+# databases and displayed beside each other as though they were a comparison. With `provenance`,
+# `sample_count` and `facts_sha256` held once at the top of the record and the arms underneath, that
+# is not a rule anyone has to remember: it is unrepresentable.
+RUN_RECORD_VERSION = 2
+BASELINE_VERSION = 2
 
 # Numbers as they appear in workshop text: `63`, `0.18`, `3,9`. Thousands separated by spaces
 # (`10 000 km`, `90 484 220`) deliberately split into separate matches — those are not quantities
@@ -98,6 +104,14 @@ class Fact(BaseModel):
 
     fact_id: str = Field(min_length=1, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     question: str = Field(min_length=1)
+    # How the question is *phrased*, not how hard it is. Required, because the suite is a sample of
+    # an input distribution and a sample that does not say what it sampled cannot be audited. Real
+    # users type both: three keywords into a search box, and whole sentences with a question mark.
+    # Against a conjunctive `plainto_tsquery` those two behave completely differently, so a suite
+    # made only of one of them measures a corner of the problem and reports it as the whole. The
+    # first version of this file was entirely `keyword`, scored 0.91, and was worthless: it could
+    # not have detected the difference between good retrieval and an inverted index.
+    phrasing: Literal["keyword", "natural"]
     expected_value: str = Field(min_length=1)
     chunk_ids: tuple[str, ...] = Field(min_length=1)
     tolerance: float | None = Field(default=None, gt=0)
@@ -239,19 +253,16 @@ def hit_rank(retrieved: Sequence[str], relevant: Iterable[str], k: int) -> int |
 
 
 def value_matches(expected_value: str, texts: Sequence[str], tolerance: float | None) -> bool:
-    """Whether the retrieved text contains the value a correct answer would have to state.
-
-    A *separate* measurement from the three ranking metrics and never averaged into them: it asks
-    something they do not, and it is weaker than either. It is a necessary condition for a grounded
-    answer — the value has to be in the context somewhere — not a sufficient one, since the context
-    is the whole top-k and the value may well sit in a chunk that does not answer the question.
-    Read `value_match_rate` alongside recall, never instead of it.
+    """Whether any of these texts states the value a correct answer would have to contain.
 
     With a `tolerance`, numbers are extracted and compared numerically. Substring matching on digits
     is the bug this avoids: `"63" in text` is true of `163`, of `0.63` and of `Section 6.3`, and a
     torque gate that accepts `163 N·m` for `63 N·m` is measuring nothing. Without a tolerance the
     value is text, matched accent- and case-insensitively because half the Corpus is forum
     Portuguese with the accents left off.
+
+    Which texts get passed in is the caller's decision, and it decides what the metric means. See
+    `value_match_rate` in `_aggregate`.
     """
     if tolerance is None:
         needle = fold(expected_value)
@@ -299,6 +310,13 @@ class Provenance(BaseModel):
     material was measured, the second says which rules turned it into the chunks the facts name. A
     record citing only the first would be reproducible in principle and wrong in practice, because
     the same Corpus rechunked produces different `chunk_id`s.
+
+    The three database fields are here because the ranking is not in Python — it is `ts_rank_cd`,
+    the `portuguese` snowball stemmer and `word_similarity`, all of them inside Postgres. A minor
+    server upgrade that retunes the stemmer, or a `pg_trgm` release that changes how similarity is
+    computed, moves every number in this file, and a record that recorded the laptop's OS but not
+    the version of the engine that did the ranking would be describing the wrong machine. They are
+    properties of the artifact that was measured, not of the person who ran it.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -310,6 +328,13 @@ class Provenance(BaseModel):
     ingest_version: int
     python_version: str
     platform: str
+    postgres_version: str
+    pg_trgm_version: str
+    # The *server* default, which the pipeline does not currently rely on: `chunks.tsv` and
+    # `plainto_tsquery` both name `portuguese` explicitly. Recorded anyway, because a pinned
+    # argument becoming an implicit default is exactly the kind of change that moves a benchmark
+    # without appearing in any diff of this repository.
+    text_search_config: str
 
 
 class Configuration(BaseModel):
@@ -322,7 +347,7 @@ class Configuration(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    strategy: str
+    strategy: str = Field(min_length=1)
     k: int = Field(ge=1)
     tiers: tuple[str, ...] = Field(min_length=1)
     reranker: str | None = None
@@ -351,18 +376,53 @@ class ItemResult(BaseModel):
     retrieved_chunk_ids: tuple[str, ...]
 
 
-class RunRecord(BaseModel):
-    """One measurement, complete enough to reproduce and to argue with.
+class Arm(BaseModel):
+    """One strategy's measurement inside a run.
 
-    `run_record_version` is `Literal[1]` for the same reason `Manifest.manifest_version` is: a record
-    written by a future version must fail to load rather than load partially, because a gate that
-    silently ignored a field it did not understand would compare two things it had no business
-    comparing.
+    `metrics` is per-arm rather than a single flat dictionary with prefixed keys, because prefixed
+    keys are a namespace pretending not to be one: `lexical.recall@1` and `dense.recall@1` would
+    have to be split apart again by every reader, and nothing would stop a third arm from colliding
+    with either. An arm is the namespace.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    run_record_version: Literal[1] = RUN_RECORD_VERSION
+    configuration: Configuration
+    metrics: dict[str, float]
+    per_item: tuple[ItemResult, ...]
+
+
+def _distinct_strategies(arms: Sequence[Any], what: str) -> None:
+    names = [arm.configuration.strategy for arm in arms]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        # One arm per strategy, so `strategy` alone identifies an arm in a message and in the
+        # baseline. Two arms of the same strategy differing only in `k` would be a comparison across
+        # a Configuration axis, which is a different run, not a second arm of this one.
+        raise ValueError(f"{what} holds more than one arm for: {', '.join(duplicates)}")
+
+
+class RunRecord(BaseModel):
+    """One measurement of one artifact by every strategy, complete enough to reproduce and to argue
+    with.
+
+    The shape carries an argument. `provenance`, `sample_count` and `facts_sha256` sit at the top of
+    the record and the arms sit underneath, so every arm in a record is by construction the same
+    database, the same `corpus_hash`, the same chunking rules and the same questions. That is what
+    makes the arms comparable *to each other*, which is the comparison the whole demo rests on —
+    and with the fields held once, "these two strategies were measured against different corpora"
+    stops being a mistake anyone can make and becomes a sentence this format cannot express.
+
+    `run_record_version` is a `Literal` for the same reason `Manifest.manifest_version` is: a record
+    written by a future version must fail to load rather than load partially, because a gate that
+    silently ignored a field it did not understand would compare two things it had no business
+    comparing. That is also why this bumped to 2 before anything shipped rather than after: a
+    version bump costs an afternoon today and costs the entire committed history later.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_record_version: Literal[2] = RUN_RECORD_VERSION
     run_id: str
     started_at: str
     duration_ms: int
@@ -371,11 +431,43 @@ class RunRecord(BaseModel):
     layer: Literal["deterministic"] = "deterministic"
     suite: Literal["facts"] = "facts"
     provenance: Provenance
-    configuration: Configuration
     sample_count: int = Field(ge=1)
     facts_sha256: str
+    arms: tuple[Arm, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _one_arm_per_strategy(self) -> RunRecord:
+        _distinct_strategies(self.arms, "run record")
+        return self
+
+    def arm(self, strategy: str) -> Arm | None:
+        return next((arm for arm in self.arms if arm.configuration.strategy == strategy), None)
+
+
+class BaselineArm(BaseModel):
+    """One strategy's floor, and which of its metrics the build may fail on.
+
+    `gated_metrics` is explicit and may be empty. A newly promoted arm gates nothing until someone
+    lists its metrics by hand — a measurement should be watched for a while before it is allowed to
+    fail everyone's build, and the alternative (gate whatever the record happened to report) turns
+    every new metric into an unreviewed build dependency.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    configuration: Configuration
     metrics: dict[str, float]
-    per_item: tuple[ItemResult, ...]
+    gated_metrics: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _gated_metrics_are_present(self) -> BaselineArm:
+        missing = sorted(set(self.gated_metrics) - set(self.metrics))
+        if missing:
+            raise ValueError(
+                f"{self.configuration.strategy}: gated_metrics names metrics the baseline does not "
+                f"hold: {missing}"
+            )
+        return self
 
 
 class Baseline(BaseModel):
@@ -384,36 +476,34 @@ class Baseline(BaseModel):
     `run_id` points at a real record in `eval/runs/`. That indirection is the point: a baseline of
     hand-typed numbers is a wish, while a baseline that names a run is a claim someone can go and
     check. Promotion copies from the record, never from a keyboard.
-
-    `gated_metrics` is explicit rather than "every metric present", so a new measurement can be
-    reported for a few weeks and watched before it is allowed to fail anyone's build.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    baseline_version: Literal[1] = BASELINE_VERSION
+    baseline_version: Literal[2] = BASELINE_VERSION
     run_id: str
-    configuration: Configuration
     sample_count: int = Field(ge=1)
     facts_sha256: str
-    metrics: dict[str, float]
-    gated_metrics: tuple[str, ...] = Field(min_length=1)
+    arms: tuple[BaselineArm, ...] = Field(min_length=1)
     # A *policy* number, not a statistical one. Nothing in this pipeline is random — the same commit
     # against the same artifact produces bit-identical metrics — so there is no variance to estimate
     # and no confidence interval to derive. The tolerance exists to say how much loss a human is
     # willing to wave through on a change that buys something elsewhere. Deciding it is a judgement;
-    # writing it in a committed file is what makes the judgement reviewable.
+    # writing it in a committed file is what makes the judgement reviewable. One policy for every
+    # arm, because "how much regression is acceptable" is a statement about this project, not about
+    # a strategy.
     tolerance: float = Field(ge=0.0)
     # Below this, an improvement is not worth a promotion commit. Also policy, and also here rather
     # than in an environment variable, so the gate is reproducible from the checkout alone.
     noise_floor: float = Field(ge=0.0)
 
     @model_validator(mode="after")
-    def _gated_metrics_are_present(self) -> Baseline:
-        missing = sorted(set(self.gated_metrics) - set(self.metrics))
-        if missing:
-            raise ValueError(f"gated_metrics names metrics the baseline does not hold: {missing}")
+    def _one_arm_per_strategy(self) -> Baseline:
+        _distinct_strategies(self.arms, "baseline")
         return self
+
+    def arm(self, strategy: str) -> BaselineArm | None:
+        return next((arm for arm in self.arms if arm.configuration.strategy == strategy), None)
 
 
 def _now() -> datetime:
@@ -447,13 +537,60 @@ def _git(*arguments: str) -> str:
 
 
 def git_provenance() -> tuple[str, bool]:
-    """The commit these numbers describe, and whether the tree it was measured from was clean."""
+    """The commit these numbers describe, and whether the tree it was measured from was clean.
+
+    `--porcelain` over `diff --quiet`, because untracked files count: a run measured against a fact
+    set that exists only on one laptop is not reproducible, and that is exactly what an untracked
+    `eval/facts.jsonl` would be.
+
+    `eval/runs/` is excluded from that question, and the exclusion is a fix rather than a
+    convenience. Writing a record dirties the tree, so without it the *next* run is born
+    `dirty: true` because the previous run existed — the flag would report its own side effect and
+    every record after the first would claim a dirty tree whether or not anything was actually
+    uncommitted. Records are outputs; the flag is about the inputs.
+    """
     sha = _git("rev-parse", "HEAD")
-    # `--porcelain` over `diff --quiet`: untracked files count. A run measured against a fact set
-    # that exists only on one laptop is not reproducible, and that is exactly what an untracked
-    # `eval/facts.jsonl` would be.
-    dirty = bool(_git("status", "--porcelain"))
+    dirty = bool(_git("status", "--porcelain", "--", ".", ":(exclude)eval/runs"))
     return (sha or "unknown", dirty)
+
+
+def is_ancestor_of_head(sha: str) -> bool:
+    """Whether this commit is in the history of HEAD.
+
+    The guard on the record the gate validates against. `latest_run_record` picks the newest
+    filename, and a record from an unmerged branch with a later timestamp would otherwise hijack
+    that choice silently — the numbers would be checked against a run that describes a build this
+    one is not descended from. Asking for ancestry is satisfiable (a record is committed after the
+    sha it names, so its sha is always HEAD or an ancestor of it) and catches exactly the orphan.
+    """
+    if sha in ("", "unknown"):
+        return False
+    try:
+        return (
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", sha, "HEAD"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+    except OSError:
+        # No git at all. The ancestry claim cannot be checked, so it is not made; `git_sha` in the
+        # record will already say `unknown` and the reader can see why.
+        return True
+
+
+def database_provenance(database_url: str) -> tuple[str, str, str]:
+    """The engine that did the ranking: server version, `pg_trgm` version, server text search config."""
+    import psycopg
+
+    with psycopg.connect(database_url) as connection:
+        server = connection.execute("SHOW server_version").fetchone()[0]
+        config = connection.execute("SHOW default_text_search_config").fetchone()[0]
+        row = connection.execute(
+            "SELECT extversion FROM pg_extension WHERE extname = 'pg_trgm'"
+        ).fetchone()
+    return (server, row[0] if row else "absent", config)
 
 
 def verify_chunk_ids(database_url: str, facts: Sequence[Fact]) -> None:
@@ -482,9 +619,10 @@ def verify_chunk_ids(database_url: str, facts: Sequence[Fact]) -> None:
         )
 
 
-def local_provenance(corpus_id: str, corpus_hash: str, ingest_version: int) -> Provenance:
-    """Provenance for a run happening right here, right now."""
+def local_provenance(database_url: str, corpus_id: str, corpus_hash: str, ingest_version: int) -> Provenance:
+    """Provenance for a run happening right here, right now, against this database."""
     sha, dirty = git_provenance()
+    postgres_version, pg_trgm_version, text_search_config = database_provenance(database_url)
     return Provenance(
         git_sha=sha,
         git_dirty=dirty,
@@ -493,6 +631,9 @@ def local_provenance(corpus_id: str, corpus_hash: str, ingest_version: int) -> P
         ingest_version=ingest_version,
         python_version=platform_info.python_version(),
         platform=platform_info.platform(),
+        postgres_version=postgres_version,
+        pg_trgm_version=pg_trgm_version,
+        text_search_config=text_search_config,
     )
 
 
@@ -501,29 +642,35 @@ def run_evaluation(
     corpus_dir: Path,
     *,
     facts_path: Path | None = None,
+    retrievers: Sequence[Retriever] | None = None,
     k: int = EVAL_K,
     tiers: tuple[str, ...] = TIERS,
 ) -> RunRecord:
     """The whole measurement, in the only order that is safe.
 
-    Verify the artifact, then the fact set, then measure. `verify_artifact` comes first and comes
-    before anything is written, because a run record naming a `corpus_hash` the database does not
-    actually hold is worse than no record at all — it is a reproducible-looking claim about material
-    that was never measured (ADR-0002). The numbers written down come from the `Artifact` the
-    database returned, never from the manifest in the checkout: the manifest is what we *expected*,
-    the artifact is what we *measured*.
+    Verify the artifact, then the fact set, then measure every strategy. `verify_artifact` comes
+    first and comes before anything is written, because a run record naming a `corpus_hash` the
+    database does not actually hold is worse than no record at all — it is a reproducible-looking
+    claim about material that was never measured (ADR-0002). The numbers written down come from the
+    `Artifact` the database returned, never from the manifest in the checkout: the manifest is what
+    we *expected*, the artifact is what we *measured*.
+
+    `retrievers` defaults to `retrieval.available_retrievers`, so which strategies exist is decided
+    by the module that owns retrieval and not by this one.
     """
     from garage.ingest import verify_artifact
-    from garage.retrieval import LexicalRetriever
+    from garage.retrieval import available_retrievers
 
     artifact = verify_artifact(database_url, corpus_dir)
     facts = load_facts(facts_path)
     verify_chunk_ids(database_url, facts)
 
     return evaluate(
-        LexicalRetriever(database_url),
+        retrievers if retrievers is not None else available_retrievers(database_url),
         facts,
-        provenance=local_provenance(artifact.corpus_id, artifact.corpus_hash, artifact.ingest_version),
+        provenance=local_provenance(
+            database_url, artifact.corpus_id, artifact.corpus_hash, artifact.ingest_version
+        ),
         facts_sha256=facts_digest(facts_path),
         k=k,
         tiers=tiers,
@@ -531,7 +678,7 @@ def run_evaluation(
 
 
 def evaluate(
-    retriever: Retriever,
+    retrievers: Sequence[Retriever],
     facts: Sequence[Fact],
     *,
     provenance: Provenance,
@@ -539,13 +686,31 @@ def evaluate(
     k: int = EVAL_K,
     tiers: tuple[str, ...] = TIERS,
 ) -> RunRecord:
-    """Run every fact through the retriever once and assemble the record.
+    """Run every fact through every strategy once and assemble the record.
 
-    Takes a `Retriever`, never a database URL or an HTTP client: the strategy axis is a runtime axis
+    Takes `Retriever`s, never a database URL or an HTTP client: strategy is a runtime axis
     (design §9) and the whole reason the gate is worth building is that a dense or hybrid retriever
-    can be dropped in here and measured against the same facts with nothing else changing.
+    can be dropped into this sequence and measured against the same facts, in the same record, with
+    nothing else changing.
     """
+    if not retrievers:
+        raise EvaluationError("no retrievers to measure")
+
     started = _now()
+    arms = tuple(_measure(retriever, facts, k=k, tiers=tiers) for retriever in retrievers)
+    finished = _now()
+    return RunRecord(
+        run_id=f"{_compact(started)}-{provenance.git_sha[:12]}",
+        started_at=_iso(started),
+        duration_ms=int((finished - started).total_seconds() * 1000),
+        provenance=provenance,
+        sample_count=len(facts),
+        facts_sha256=facts_sha256,
+        arms=arms,
+    )
+
+
+def _measure(retriever: Retriever, facts: Sequence[Fact], *, k: int, tiers: tuple[str, ...]) -> Arm:
     filters = Filters(tiers=tiers)
 
     items: list[ItemResult] = []
@@ -563,26 +728,23 @@ def evaluate(
                 hit_rank=hit_rank(retrieved, fact.relevant, k),
                 reciprocal_rank=_round(reciprocal_rank(retrieved, fact.relevant, k)),
                 ndcg=_round(ndcg_at_k(retrieved, fact.relevant, k)),
+                # Top-1 only. Scanning all ten made this a strictly weaker restatement of recall —
+                # it agreed with `mrr@10` to six decimals on every question, which is a metric
+                # reporting nothing. Asked of the single chunk a reader is shown first, it disagrees
+                # with both: a hit at rank 3 states the value and scores zero here, and a wrong
+                # top-1 that happens to carry the number scores one. That gap is the measurement.
                 value_matched=value_matches(
                     fact.expected_value,
-                    [candidate.text for candidate in candidates],
+                    [candidate.text for candidate in candidates[:1]],
                     fact.tolerance,
                 ),
                 retrieved_chunk_ids=retrieved,
             )
         )
 
-    metrics = _aggregate(facts, items, k)
-    finished = _now()
-    return RunRecord(
-        run_id=f"{_compact(started)}-{provenance.git_sha[:12]}",
-        started_at=_iso(started),
-        duration_ms=int((finished - started).total_seconds() * 1000),
-        provenance=provenance,
+    return Arm(
         configuration=Configuration(strategy=retriever.name, k=k, tiers=tiers),
-        sample_count=len(facts),
-        facts_sha256=facts_sha256,
-        metrics=metrics,
+        metrics=_aggregate(facts, items, k),
         per_item=tuple(items),
     )
 
@@ -606,7 +768,22 @@ def _aggregate(facts: Sequence[Fact], items: Sequence[ItemResult], k: int) -> di
     }
     metrics[f"mrr@{k}"] = _round(sum(item.reciprocal_rank for item in items) / count)
     metrics[f"ndcg@{k}"] = _round(sum(item.ndcg for item in items) / count)
-    metrics["value_match_rate"] = _round(sum(item.value_matched for item in items) / count)
+    # Fraction of questions whose *first* chunk states the expected value. Deliberately not a
+    # ranking metric and never averaged into the three above: it asks whether the single chunk a
+    # reader is shown would let them answer, which recall does not ask and MRR does not either.
+    metrics["value_match@1"] = _round(sum(item.value_matched for item in items) / count)
+    # Split by phrasing, reported and left ungated. The headline `recall@10` is one number over two
+    # populations that behave nothing alike, and averaging them hides the only question anyone
+    # actually wants answered about a retriever: can it handle a sentence, or only a bag of words?
+    # This is the pair of numbers issue #7 will be judged on, and it is deliberately visible before
+    # there is anything to compare it to.
+    for phrasing in ("keyword", "natural"):
+        selected = [(fact, item) for fact, item in zip(facts, items) if fact.phrasing == phrasing]
+        if selected:
+            metrics[f"recall@{k}:{phrasing}"] = _round(
+                sum(recall_at_k(item.retrieved_chunk_ids, fact.relevant, k) for fact, item in selected)
+                / len(selected)
+            )
     return metrics
 
 
@@ -681,24 +858,29 @@ def measurement(record: RunRecord) -> dict[str, Any]:
     - `python_version`, `platform` — the gate runs on a developer's Windows laptop and on CI's
       Ubuntu; requiring these to match would assert that the two are the same machine, which is the
       opposite of what reproducibility means. They stay in the record because they are exactly what
-      you want to read when a number *does* differ.
+      you want to read when a number *does* differ. This is the weakest of the three exclusions,
+      which is why the database that actually did the ranking — its version, its `pg_trgm`, its
+      text search config — *is* compared: those are properties of the artifact, and they are where
+      an unexplained difference would really come from.
     - `git_sha` and `git_dirty` — a record cannot name the commit that contains it. It is generated,
       then committed, so the sha it carries is always its parent's. Requiring a match would make the
-      check unsatisfiable by construction rather than strict.
+      check unsatisfiable by construction rather than strict. Ancestry is checked separately and
+      is satisfiable: see `is_ancestor_of_head`.
 
-    What is left is the measurement: which Corpus, which chunking rules, which Configuration, which
-    questions, and what came back for each one. Those must be identical, and if they are not, the
-    record in the tree is describing a build that no longer exists.
+    What is left is the measurement: which Corpus, which chunking rules, which engine, which
+    Configurations, which questions, and what came back for each one. Those must be identical, and
+    if they are not, the record in the tree is describing a build that no longer exists.
     """
     return {
         "corpus_id": record.provenance.corpus_id,
         "corpus_hash": record.provenance.corpus_hash,
         "ingest_version": record.provenance.ingest_version,
-        "configuration": record.configuration.model_dump(mode="json"),
+        "postgres_version": record.provenance.postgres_version,
+        "pg_trgm_version": record.provenance.pg_trgm_version,
+        "text_search_config": record.provenance.text_search_config,
         "sample_count": record.sample_count,
         "facts_sha256": record.facts_sha256,
-        "metrics": record.metrics,
-        "per_item": [item.model_dump(mode="json") for item in record.per_item],
+        "arms": [arm.model_dump(mode="json") for arm in record.arms],
     }
 
 
@@ -730,17 +912,13 @@ def compare(
     failures: list[str] = []
     notes: list[str] = []
 
+    # Checked once, at the top, because they are held once at the top: every arm of a record shares
+    # the fact set and the suite size, which is exactly what makes the arms comparable to each other.
     if record.facts_sha256 != baseline.facts_sha256:
         failures.append(
             "the fact set changed since the baseline was promoted, so the numbers are not "
             f"comparable.\n    baseline facts_sha256 {baseline.facts_sha256}\n"
             f"    this run          facts_sha256 {record.facts_sha256}"
-        )
-    if record.configuration != baseline.configuration:
-        failures.append(
-            "the Configuration changed since the baseline was promoted, so the numbers are not "
-            f"comparable.\n    baseline {baseline.configuration.model_dump(mode='json')}\n"
-            f"    this run {record.configuration.model_dump(mode='json')}"
         )
     if record.sample_count < baseline.sample_count:
         # Called out on its own rather than folded into the metric comparison, because a shrunken
@@ -752,42 +930,80 @@ def compare(
             "comparison."
         )
 
-    # Only compare quality once comparability holds. Reporting deltas between two runs already known
-    # to be measuring different things would bury the real failure under six numbers of noise.
-    if not failures:
-        failures.extend(_metric_failures(baseline, record, notes))
-        if baseline_record is not None:
-            notes.extend(_moved_items(baseline_record, record))
+    measured = {arm.configuration.strategy for arm in record.arms}
+    for baselined in baseline.arms:
+        strategy = baselined.configuration.strategy
+        arm = record.arm(strategy)
+        if arm is None:
+            failures.append(
+                f"the baseline holds a {strategy} arm and this run did not measure one. A strategy "
+                "cannot be retired by no longer running it."
+            )
+            continue
+        if arm.configuration != baselined.configuration:
+            # Per arm, so `dense` arriving at a different `k` does not make the `lexical` comparison
+            # unavailable. A baseline measured at k=10 says nothing about a run at k=5; answering
+            # "did it get worse?" across that is not a conservative approximation, it is a wrong
+            # answer, and the gate stops rather than gives one.
+            failures.append(
+                f"the {strategy} Configuration changed since the baseline was promoted, so its "
+                f"numbers are not comparable.\n    baseline "
+                f"{baselined.configuration.model_dump(mode='json')}\n    this run "
+                f"{arm.configuration.model_dump(mode='json')}"
+            )
+            continue
+        # Only compare quality once comparability holds. Deltas between two things already known to
+        # be measuring differently would bury the real failure under six numbers of noise.
+        if not failures:
+            failures.extend(_metric_failures(baseline, baselined, arm, notes))
+            before = baseline_record.arm(strategy) if baseline_record else None
+            if before is not None:
+                notes.extend(_moved_items(strategy, before, arm))
+
+    # A new strategy is reported, never failed on. Someone has to look at it and promote it before
+    # it is allowed to break anyone's build (ADR-0004: the gate protects a floor, it does not
+    # discover one).
+    notes.extend(
+        f"new arm {strategy} is not in the baseline yet: "
+        + ", ".join(
+            f"{name} {value:.6f}" for name, value in sorted(record.arm(strategy).metrics.items())
+        )
+        + ". Promote to gate it."
+        for strategy in sorted(measured - {arm.configuration.strategy for arm in baseline.arms})
+    )
 
     return GateReport(failures=tuple(failures), notes=tuple(notes))
 
 
-def _metric_failures(baseline: Baseline, record: RunRecord, notes: list[str]) -> list[str]:
+def _metric_failures(
+    baseline: Baseline, baselined: BaselineArm, arm: Arm, notes: list[str]
+) -> list[str]:
+    strategy = arm.configuration.strategy
     failures: list[str] = []
-    for name in baseline.gated_metrics:
-        if name not in record.metrics:
+    for name in baselined.gated_metrics:
+        if name not in arm.metrics:
             failures.append(
-                f"{name} is gated by the baseline but this run did not report it. A metric cannot "
-                "be retired by deleting it; retire it from gated_metrics deliberately."
+                f"{strategy}: {name} is gated by the baseline but this run did not report it. A "
+                "metric cannot be retired by deleting it; retire it from gated_metrics deliberately."
             )
             continue
-        delta = _round(record.metrics[name] - baseline.metrics[name])
+        delta = _round(arm.metrics[name] - baselined.metrics[name])
         if -delta > baseline.tolerance:
             failures.append(
-                f"{name} regressed: {baseline.metrics[name]:.6f} -> {record.metrics[name]:.6f} "
-                f"({delta:+.6f}, tolerance {baseline.tolerance:.6f})"
+                f"{strategy}: {name} regressed: {baselined.metrics[name]:.6f} -> "
+                f"{arm.metrics[name]:.6f} ({delta:+.6f}, tolerance {baseline.tolerance:.6f})"
             )
         elif delta > baseline.noise_floor:
             # An improvement never fails a build. It is worth saying out loud anyway, because a
             # baseline nobody promotes stops being a floor and becomes a memory.
             notes.append(
-                f"{name} improved: {baseline.metrics[name]:.6f} -> {record.metrics[name]:.6f} "
-                f"({delta:+.6f}). Promote when you are ready to hold this."
+                f"{strategy}: {name} improved: {baselined.metrics[name]:.6f} -> "
+                f"{arm.metrics[name]:.6f} ({delta:+.6f}). Promote when you are ready to hold this."
             )
     return failures
 
 
-def _moved_items(before: RunRecord, after: RunRecord) -> list[str]:
+def _moved_items(strategy: str, before: Arm, after: Arm) -> list[str]:
     """Which individual questions changed rank, read off both records.
 
     This is what makes the gate a debugging tool rather than a red light. "recall@1 fell by 0.04" is
@@ -799,7 +1015,9 @@ def _moved_items(before: RunRecord, after: RunRecord) -> list[str]:
         for item in after.per_item
         if item.fact_id in previous and previous[item.fact_id] != item.hit_rank
     ]
-    return [f"questions that moved: {len(moved)}", *(f"  {line}" for line in moved)] if moved else []
+    if not moved:
+        return []
+    return [f"{strategy}: {len(moved)} question(s) moved", *(f"  {line}" for line in moved)]
 
 
 def _rank(rank: int | None) -> str:
@@ -816,8 +1034,10 @@ def promote(run_id: str, runs_dir: Path | None = None, baseline_path: Path | Non
 
     Policy — `gated_metrics`, `tolerance`, `noise_floor` — is carried over from the existing baseline
     rather than reset, because promoting a measurement is not the same decision as changing what the
-    build is allowed to fail on. The first baseline seeds the policy from the defaults below and is
-    expected to be edited by hand once.
+    build is allowed to fail on. An arm the baseline has never seen is promoted **ungated**, and the
+    caller is told so: a strategy should be watched before it is allowed to break builds, and
+    auto-gating whatever a new arm happened to report is how an unreviewed number becomes a
+    dependency.
     """
     runs_dir = Path(runs_dir) if runs_dir is not None else RUNS_DIR
     baseline_path = Path(baseline_path) if baseline_path is not None else BASELINE_PATH
@@ -830,17 +1050,39 @@ def promote(run_id: str, runs_dir: Path | None = None, baseline_path: Path | Non
 
     baseline = Baseline(
         run_id=record.run_id,
-        configuration=record.configuration,
         sample_count=record.sample_count,
         facts_sha256=record.facts_sha256,
-        metrics=record.metrics,
-        gated_metrics=previous.gated_metrics if previous else tuple(sorted(record.metrics)),
+        arms=tuple(
+            BaselineArm(
+                configuration=arm.configuration,
+                metrics=arm.metrics,
+                gated_metrics=_carried_gates(previous, arm),
+            )
+            for arm in record.arms
+        ),
         tolerance=previous.tolerance if previous else DEFAULT_TOLERANCE,
         noise_floor=previous.noise_floor if previous else DEFAULT_NOISE_FLOOR,
     )
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
     baseline_path.write_bytes(_canonical_bytes(baseline.model_dump(mode="json")))
     return baseline_path
+
+
+def _carried_gates(previous: Baseline | None, arm: Arm) -> tuple[str, ...]:
+    baselined = previous.arm(arm.configuration.strategy) if previous else None
+    if baselined is None:
+        return ()
+    # A gated metric the new record no longer reports is dropped here rather than carried into a
+    # baseline that could not validate. The gate still catches the disappearance on the *next* run
+    # only if someone re-adds it, so promotion says so out loud in the CLI.
+    return tuple(name for name in baselined.gated_metrics if name in arm.metrics)
+
+
+def ungated_arms(baseline: Baseline) -> tuple[str, ...]:
+    """Strategies the baseline records but does not gate. Reported, never silently accepted."""
+    return tuple(
+        arm.configuration.strategy for arm in baseline.arms if not arm.gated_metrics
+    )
 
 
 # Seeds for the very first baseline only; after that the committed file is the authority. Zero, so

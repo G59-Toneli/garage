@@ -208,11 +208,13 @@ def _eval_gate(arguments: argparse.Namespace) -> int:
     from garage.evaluation import (
         EvaluationError,
         compare,
+        is_ancestor_of_head,
         latest_run_record,
         load_baseline,
         load_run_record,
         measurement,
         run_evaluation,
+        ungated_arms,
     )
     from garage.ingest import ArtifactMismatch
 
@@ -243,16 +245,27 @@ def _eval_gate(arguments: argparse.Namespace) -> int:
         failures.append(
             "no run record in eval/runs/. Records are generated and committed, never written by CI."
         )
+    elif not is_ancestor_of_head(committed.provenance.git_sha):
+        # `latest_run_record` picks the newest filename, and a record committed on an unmerged
+        # branch with a later timestamp would otherwise become the thing this build is validated
+        # against. Ancestry is the check that says "this record belongs to this history".
+        failures.append(
+            f"the newest run record in the tree ({committed_path.name}) names commit "
+            f"{committed.provenance.git_sha[:12]}, which is not an ancestor of HEAD. It came from "
+            "another branch; regenerate a record for this one."
+        )
     elif measurement(committed) != measurement(record):
         failures.append(
             f"the newest run record in the tree ({committed_path.name}) does not match what this "
-            "build measures. It was committed against a different corpus, Configuration or "
+            "build measures. It was committed against a different corpus, engine, Configuration or "
             "retrieval behaviour."
         )
 
     _print_metrics(record)
     for note in report.notes:
         print(note)
+    for strategy in ungated_arms(baseline):
+        print(f"note: the {strategy} arm is in the baseline but gates nothing")
 
     if not failures:
         print("gate: pass")
@@ -274,7 +287,7 @@ def _eval_gate(arguments: argparse.Namespace) -> int:
 
 def _eval_promote(arguments: argparse.Namespace) -> int:
     """Deliberate, local, and never run by CI — the promoting commit is the human sign-off."""
-    from garage.evaluation import EvaluationError, promote
+    from garage.evaluation import EvaluationError, load_baseline, promote, ungated_arms
 
     try:
         path = promote(arguments.run_id)
@@ -283,6 +296,11 @@ def _eval_promote(arguments: argparse.Namespace) -> int:
         return 1
 
     print(f"baseline: {path} now points at {arguments.run_id}")
+    for strategy in ungated_arms(load_baseline(path)):
+        print(
+            f"note: the {strategy} arm gates nothing. Add its metric names to gated_metrics in "
+            f"{path} when you are ready to hold them."
+        )
     return 0
 
 
@@ -293,11 +311,31 @@ def _run_record_path(run_id: str) -> Path:
 
 
 def _print_metrics(record: RunRecord) -> None:
-    print(f"strategy:    {record.configuration.strategy}  k={record.configuration.k}")
     print(f"corpus_hash: {record.provenance.corpus_hash}")
+    print(f"postgres:    {record.provenance.postgres_version} (pg_trgm {record.provenance.pg_trgm_version})")
     print(f"facts:       {record.sample_count} (sha256 {record.facts_sha256[:12]}…)")
-    for name, value in sorted(record.metrics.items()):
-        print(f"  {name:<18} {value:.6f}")
+    for arm in record.arms:
+        print(f"{arm.configuration.strategy}  k={arm.configuration.k}")
+        for name, value in sorted(arm.metrics.items()):
+            print(f"  {name:<18} {value:.6f}")
+        # The rank histogram, printed every run. A suite where every hit lands at rank 1 has two
+        # states per question and cannot tell a small improvement from none at all; seeing that in
+        # the output is how the previous fact set was caught.
+        print(f"  hit_rank           {_histogram(arm)}")
+
+
+def _histogram(arm) -> str:
+    from collections import Counter
+
+    counted = Counter(
+        "miss" if item.hit_rank is None else str(item.hit_rank) for item in arm.per_item
+    )
+    ordered = sorted(counted.items(), key=lambda pair: (pair[0] == "miss", _numeric(pair[0])))
+    return "  ".join(f"{rank}:{count}" for rank, count in ordered)
+
+
+def _numeric(rank: str) -> int:
+    return 0 if rank == "miss" else int(rank)
 
 
 def _serve(_: argparse.Namespace) -> int:

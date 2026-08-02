@@ -17,6 +17,10 @@ COPY tests ./tests
 # The fixture Corpus ships in the image: it is the permanent deterministic test base, so the
 # container can verify its own tooling without any of the operator's material present.
 COPY corpus ./corpus
+# The evaluation set ships too, for the same reason: `eval gate` needs no API key and no network, so
+# the container can measure its own retrieval. Without this, `ingest` and `corpus validate` work in
+# the image and `eval gate` is the one command that does not.
+COPY eval ./eval
 
 EXPOSE 8000
 # Entry through the package, not through `uvicorn` directly: the bind address is configuration

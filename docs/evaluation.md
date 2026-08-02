@@ -9,15 +9,19 @@ python -m garage eval gate
 ```
 
 ```
-strategy:    lexical  k=10
 corpus_hash: 21c4e571b96fefae82062b11d1cdd0f237b0b311d781d8a11f975d8b650b75d6
-facts:       47 (sha256 864b1703fbb6…)
-  mrr@10             0.914894
-  ndcg@10            0.914894
-  recall@1           0.904255
-  recall@10          0.914894
-  recall@5           0.914894
-  value_match_rate   0.914894
+postgres:    16.14 (Debian 16.14-1.pgdg12+1) (pg_trgm 1.6)
+facts:       76 (sha256 d44c3af4af84…)
+lexical  k=10
+  mrr@10             0.440789
+  ndcg@10            0.442512
+  recall@1           0.427632
+  recall@10          0.447368
+  recall@10:keyword  0.911765
+  recall@10:natural  0.071429
+  recall@5           0.447368
+  value_match@1      0.434211
+  hit_rank           1:33  2:1  miss:42
 gate: pass
 ```
 
@@ -28,29 +32,76 @@ thresholds are all files in `eval/`, so the gate is a pure function of the check
 is a question with a written-down answer. Whether a generated answer *reads* correctly is the judge
 layer's question, and no build should ever block on a model's opinion.
 
+Read the two numbers in the middle before anything else. `recall@10:keyword` is 0.91 and
+`recall@10:natural` is 0.07. The lexical strategy answers a bag of words almost perfectly and
+answers a sentence almost never, and the headline 0.45 is the average of two populations that behave
+nothing alike. That gap is the most useful thing this gate currently reports.
+
 ## The fact set
 
 `eval/facts.jsonl`, one JSON object per line, written by hand against real chunk identifiers:
 
 ```jsonc
-{"fact_id": "torque-volante-motor", "question": "flywheel bolt torque",
+{"fact_id": "kw-torque-volante-motor", "question": "flywheel bolt torque", "phrasing": "keyword",
  "expected_value": "63", "chunk_ids": ["svc-kadett-1993#0006"], "tolerance": 0.5}
-{"fact_id": "coroa-curta-demais", "question": "coroa curta demais motor bravo",
- "expected_value": "curta demais", "chunk_ids": ["forum-swap-250s#0011"]}
+{"fact_id": "torque-volante-motor", "question": "What torque do the flywheel bolts need?",
+ "phrasing": "natural", "expected_value": "63", "chunk_ids": ["svc-kadett-1993#0006"],
+ "tolerance": 0.5}
 ```
 
 | Field | Meaning |
 | ----- | ------- |
 | `fact_id` | Lowercase slug, unique. It is how a regression names the question that broke. |
 | `question` | Typed the way a person would type it, including the accents they would leave off. |
+| `phrasing` | `keyword` or `natural`. Required — see below. |
 | `expected_value` | What a correct answer must contain. Scored separately from the ranking. |
 | `chunk_ids` | The chunks that answer it. A list, and at least one. |
 | `tolerance` | Present exactly when `expected_value` is a number. Its absence selects text matching. |
 
 `chunk_ids` is a list even though most facts name one chunk, and the reason is not hypothetical: with
-exactly one relevant chunk per question, nDCG is a monotone function of the reciprocal rank and
+exactly one relevant chunk per question *and* that chunk always at rank 1, nDCG is a constant and
 reports nothing MRR did not already say. Facts with two relevant chunks — both cylinder head stages
 are M11 — are what make the third metric earn its place.
+
+### The two phrasings, and the suite that was thrown away
+
+The suite is a sample of an input distribution, and `phrasing` is what makes the sample auditable.
+Real users type both: three keywords into a search box, and a whole sentence with a question mark at
+the end. Against a conjunctive `plainto_tsquery` those behave completely differently.
+
+**The first version of this file was 100% keyword and scored 0.914894 — and it was worthless.** It
+was discarded, and the reasoning is recorded here because a number that high is exactly the kind of
+result nobody re-examines:
+
+- Not one of its questions was an interrogative sentence. No auxiliary verb, no question word, no
+  question mark. It measured whether an inverted index exists.
+- Five of its questions were literal substrings of the sentence that answered them.
+- Its `hit_rank` distribution was `{1: 43, miss: 4}` — no question anywhere in ranks 2–10, so five of
+  its six metrics collapsed onto the identical value. Six names, two bits of signal.
+- Worst, with `tolerance: 0.0` it would have frozen 0.91 as a floor. Any future work that taught the
+  retriever to read a sentence would reorder those 43 docile queries and **fail the build**. It was a
+  ratchet protecting the bug instead of exposing it.
+
+The replacement is stratified and the honest number is much lower. That is the point: a gate
+calibrated at 0.91 against docile questions measures nothing, and one calibrated at 0.45 against
+questions people would really ask measures everything that matters. Every point issue #7 wins on
+`recall@10:natural` will show up as a real improvement.
+
+### What the numbers look like today
+
+| Stratum | Facts | `recall@10` |
+| ------- | ----- | ----------- |
+| `keyword` | 34 | 0.911765 |
+| `natural` | 42 | 0.071429 |
+| all | 76 | 0.447368 |
+
+The `hit_rank` distribution is `1: 33`, `2: 1`, `miss: 42`, and the near-absence of ranks 2–10 is a
+property of **the retriever, not the suite**. `plainto_tsquery` ANDs its terms, so a query either
+contains only words the chunk has — and pins it at rank 1 — or contains one word it does not and
+matches nothing at all, with the `word_similarity` floor of 0.6 too high for the trigram half to
+rescue it. There is no fact set that produces a smooth rank curve against this strategy. The right
+response is to fix the retriever, not to write questions that flatter it; the rank histogram is
+printed on every run so that the day it changes shape, everyone sees it.
 
 Every line is validated against a Pydantic model that forbids unknown fields, blank lines are
 rejected rather than skipped, and errors are reported with line numbers, all of them at once. A
@@ -62,12 +113,6 @@ again, every missing one is listed together. `chunk_id` is `<doc_id>#<ordinal:04
 a chunking change renumbers it; a fact left pointing at the old number scores zero forever, looks
 exactly like a retrieval regression, and would be blamed on the retriever for a week.
 
-The committed fact set covers all five fixture documents and both tiers, and deliberately includes
-questions the lexical strategy **cannot** answer — Portuguese questions against English source text,
-and forum spelling the trigram floor will not reach. Four of the forty-seven miss entirely. They stay
-in: a suite everything passes measures nothing, and those four are precisely where a dense or hybrid
-retriever will first show its worth.
-
 ## The metrics
 
 Binary relevance throughout — a chunk either answers the question or it does not — macro-averaged, so
@@ -78,6 +123,9 @@ Python, because the SQL already made the order total (`ORDER BY score DESC, chun
 - **`recall@1`, `recall@5`, `recall@10`** — `|top-k ∩ relevant| / |relevant|`. Three depths because
   they answer different questions: whether the top hit is usable on its own, and whether a reader
   scrolling the panel would find it at all.
+- **`recall@10:keyword`, `recall@10:natural`** — the same measurement over each stratum. Reported and
+  **gated**, both of them, because gating only the average is what lets a change buy keyword recall
+  with sentence recall and pass.
 - **`mrr@10`** — `1 / rank` of the first relevant chunk, 1-based, and **zero when there is no hit in
   the top ten**. Named with the depth because it is truncated. A miss is never skipped: averaging
   over the questions that still work would let a change that stops answering the hard ones report a
@@ -86,15 +134,17 @@ Python, because the SQL already made the order total (`ORDER BY score DESC, chun
   `min(|relevant|, k)` positions. Under binary relevance the two textbook gain formulations agree —
   `rel` and `2^rel − 1` are both 0 for 0 and both 1 for 1 — so there is no choice being made. Zero by
   explicit convention if the ideal is zero, which `Fact` already forbids.
-- **`value_match_rate`** — a *separate* measurement, never averaged into the three above. With a
-  `tolerance` the numbers are extracted from the retrieved text and compared numerically, because
-  `"63" in text` is true of `163`, of `0.63` and of `Section 6.3`. Without one the value is matched as
-  text, accent- and case-insensitively, by the same folding ingestion used to detect Jargon.
+- **`value_match@1`** — the fraction of questions whose **first** chunk states the expected value.
+  With a `tolerance` the numbers are extracted and compared numerically, because `"63" in text` is
+  true of `163`, of `0.63` and of `Section 6.3`. Without one the value is matched as text, accent-
+  and case-insensitively, by the same folding ingestion used to detect Jargon.
 
-`value_match_rate` is a necessary condition for a grounded answer, not a sufficient one: the value has
-to be somewhere in the top-k context, but it may well sit in a chunk that does not answer the
-question. Read it alongside recall, never instead of it. It is reported but **not gated**, for that
-reason — gating a proxy invites tuning the proxy.
+`value_match@1` used to scan all ten retrieved chunks, and at that width it agreed with `mrr@10` to
+six decimals on every question — a metric that never disagrees with another is noise in the report.
+Asked of the single chunk a reader is shown first it disagrees with both: a hit at rank 3 states the
+value and scores zero here, and a wrong top-1 that happens to carry the number scores one. It is
+reported but **not gated** — it is a proxy for groundedness, and gating a proxy invites tuning the
+proxy.
 
 Everything is rounded to six decimals before it is written and before it is compared, so the file and
 the check agree by construction.
@@ -112,45 +162,75 @@ every single time. The history is the directory listing.
 
 ```jsonc
 {
-  "run_record_version": 1,
-  "run_id": "20260802T004849Z-0823b0f37c94",
-  "started_at": "2026-08-02T00:48:49Z",
-  "duration_ms": 812,
+  "run_record_version": 2,
+  "run_id": "20260802T011346Z-d8dcb021b722",
+  "started_at": "2026-08-02T01:13:46Z",
+  "duration_ms": 1204,
   "layer": "deterministic",
   "suite": "facts",
   "provenance": {
-    "git_sha": "0823b0f37c94…", "git_dirty": true,
+    "git_sha": "d8dcb021b722…", "git_dirty": false,
     "corpus_id": "fixture", "corpus_hash": "21c4e571…", "ingest_version": 1,
-    "python_version": "3.12.13", "platform": "Windows-11-…"
+    "python_version": "3.12.13", "platform": "Windows-11-…",
+    "postgres_version": "16.14 (Debian 16.14-1.pgdg12+1)", "pg_trgm_version": "1.6",
+    "text_search_config": "pg_catalog.english"
   },
-  "configuration": {"strategy": "lexical", "k": 10, "tiers": ["A", "B"],
-                    "reranker": null, "embedder": null},
-  "sample_count": 47,
-  "facts_sha256": "864b1703fbb6…",
-  "metrics": {"recall@1": 0.904255, "mrr@10": 0.914894, "…": 0.0},
-  "per_item": [
-    {"fact_id": "torque-volante-motor", "question": "flywheel bolt torque",
-     "expected_chunk_ids": ["svc-kadett-1993#0006"], "expected_value": "63",
-     "hit_rank": 1, "reciprocal_rank": 1.0, "ndcg": 1.0, "value_matched": true,
-     "retrieved_chunk_ids": ["svc-kadett-1993#0006"]}
+  "sample_count": 76,
+  "facts_sha256": "d44c3af4af84…",
+  "arms": [
+    {
+      "configuration": {"strategy": "lexical", "k": 10, "tiers": ["A", "B"],
+                        "reranker": null, "embedder": null},
+      "metrics": {"recall@1": 0.427632, "mrr@10": 0.440789, "…": 0.0},
+      "per_item": [
+        {"fact_id": "kw-torque-volante-motor", "question": "flywheel bolt torque",
+         "expected_chunk_ids": ["svc-kadett-1993#0006"], "expected_value": "63",
+         "hit_rank": 1, "reciprocal_rank": 1.0, "ndcg": 1.0, "value_matched": true,
+         "retrieved_chunk_ids": ["svc-kadett-1993#0006"]}
+      ]
+    }
   ]
 }
 ```
+
+### Why arms, and why the shared fields sit above them
+
+A record holds **one arm per strategy**, measured in the same pass. `provenance`, `sample_count` and
+`facts_sha256` are held once, at the top, *outside* the arms — and that placement is the argument.
+Every arm in a record is by construction the same database, the same `corpus_hash`, the same chunking
+rules and the same questions, which is exactly what makes the arms comparable **to each other**. That
+comparison is what the whole demo rests on. With the fields held once, "these two strategies were
+measured against different corpora" stops being a mistake anyone can make and becomes a sentence this
+format cannot express.
+
+Metrics are per-arm rather than one flat dictionary with prefixed keys, because prefixed keys are a
+namespace pretending not to be one. An arm is the namespace.
+
+`run_record_version` is a `Literal`, so a record written by a future version fails to load rather than
+loading partially — exactly like `manifest_version`. It went to **2 before anything shipped**,
+deliberately: the single-arm shape could not express the comparison the benchmark exists to make, and
+migrating later would have meant every committed record and the promoted baseline failing to load on
+the same afternoon.
 
 `verify_artifact` runs before anything is measured and before anything is written, and the
 `corpus_hash` and `ingest_version` in the record come from the `Artifact` the **database** returned,
 not from the manifest in the checkout. The manifest is what we expected; the artifact is what we
 measured ([ADR-0002](adr/0002-database-as-derived-artifact.md)). Both numbers are cited together or
-not at all ([ADR-0007](adr/0007-corpus-hash-and-ingest-version-are-separate.md)): the first says which
-material, the second says which rules turned it into the chunks the facts name, and the same Corpus
-rechunked produces different `chunk_id`s.
+not at all ([ADR-0007](adr/0007-corpus-hash-and-ingest-version-are-separate.md)).
 
-`facts_sha256` is what makes a moved number attributable. Without it, "recall fell from 0.91 to 0.78"
+`postgres_version`, `pg_trgm_version` and `text_search_config` are in provenance because the ranking
+is not in Python. It is `ts_rank_cd`, the `portuguese` snowball stemmer and `word_similarity`, all of
+them inside the server. A minor upgrade that retunes the stemmer moves every number in the file, and a
+record that noted the laptop's OS but not the version of the engine that did the ranking would be
+describing the wrong machine.
+
+`git_dirty` excludes `eval/runs/` from its answer, which is a fix rather than a convenience: writing a
+record dirties the tree, so without the exclusion every run after the first would report a dirty tree
+because the previous run existed. The flag is about the inputs; records are outputs.
+
+`facts_sha256` is what makes a moved number attributable. Without it, "recall fell from 0.45 to 0.31"
 is ambiguous between *retrieval got worse* and *someone added eight hard questions*, and those two
 call for opposite responses.
-
-`run_record_version` is `Literal[1]`. A record written by a future version fails to load rather than
-loading partially, exactly like `manifest_version`.
 
 **No chunk text is ever written to a record.** `chunk_id` is enough to reproduce any line of it
 against the artifact, and records are committed — against a real Corpus of scanned manuals, a record
@@ -166,31 +246,41 @@ someone can go and check.
 
 ```jsonc
 {
-  "baseline_version": 1,
-  "run_id": "20260802T004849Z-0823b0f37c94",
-  "configuration": { /* must match the run exactly */ },
-  "sample_count": 47,
-  "facts_sha256": "864b1703fbb6…",
-  "metrics": { /* copied from the record */ },
-  "gated_metrics": ["mrr@10", "ndcg@10", "recall@1", "recall@10", "recall@5"],
-  "tolerance": 0.0,
-  "noise_floor": 0.01
+  "baseline_version": 2,
+  "run_id": "20260802T011346Z-d8dcb021b722",
+  "sample_count": 76,
+  "facts_sha256": "d44c3af4af84…",
+  "arms": [
+    {
+      "configuration": { /* must match the run arm exactly */ },
+      "metrics": { /* copied from the record */ },
+      "gated_metrics": ["mrr@10", "ndcg@10", "recall@1", "recall@10",
+                        "recall@10:keyword", "recall@10:natural", "recall@5"]
+    }
+  ],
+  "tolerance": 0.014,
+  "noise_floor": 0.013
 }
 ```
 
-`gated_metrics` is explicit rather than "everything present", so a new measurement can be reported and
-watched for a while before it is allowed to fail anyone's build.
+`gated_metrics` is per arm, explicit, and **may be empty**. A newly promoted arm gates nothing until
+someone lists its metrics by hand: a measurement should be watched before it is allowed to fail
+everyone's build, and auto-gating whatever a new arm happened to report turns an unreviewed number
+into a build dependency. Both `promote` and `gate` say out loud when an arm gates nothing.
 
 **`tolerance` is a policy number, not a statistical one.** Nothing in this pipeline is random: the
 same commit against the same artifact produces bit-identical metrics, so there is no variance to
 estimate and no confidence interval to derive. The tolerance says how much quality a human is willing
-to wave through on a change that buys something elsewhere. It is `0.0` today — any real loss is a real
-loss — and it lives in a committed file rather than an environment variable precisely so that raising
-it is a reviewable act rather than a CI setting somebody changed.
+to wave through on a change that buys something elsewhere. It is `0.014` — one question out of
+seventy-six, and no more. A change may cost a single question and must say so; costing two fails.
+Zero would have been a ratchet, and a ratchet on a retriever this weak would block the work that
+fixes it.
 
-`noise_floor` is the other side: an improvement smaller than this is not worth a promotion commit. At
-`0.01` it sits just under the `1/47 ≈ 0.021` that a single question is worth, so every real
+`noise_floor` is `0.013`, just under the `1/76 ≈ 0.0132` that one question is worth, so every real
 improvement is reported and nothing else is.
+
+Both live in a committed file rather than an environment variable precisely so that changing either
+is a reviewable act rather than a CI setting somebody adjusted.
 
 ## Promotion
 
@@ -212,34 +302,40 @@ The gate collects **every** reason at once and prints them to stderr with the ne
 line. It writes nothing, ever.
 
 Comparability is checked before quality, and a mismatch is a refusal rather than a comparison made
-anyway. A baseline measured at `k=10` says nothing about a run at `k=5`; a baseline measured on thirty
-questions says nothing about a run on forty-seven. Answering "did it get worse?" across either is not
-a conservative approximation, it is a wrong answer.
+anyway. A baseline arm measured at `k=10` says nothing about a run arm at `k=5`; a baseline measured
+on thirty questions says nothing about a run on seventy-six. Answering "did it get worse?" across
+either is not a conservative approximation, it is a wrong answer.
 
 | Failure | Why it is fatal |
 | ------- | --------------- |
 | `facts_sha256` differs from the baseline | The questions changed. Promote deliberately. |
-| `configuration` differs from the baseline | Different measurement, not a worse one. |
 | `sample_count` below the baseline | Losing questions raises every macro-average it touches. |
+| An arm's `configuration` differs from its baseline arm | Different measurement, not a worse one. |
 | A gated metric regressed by more than `tolerance` | The thing this gate exists for. |
 | A gated metric is missing from the run | A metric cannot be retired by deleting it. |
+| A baselined arm the run no longer measures | Nor can a strategy be retired by not running it. |
 | A `chunk_id` in the fact set is not in the database | Stale facts read as a retrieval regression. |
 | `verify_artifact` failed | Measuring a database that is not this commit's artifact. |
 | The baseline's `run_id` is not in `eval/runs/` | A baseline must point at something readable. |
+| The newest run record is not an ancestor of HEAD | It came from another branch. Below. |
 | The newest run record does not match this build | Below. |
 
-An improvement never fails a build. It prints the positive delta and a reminder to promote, because a
-baseline nobody promotes stops being a floor and becomes a memory.
+Comparability is per arm, so a `dense` arm arriving at a different `k` does not make the `lexical`
+comparison unavailable. A **brand-new** arm never fails a build — it is reported, with its numbers, so
+a human can promote it deliberately.
+
+An improvement never fails a build either. It prints the positive delta and a reminder to promote,
+because a baseline nobody promotes stops being a floor and becomes a memory.
 
 A regression also prints the questions that moved, read off `per_item` in both records:
 
 ```
-questions that moved: 2
+lexical: 2 question(s) moved
   torque-volante-motor: rank 1 -> none
-  coroa-curta-demais: rank 2 -> 7
+  coroa-curta: rank 2 -> 7
 ```
 
-That line is what makes this a debugging tool rather than a red light. "recall@1 fell by 0.04" is
+That is what makes this a debugging tool rather than a red light. "recall@1 fell by 0.04" is
 unactionable; a named `fact_id` is a query you can paste into `/query` and watch.
 
 ## Why CI re-measures the committed record
@@ -250,26 +346,43 @@ still describes this build. That inverts what a record is: not a by-product of w
 happened to run CI, but a **reproducible assertion** checked into the repository, in the same spirit
 as the database being a derived artifact ([ADR-0002](adr/0002-database-as-derived-artifact.md)).
 
+Two checks, not one:
+
+1. **Ancestry.** `latest_run_record` picks the newest filename, and a record committed on an unmerged
+   branch with a later timestamp would otherwise silently become the thing this build is validated
+   against. Its `git_sha` must be an ancestor of `HEAD` — satisfiable, since a record is always
+   committed after the sha it names, and it catches exactly the orphan.
+2. **The measurement.** Everything the run must reproduce, compared field by field.
+
 ```
-the newest run record in the tree (20260802T004849Z-0823b0f37c94.json) does not match what this
-build measures. It was committed against a different corpus, Configuration or retrieval behaviour.
+the newest run record in the tree (20260802T011346Z-d8dcb021b722.json) does not match what this
+build measures. It was committed against a different corpus, engine, Configuration or retrieval
+behaviour.
 ```
 
-The comparison is over the *measurement*, and three groups of fields are excluded:
+Three groups of fields are excluded from that second comparison:
 
 - `run_id`, `started_at`, `duration_ms` — a clock and a stopwatch, different by definition.
 - `python_version`, `platform` — the gate runs on a developer's laptop and on CI's Ubuntu. Requiring
-  these to match would assert the two are the same machine, which is the opposite of what
-  reproducibility means. They stay in the record because they are exactly what you want to read when
-  a number *does* differ.
-- `git_sha`, `git_dirty` — a record cannot name the commit that contains it. It is generated, then
-  committed, so its sha is always its parent's. Requiring a match would make the check unsatisfiable
-  by construction rather than strict.
+  these to match would assert the two are the same machine. They stay in the record because they are
+  what you want to read when a number *does* differ. This is the weakest of the three exclusions,
+  which is why the database that actually did the ranking — version, `pg_trgm`, text search config —
+  **is** compared.
+- `git_sha`, `git_dirty` — a record cannot name the commit that contains it. Requiring a match would
+  make the check unsatisfiable by construction rather than strict; ancestry is the satisfiable form
+  of the same question, and it is checked.
 
-What is left — corpus, chunking rules, Configuration, questions, and what came back for each one —
-must be identical. If it is not, the record in the tree describes a build that no longer exists, and
-the fix is one command:
+What is left — corpus, chunking rules, engine, Configurations, questions, and what came back for each
+one — must be identical. If it is not, the record in the tree describes a build that no longer exists,
+and the fix is one command:
 
 ```sh
 python -m garage eval run && git add eval/runs
 ```
+
+## Adding a strategy
+
+Issue #7 adds `dense`. The path is one line in `retrieval.available_retrievers`, which is the tuple
+the gate iterates over — `evaluation.py` is not touched at all. The new arm appears in the next run
+record beside `lexical`, measured against the same database and the same questions in the same pass,
+is reported as ungated, and becomes a floor only when someone promotes it and names its metrics.

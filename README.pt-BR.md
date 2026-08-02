@@ -51,7 +51,7 @@ partir de um corpus verificado, com chunking consciente de estrutura
 ([docs/ingestion.md](docs/ingestion.md)); e o primeiro caminho ponta a ponta — `POST /query` devolve
 chunks ranqueados com score, tier, documento e página, mais a árvore de spans por trás deles, servido
 por recuperação lexical sem nenhum modelo de linguagem no caminho
-([docs/retrieval.md](docs/retrieval.md)); e o gate determinístico de avaliação — 47 perguntas Fact
+([docs/retrieval.md](docs/retrieval.md)); e o gate determinístico de avaliação — 76 perguntas Fact
 commitadas, medidas a cada push contra um baseline que reprova o build
 ([docs/evaluation.md](docs/evaluation.md)).
 
@@ -181,15 +181,18 @@ depois do `ingest`; o formato dos facts, o do registro de corrida e o procedimen
 em [docs/evaluation.md](docs/evaluation.md).
 
 O baseline `lexical` sobre o Corpus fixture, tirado de
-[`eval/runs/20260802T004849Z-0823b0f37c94.json`](eval/runs/20260802T004849Z-0823b0f37c94.json):
+[`eval/runs/20260802T011346Z-d8dcb021b722.json`](eval/runs/20260802T011346Z-d8dcb021b722.json):
 
 | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
 |---|---|---|---|---|
-| 0,904255 | 0,914894 | 0,914894 | 0,914894 | 0,914894 |
+| 0,427632 | 0,447368 | 0,447368 | 0,440789 | 0,442512 |
 
-Sobre 47 perguntas escritas à mão, quatro das quais a estratégia lexical não responde de jeito
-nenhum — pergunta em português contra texto-fonte em inglês, e grafia de fórum que o piso de trigram
-não alcança. Elas ficam no conjunto: uma suíte que passa inteira não mede nada.
+São 76 perguntas escritas à mão, e a média esconde o achado. Separando por como a pergunta é
+formulada, o `recall@10` é **0,912** para consultas de caixa-de-busca e **0,071** para frases
+interrogativas: a estratégia lexical responde quase perfeitamente a um saco de palavras e quase nunca
+a uma pergunta. Esse é o estado honesto do baseline, e é por isso que o número é baixo em vez de
+lisonjeiro — uma versão anterior do conjunto era só consulta telegráfica, marcava 0,91, e teria
+congelado esse bug como piso. Ver [docs/evaluation.md](docs/evaluation.md).
 
 Três conjuntos de avaliação:
 

@@ -8,12 +8,15 @@ genuinely need a database live in `tests/test_eval_gate.py`.
 
 import json
 import math
+from collections import Counter
 
 import pytest
 from pydantic import ValidationError
 
 from garage.evaluation import (
+    Arm,
     Baseline,
+    BaselineArm,
     Configuration,
     EvaluationError,
     Fact,
@@ -24,11 +27,13 @@ from garage.evaluation import (
     facts_digest,
     hit_rank,
     load_facts,
+    load_run_record,
     measurement,
     ndcg_at_k,
     promote,
     recall_at_k,
     reciprocal_rank,
+    ungated_arms,
     value_matches,
     write_run_record,
 )
@@ -170,9 +175,17 @@ def test_a_fact_may_not_name_the_same_chunk_twice():
         Fact(
             fact_id="x",
             question="q",
+            phrasing="keyword",
             expected_value="v",
             chunk_ids=("svc-kadett-1993#0001", "svc-kadett-1993#0001"),
         )
+
+
+def test_a_fact_must_say_how_it_is_phrased():
+    # Not optional and not defaulted: a suite that does not record what it sampled cannot be
+    # audited, and the first version of this fact set was 100% keyword without anyone noticing.
+    with pytest.raises(ValidationError):
+        Fact(fact_id="x", question="q", expected_value="v", chunk_ids=("a#0001",))
 
 
 def test_a_fact_set_reports_every_bad_line_with_its_number(tmp_path):
@@ -208,7 +221,10 @@ def test_a_blank_line_is_a_broken_fact_set_not_a_skipped_one(tmp_path):
 
 
 def test_the_same_fact_id_twice_is_rejected(tmp_path):
-    line = '{"fact_id": "twice", "question": "q", "expected_value": "v", "chunk_ids": ["a#0001"]}\n'
+    line = (
+        '{"fact_id": "twice", "question": "q", "phrasing": "keyword", "expected_value": "v",'
+        ' "chunk_ids": ["a#0001"]}\n'
+    )
     path = tmp_path / "facts.jsonl"
     path.write_text(line * 2, encoding="utf-8")
 
@@ -221,6 +237,10 @@ def test_the_committed_fact_set_loads_and_covers_every_fixture_document():
     documents = {chunk_id.split("#")[0] for fact in facts for chunk_id in fact.chunk_ids}
 
     assert len(facts) >= 25
+    # Both strata are populated, and neither dominates. A suite that drifted back to all-keyword
+    # would report a high number that means nothing (see `Fact.phrasing`).
+    by_phrasing = Counter(fact.phrasing for fact in facts)
+    assert by_phrasing["keyword"] >= 20 and by_phrasing["natural"] >= 20
     assert documents == {
         "svc-kadett-1993",
         "owner-kadett-1993",
@@ -253,7 +273,8 @@ def test_the_fact_digest_changes_with_the_file(tmp_path):
 # The comparison. Records are built by hand here because the point is the policy, not the search.
 # --------------------------------------------------------------------------------------------
 
-CONFIGURATION = Configuration(strategy="lexical", k=10, tiers=("A", "B"))
+LEXICAL = Configuration(strategy="lexical", k=10, tiers=("A", "B"))
+DENSE = Configuration(strategy="dense", k=10, tiers=("A", "B"), embedder="e5-small")
 PROVENANCE = Provenance(
     git_sha="0" * 40,
     git_dirty=False,
@@ -262,120 +283,10 @@ PROVENANCE = Provenance(
     ingest_version=1,
     python_version="3.12.13",
     platform="test",
+    postgres_version="16.14",
+    pg_trgm_version="1.6",
+    text_search_config="pg_catalog.english",
 )
-
-
-def _record(metrics, *, sample_count=2, facts_sha256="a" * 64, configuration=CONFIGURATION, items=()):
-    return RunRecord(
-        run_id="20260101T000000Z-000000000000",
-        started_at="2026-01-01T00:00:00Z",
-        duration_ms=1,
-        provenance=PROVENANCE,
-        configuration=configuration,
-        sample_count=sample_count,
-        facts_sha256=facts_sha256,
-        metrics=metrics,
-        per_item=items,
-    )
-
-
-def _baseline(metrics, *, tolerance=0.01, noise_floor=0.0, gated=("recall@1", "mrr@10"), **kwargs):
-    return Baseline(
-        run_id="20260101T000000Z-000000000000",
-        configuration=kwargs.get("configuration", CONFIGURATION),
-        sample_count=kwargs.get("sample_count", 2),
-        facts_sha256=kwargs.get("facts_sha256", "a" * 64),
-        metrics=metrics,
-        gated_metrics=gated,
-        tolerance=tolerance,
-        noise_floor=noise_floor,
-    )
-
-
-def test_a_run_that_matches_the_baseline_passes():
-    metrics = {"recall@1": 0.9, "mrr@10": 0.95}
-
-    assert compare(_baseline(metrics), _record(metrics)).passed
-
-
-def test_a_loss_inside_the_tolerance_passes_and_a_loss_beyond_it_fails():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95}, tolerance=0.01)
-
-    assert compare(baseline, _record({"recall@1": 0.895, "mrr@10": 0.95})).passed
-
-    report = compare(baseline, _record({"recall@1": 0.87, "mrr@10": 0.95}))
-    assert not report.passed
-    assert "recall@1 regressed" in report.failures[0]
-
-
-def test_a_loss_of_exactly_the_tolerance_passes_because_the_rule_is_strictly_greater():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95}, tolerance=0.01)
-
-    assert compare(baseline, _record({"recall@1": 0.89, "mrr@10": 0.95})).passed
-
-
-def test_an_improvement_passes_and_asks_to_be_promoted():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95}, noise_floor=0.001)
-
-    report = compare(baseline, _record({"recall@1": 0.94, "mrr@10": 0.95}))
-
-    assert report.passed
-    assert any("improved" in note and "Promote" in note for note in report.notes)
-
-
-def test_an_improvement_below_the_noise_floor_is_not_worth_a_promotion_commit():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95}, noise_floor=0.01)
-
-    report = compare(baseline, _record({"recall@1": 0.905, "mrr@10": 0.95}))
-
-    assert report.passed and not report.notes
-
-
-def test_a_metric_that_is_ungated_may_regress_without_failing_the_build():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95, "value_match_rate": 0.8}, gated=("recall@1",))
-
-    report = compare(baseline, _record({"recall@1": 0.9, "mrr@10": 0.95, "value_match_rate": 0.1}))
-
-    assert report.passed
-
-
-def test_a_gated_metric_that_disappeared_fails_rather_than_being_skipped():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95})
-
-    report = compare(baseline, _record({"recall@1": 0.9}))
-
-    assert not report.passed
-    assert "mrr@10 is gated" in report.failures[0]
-
-
-def test_a_different_configuration_refuses_to_be_compared_rather_than_being_compared_anyway():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95})
-    elsewhere = Configuration(strategy="lexical", k=5, tiers=("A", "B"))
-
-    report = compare(baseline, _record({"recall@1": 1.0, "mrr@10": 1.0}, configuration=elsewhere))
-
-    assert not report.passed
-    assert "Configuration changed" in report.failures[0]
-    # And it did not additionally claim the metrics were fine — comparability comes first.
-    assert len(report.failures) == 1
-
-
-def test_a_changed_fact_set_refuses_to_be_compared():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95})
-
-    report = compare(baseline, _record({"recall@1": 0.9, "mrr@10": 0.95}, facts_sha256="b" * 64))
-
-    assert not report.passed
-    assert "fact set changed" in report.failures[0]
-
-
-def test_losing_questions_fails_even_when_every_metric_went_up():
-    baseline = _baseline({"recall@1": 0.9, "mrr@10": 0.95}, sample_count=40)
-
-    report = compare(baseline, _record({"recall@1": 1.0, "mrr@10": 1.0}, sample_count=30))
-
-    assert not report.passed
-    assert "lost questions" in report.failures[0]
 
 
 def _item(fact_id, rank):
@@ -392,42 +303,204 @@ def _item(fact_id, rank):
     )
 
 
-def test_a_regression_names_the_questions_that_moved():
-    metrics = {"recall@1": 0.9, "mrr@10": 0.95}
-    before = _record(metrics, items=(_item("torque-volante-motor", 1), _item("coroa-curta-demais", 2)))
-    after = _record(metrics, items=(_item("torque-volante-motor", None), _item("coroa-curta-demais", 7)))
+def _arm(metrics, *, configuration=LEXICAL, items=()):
+    return Arm(configuration=configuration, metrics=metrics, per_item=items)
 
-    report = compare(_baseline(metrics), after, before)
+
+def _record(*arms, sample_count=2, facts_sha256="a" * 64):
+    return RunRecord(
+        run_id="20260101T000000Z-000000000000",
+        started_at="2026-01-01T00:00:00Z",
+        duration_ms=1,
+        provenance=PROVENANCE,
+        sample_count=sample_count,
+        facts_sha256=facts_sha256,
+        arms=arms,
+    )
+
+
+def _baseline(*arms, tolerance=0.01, noise_floor=0.0, sample_count=2, facts_sha256="a" * 64):
+    return Baseline(
+        run_id="20260101T000000Z-000000000000",
+        sample_count=sample_count,
+        facts_sha256=facts_sha256,
+        arms=arms,
+        tolerance=tolerance,
+        noise_floor=noise_floor,
+    )
+
+
+def _baselined(metrics, *, configuration=LEXICAL, gated=("recall@1", "mrr@10")):
+    return BaselineArm(configuration=configuration, metrics=metrics, gated_metrics=gated)
+
+
+METRICS = {"recall@1": 0.9, "mrr@10": 0.95}
+
+
+def test_a_run_that_matches_the_baseline_passes():
+    assert compare(_baseline(_baselined(METRICS)), _record(_arm(METRICS))).passed
+
+
+def test_a_loss_inside_the_tolerance_passes_and_a_loss_beyond_it_fails():
+    baseline = _baseline(_baselined(METRICS), tolerance=0.01)
+
+    assert compare(baseline, _record(_arm({"recall@1": 0.895, "mrr@10": 0.95}))).passed
+
+    report = compare(baseline, _record(_arm({"recall@1": 0.87, "mrr@10": 0.95})))
+    assert not report.passed
+    assert "lexical: recall@1 regressed" in report.failures[0]
+
+
+def test_a_loss_of_exactly_the_tolerance_passes_because_the_rule_is_strictly_greater():
+    baseline = _baseline(_baselined(METRICS), tolerance=0.01)
+
+    assert compare(baseline, _record(_arm({"recall@1": 0.89, "mrr@10": 0.95}))).passed
+
+
+def test_an_improvement_passes_and_asks_to_be_promoted():
+    baseline = _baseline(_baselined(METRICS), noise_floor=0.001)
+
+    report = compare(baseline, _record(_arm({"recall@1": 0.94, "mrr@10": 0.95})))
+
+    assert report.passed
+    assert any("improved" in note and "Promote" in note for note in report.notes)
+
+
+def test_an_improvement_below_the_noise_floor_is_not_worth_a_promotion_commit():
+    baseline = _baseline(_baselined(METRICS), noise_floor=0.01)
+
+    report = compare(baseline, _record(_arm({"recall@1": 0.905, "mrr@10": 0.95})))
+
+    assert report.passed and not report.notes
+
+
+def test_a_metric_that_is_ungated_may_regress_without_failing_the_build():
+    metrics = METRICS | {"value_match@1": 0.8}
+    baseline = _baseline(_baselined(metrics, gated=("recall@1",)))
+
+    assert compare(baseline, _record(_arm(metrics | {"value_match@1": 0.1}))).passed
+
+
+def test_a_gated_metric_that_disappeared_fails_rather_than_being_skipped():
+    report = compare(_baseline(_baselined(METRICS)), _record(_arm({"recall@1": 0.9})))
+
+    assert not report.passed
+    assert "lexical: mrr@10 is gated" in report.failures[0]
+
+
+def test_a_different_configuration_refuses_to_be_compared_rather_than_being_compared_anyway():
+    elsewhere = Configuration(strategy="lexical", k=5, tiers=("A", "B"))
+
+    report = compare(
+        _baseline(_baselined(METRICS)),
+        _record(_arm({"recall@1": 1.0, "mrr@10": 1.0}, configuration=elsewhere)),
+    )
+
+    assert not report.passed
+    assert "lexical Configuration changed" in report.failures[0]
+    # And it did not additionally claim the metrics were fine — comparability comes first.
+    assert len(report.failures) == 1
+
+
+def test_a_changed_fact_set_refuses_to_be_compared():
+    report = compare(_baseline(_baselined(METRICS)), _record(_arm(METRICS), facts_sha256="b" * 64))
+
+    assert not report.passed
+    assert "fact set changed" in report.failures[0]
+
+
+def test_losing_questions_fails_even_when_every_metric_went_up():
+    baseline = _baseline(_baselined(METRICS), sample_count=40)
+
+    report = compare(baseline, _record(_arm({"recall@1": 1.0, "mrr@10": 1.0}), sample_count=30))
+
+    assert not report.passed
+    assert "lost questions" in report.failures[0]
+
+
+def test_a_regression_names_the_questions_that_moved():
+    before = _arm(METRICS, items=(_item("torque-volante-motor", 1), _item("coroa-curta", 2)))
+    after = _arm(METRICS, items=(_item("torque-volante-motor", None), _item("coroa-curta", 7)))
+
+    report = compare(_baseline(_baselined(METRICS)), _record(after), _record(before))
 
     joined = "\n".join(report.notes)
     assert "torque-volante-motor: rank 1 -> none" in joined
-    assert "coroa-curta-demais: rank 2 -> 7" in joined
+    assert "coroa-curta: rank 2 -> 7" in joined
 
 
-def test_a_record_from_a_future_version_fails_to_load_rather_than_loading_partially(tmp_path):
-    payload = json.loads(_record({"recall@1": 1.0}).model_dump_json())
-    payload["run_record_version"] = 2
-    path = tmp_path / "future.json"
-    path.write_text(json.dumps(payload), encoding="utf-8")
-
-    from garage.evaluation import load_run_record
-
-    with pytest.raises(EvaluationError):
-        load_run_record(path)
+# --------------------------------------------------------------------------------------------
+# Arms: the shape issue #7 needs, and the guarantee it buys.
+# --------------------------------------------------------------------------------------------
 
 
-def test_a_baseline_may_not_gate_a_metric_it_does_not_hold():
+def test_every_arm_of_a_record_shares_one_corpus_and_one_fact_set_by_construction():
+    # The reason provenance, sample_count and facts_sha256 live above the arms rather than inside
+    # them: two strategies measured against different databases cannot be written down as one
+    # record, so "we compared them against different corpora" is not a mistake anyone can make.
+    record = _record(_arm(METRICS), _arm(METRICS, configuration=DENSE))
+
+    assert {"provenance", "sample_count", "facts_sha256"} <= set(RunRecord.model_fields)
+    assert "provenance" not in Arm.model_fields
+    assert "facts_sha256" not in Arm.model_fields
+    assert len(record.arms) == 2
+
+
+def test_a_record_may_not_hold_two_arms_of_the_same_strategy():
     with pytest.raises(ValidationError):
-        _baseline({"recall@1": 0.9}, gated=("recall@1", "ndcg@10"))
+        _record(_arm(METRICS), _arm(METRICS))
 
 
-def test_promotion_copies_the_measurement_from_a_record_and_keeps_the_policy(tmp_path):
-    runs = tmp_path / "runs"
-    baseline_path = tmp_path / "baseline.json"
-    record = _record({"recall@1": 0.99, "mrr@10": 0.99})
+def test_each_arm_is_gated_against_its_own_baseline_arm():
+    baseline = _baseline(_baselined(METRICS), _baselined(METRICS, configuration=DENSE))
+
+    report = compare(
+        baseline,
+        _record(_arm(METRICS), _arm({"recall@1": 0.5, "mrr@10": 0.5}, configuration=DENSE)),
+    )
+
+    assert not report.passed
+    assert all("dense" in failure for failure in report.failures)
+
+
+def test_a_baseline_arm_the_run_no_longer_measures_fails():
+    baseline = _baseline(_baselined(METRICS), _baselined(METRICS, configuration=DENSE))
+
+    report = compare(baseline, _record(_arm(METRICS)))
+
+    assert not report.passed
+    assert "baseline holds a dense arm" in report.failures[0]
+
+
+def test_a_brand_new_arm_is_reported_and_never_fails_the_build():
+    # Dense arriving for the first time must not turn CI red. It is reported so a human can look at
+    # it and promote it deliberately.
+    report = compare(
+        _baseline(_baselined(METRICS)), _record(_arm(METRICS), _arm(METRICS, configuration=DENSE))
+    )
+
+    assert report.passed
+    assert any(note.startswith("new arm dense") for note in report.notes)
+
+
+def test_a_promoted_arm_gates_nothing_until_someone_says_so(tmp_path):
+    runs, baseline_path = tmp_path / "runs", tmp_path / "baseline.json"
+    record = _record(_arm(METRICS), _arm(METRICS, configuration=DENSE))
+    write_run_record(record, runs)
+
+    promote(record.run_id, runs, baseline_path)
+
+    promoted = Baseline.model_validate_json(baseline_path.read_bytes())
+    assert [arm.gated_metrics for arm in promoted.arms] == [(), ()]
+    assert ungated_arms(promoted) == ("lexical", "dense")
+
+
+def test_promotion_copies_the_measurement_and_keeps_the_policy_per_arm(tmp_path):
+    runs, baseline_path = tmp_path / "runs", tmp_path / "baseline.json"
+    record = _record(_arm({"recall@1": 0.99, "mrr@10": 0.99}))
     write_run_record(record, runs)
     baseline_path.write_bytes(
-        _baseline({"recall@1": 0.5, "mrr@10": 0.5}, tolerance=0.02, noise_floor=0.003)
+        _baseline(_baselined({"recall@1": 0.5, "mrr@10": 0.5}), tolerance=0.02, noise_floor=0.003)
         .model_dump_json()
         .encode("utf-8")
     )
@@ -435,19 +508,46 @@ def test_promotion_copies_the_measurement_from_a_record_and_keeps_the_policy(tmp
     promote(record.run_id, runs, baseline_path)
 
     promoted = Baseline.model_validate_json(baseline_path.read_bytes())
-    assert promoted.metrics == record.metrics
-    assert promoted.run_id == record.run_id
+    assert promoted.arms[0].metrics == record.arms[0].metrics
+    assert promoted.arms[0].gated_metrics == ("recall@1", "mrr@10")
     # Policy is a separate decision from the measurement and survives the promotion untouched.
     assert promoted.tolerance == 0.02 and promoted.noise_floor == 0.003
 
 
 def test_promoting_a_run_that_is_not_in_the_tree_fails(tmp_path):
     with pytest.raises(EvaluationError):
-        promote("20260101T000000Z-deadbeefcafe", tmp_path / "runs", tmp_path / "baseline.json")
+        promote("20260101T000000Z-000000000000", tmp_path / "runs", tmp_path / "baseline.json")
+
+
+def test_a_baseline_may_not_gate_a_metric_it_does_not_hold():
+    with pytest.raises(ValidationError):
+        _baselined({"recall@1": 0.9}, gated=("recall@1", "ndcg@10"))
+
+
+def test_a_record_from_a_future_version_fails_to_load_rather_than_loading_partially(tmp_path):
+    payload = json.loads(_record(_arm(METRICS)).model_dump_json())
+    payload["run_record_version"] = 99
+    path = tmp_path / "future.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(EvaluationError):
+        load_run_record(path)
+
+
+def test_a_version_1_record_fails_to_load_rather_than_being_read_as_single_arm(tmp_path):
+    # The bump happened before anything shipped, deliberately. Had it happened later, this is the
+    # error every committed record and the promoted baseline would have started raising.
+    payload = json.loads(_record(_arm(METRICS)).model_dump_json())
+    payload["run_record_version"] = 1
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(EvaluationError):
+        load_run_record(path)
 
 
 def test_a_run_record_is_written_as_stable_readable_bytes(tmp_path):
-    record = _record({"recall@1": 0.9, "mrr@10": 0.95})
+    record = _record(_arm(METRICS))
 
     first = write_run_record(record, tmp_path).read_bytes()
     second = write_run_record(record, tmp_path).read_bytes()
@@ -459,23 +559,42 @@ def test_a_run_record_is_written_as_stable_readable_bytes(tmp_path):
 
 
 def test_the_measurement_view_excludes_the_clock_the_machine_and_the_commit():
-    fast = _record({"recall@1": 0.9})
+    fast = _record(_arm(METRICS))
     slow = RunRecord.model_validate(
         fast.model_dump()
         | {
             "run_id": "20991231T235959Z-ffffffffffff",
             "started_at": "2099-12-31T23:59:59Z",
             "duration_ms": 999999,
-            "provenance": PROVENANCE.model_dump() | {"git_sha": "1" * 40, "platform": "other"},
+            "provenance": PROVENANCE.model_dump()
+            | {"git_sha": "1" * 40, "git_dirty": True, "platform": "other"},
         }
     )
 
     assert measurement(fast) == measurement(slow)
 
 
-def test_the_measurement_view_notices_a_different_ranking():
-    metrics = {"recall@1": 0.9}
-    before = _record(metrics, items=(_item("one", 1),))
-    after = _record(metrics, items=(_item("one", 2),))
+@pytest.mark.parametrize("field", ["postgres_version", "pg_trgm_version", "text_search_config"])
+def test_the_measurement_view_does_not_excuse_a_different_database_engine(field):
+    # The ranking is `ts_rank_cd`, the portuguese stemmer and `word_similarity`, all inside
+    # Postgres. A server or pg_trgm upgrade moves every number in the file, so unlike the laptop's
+    # OS these are part of what was measured, not of who ran it.
+    before = _record(_arm(METRICS))
+    after = RunRecord.model_validate(
+        before.model_dump() | {"provenance": PROVENANCE.model_dump() | {field: "different"}}
+    )
 
     assert measurement(before) != measurement(after)
+
+
+def test_the_measurement_view_notices_a_different_ranking():
+    before = _record(_arm(METRICS, items=(_item("one", 1),)))
+    after = _record(_arm(METRICS, items=(_item("one", 2),)))
+
+    assert measurement(before) != measurement(after)
+
+
+def test_the_measurement_view_notices_an_arm_that_disappeared():
+    assert measurement(_record(_arm(METRICS), _arm(METRICS, configuration=DENSE))) != measurement(
+        _record(_arm(METRICS))
+    )

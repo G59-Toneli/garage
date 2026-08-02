@@ -47,7 +47,7 @@ multi-arch image build; ingestion — one command rebuilds the whole database fr
 with structure-aware chunking ([docs/ingestion.md](docs/ingestion.md)); and the first end-to-end
 path — `POST /query` returns ranked chunks with score, tier, document and page, plus the span tree
 behind them, served by lexical retrieval with no language model anywhere
-([docs/retrieval.md](docs/retrieval.md)); and the deterministic evaluation gate — 47 committed fact
+([docs/retrieval.md](docs/retrieval.md)); and the deterministic evaluation gate — 76 committed fact
 questions scored on every push, with a baseline the build fails against
 ([docs/evaluation.md](docs/evaluation.md)).
 
@@ -176,15 +176,18 @@ it needs no API call to run. `python -m garage eval gate` is that gate, and it r
 [docs/evaluation.md](docs/evaluation.md).
 
 The `lexical` baseline over the fixture corpus, from
-[`eval/runs/20260802T004849Z-0823b0f37c94.json`](eval/runs/20260802T004849Z-0823b0f37c94.json):
+[`eval/runs/20260802T011346Z-d8dcb021b722.json`](eval/runs/20260802T011346Z-d8dcb021b722.json):
 
 | `recall@1` | `recall@5` | `recall@10` | `mrr@10` | `nDCG@10` |
 |---|---|---|---|---|
-| 0.904255 | 0.914894 | 0.914894 | 0.914894 | 0.914894 |
+| 0.427632 | 0.447368 | 0.447368 | 0.440789 | 0.442512 |
 
-Over 47 hand-written questions, four of which the lexical strategy cannot answer at all — Portuguese
-questions against English source text, and forum spelling the trigram floor will not reach. They stay
-in the set: a suite everything passes measures nothing.
+Over 76 hand-written questions, and the average hides the finding. Split by how the question is
+phrased, `recall@10` is **0.912** for keyword queries and **0.071** for whole sentences: the lexical
+strategy answers a bag of words almost perfectly and answers a question almost never. That is the
+honest state of the baseline, and it is why the number is low rather than flattering — an earlier
+version of the fact set was all keyword queries, scored 0.91, and would have frozen that bug in place
+as a floor. See [docs/evaluation.md](docs/evaluation.md).
 
 Three evaluation sets:
 
